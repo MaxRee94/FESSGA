@@ -8,6 +8,20 @@
 *.gch
 *.pch
 
+# Other
+*.vcxproj
+*.sln
+*.recipe
+*.cmake
+*.filters
+*.pdb
+*.log
+*.tlog
+*.lastbuildstate
+*.pc
+*.user
+*.ilk
+
 # Compiled Dynamic libraries
 *.so
 *.dylib
@@ -32,3 +46,7 @@
 *.swp
 
 build/*
+_deps/*
+.vs/*
+CMakeFiles/*
+CMakeCache.txt
