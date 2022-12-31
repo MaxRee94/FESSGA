@@ -31,41 +31,35 @@ int main(int argc, char *argv[])
     1,5,7,
     1,7,3).finished();
 
-  igl::opengl::glfw::Viewer viewer;
-  
-  Vector3d transform = Vector3d(0.001f, 0, 0);
+  // Create transform matrix
+  Vector3d pos_offset = Vector3d(0, 0, 0);
+  Vector3d transl = Vector3d(0.001f, 0, 0);
   Matrix4d T = (Matrix4d(4, 4) <<
-      1.0, 0.0, 0.0, 0.0,
-      0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 1.0, 0.0,
-      transform(0), transform(1), transform(2), 1.0).finished();
+      1.0,          0.0,        0.0,        0.0,
+      0.0,          1.0,        0.0,        0.0,
+      0.0,          0.0,        1.0,        0.0,
+      transl(0),    transl(1),  transl(2),  1.0).finished();
   T = T.transpose();
 
-  // Set initial cube mesh
-  viewer.data().set_mesh(V, F);
-  viewer.data().set_face_based(true);
-
+  // Initialize viewer
+  igl::opengl::glfw::Viewer viewer;
   viewer.core().is_animating = true;
-
-  MatrixXd V_homog_prev;
-  Vector3d d_transform = transform;
   viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer&)->bool
   {
       // Update transform matrix
-      transform += d_transform;
-      T(3, 0) = transform(0);
-      T(3, 1) = transform(1);
-      T(3, 2) = transform(2);
+      pos_offset += transl;
+      T(3, 0) = pos_offset(0);
+      T(3, 1) = pos_offset(1);
+      T(3, 2) = pos_offset(2);
 
+      // Transform mesh
+      V_homog = V_homog_orig * T;
+      V = V_homog.rowwise().hnormalized();
+
+      // Update viewer
       viewer.data().clear();
       viewer.data().set_mesh(V, F);
       viewer.data().set_face_based(true);
-      V_homog_prev = V_homog;
-      V_homog = V_homog_orig * T;
-      V = V_homog.rowwise().hnormalized();
-      cout << "V homologous: \n" << V_homog << "\n" << endl;
-      cout << "V: \n" << V << "\n" << endl;
-      cout << "Change: \n" << (V_homog - V_homog_prev) << "\n" << endl;
 
       return false;
   };
