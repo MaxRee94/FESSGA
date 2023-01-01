@@ -1,5 +1,6 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include "io.h"
+#include "gui.h"
 
 using namespace Eigen;
 using namespace std;
@@ -7,7 +8,7 @@ using namespace mvis;
 
 
 void transform(
-    igl::opengl::glfw::Viewer& viewer, MatrixXd& V_homog_orig, MatrixXd& V_homog, Matrix4d& T,
+    igl::opengl::glfw::Viewer& viewer, MatrixXd& Vhom_orig, MatrixXd& Vhom, Matrix4d& T,
     MatrixXd& V, MatrixXi F, Vector3d& pos_offset, Vector3d& transl, float& rot_y_offset, float rot_y_speed
 ) {
     // Update translation component of T matrix
@@ -27,8 +28,8 @@ void transform(
     }
 
     // Transform mesh
-    V_homog = V_homog_orig * T;
-    V = V_homog.rowwise().hnormalized();
+    Vhom = Vhom_orig * T;
+    V = Vhom.rowwise().hnormalized();
 
     // Update viewer
     viewer.data().clear();
@@ -45,36 +46,42 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
 
 int main(int argc, char *argv[])
 {
-  MatrixXd V;
-  MatrixXi F;
-  IO::ReadMesh("E:/Development/MeshVisTempl/assets/test_objects/cube.obj", V, F);
-  MatrixXd V_homog_orig = V.rowwise().homogeneous();
-  MatrixXd V_homog = V_homog_orig;
+    vector<MatrixXd> V_list;
+    vector<MatrixXi> F_list;
+    MatrixXd V;
+    MatrixXi F;
+    IO::ReadMesh("E:/Development/MeshVisTempl/assets/test_objects/cube.obj", V, F);
+    for (int i = 0; i < 1; i++) {
+        V_list.push_back(V);
+        F_list.push_back(F);
+    }
+    MatrixXd Vhom_orig = V_list[0].rowwise().homogeneous();
+    MatrixXd Vhom = Vhom_orig;
 
-  // Create transform matrix
-  Vector3d pos_offset = Vector3d(0, 0, 0);
-  Vector3d transl = Vector3d(0, 0, 0);
-  float rot_y_offset = 0;
-  float rot_y_speed = 0.008f;
-  Matrix4d T = (Matrix4d(4, 4) <<
-      1,          0,        0,        0,
-      0,          1,        0,        0,
-      0,          0,        1,        0,
-      0,          0,        0,        1).finished();
-  T = T.transpose();
+    // Create transform matrix
+    Vector3d pos_offset = Vector3d(0, 0, 0);
+    Vector3d transl = Vector3d(0, 0, 0);
+    float rot_y_offset = 0;
+    float rot_y_speed = 0.008f;
+    Matrix4d T = (Matrix4d(4, 4) <<
+        1,          0,        0,        0,
+        0,          1,        0,        0,
+        0,          0,        1,        0,
+        0,          0,        0,        1).finished();
+    T = T.transpose();
 
-  // Initialize viewer
-  igl::opengl::glfw::Viewer viewer;
-  viewer.data().set_mesh(V, F);
-  viewer.data().set_face_based(true);
+    // Initialize viewer
+    igl::opengl::glfw::Viewer viewer;
+    viewer.data().set_mesh(V_list[0], F_list[0]);
+    viewer.data().set_face_based(true);
 
-  viewer.callback_key_down = &key_down;
-  viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer&)->bool
-  {
-      if (viewer.core().is_animating) transform(
-          viewer, V_homog_orig, V_homog, T, V, F, pos_offset, transl, rot_y_offset, rot_y_speed
-      );
-      return false;
-  };
-  viewer.launch();
+    viewer.callback_key_down = &key_down;
+    viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer&)->bool
+    {
+        if (viewer.core().is_animating) transform(
+            viewer, Vhom_orig, Vhom, T, V_list[0], F_list[0], pos_offset, transl, rot_y_offset, rot_y_speed
+        );
+        return false;
+    };
+    viewer.launch();
 }
