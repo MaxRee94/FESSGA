@@ -3,7 +3,7 @@
 
 using namespace std;
 
-void IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
+void mvis::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
 {
     if (!suppress_output) cout << "Reading mesh " << fpath << endl;
 
