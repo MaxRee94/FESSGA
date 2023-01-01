@@ -7,8 +7,9 @@
 #include <igl/writeOBJ.h>
 #include <igl/writePLY.h>
 
-class IO {
-public:
-	static void ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
+namespace mvis {
+	class IO {
+	public:
+		static void ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
+	};
 };
-
