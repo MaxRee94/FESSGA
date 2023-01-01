@@ -10,6 +10,9 @@ void transform(
     MatrixXd& V, MatrixXi F, Vector3d& pos_offset, Vector3d& transl
 ) {
 
+    /*cout << "animating the viewer: " << viewer.core().is_animating << endl;
+    cout << "animating globally: " << animation << endl;*/
+
     // Update transform matrix
     pos_offset += transl;
     T(3, 0) = pos_offset(0);
@@ -26,17 +29,19 @@ void transform(
     viewer.data().set_face_based(true);
 }
 
-
 // This function is called every time a keyboard button is pressed
 bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier)
 {
-    //std::cout << "Key: " << key << " " << (unsigned int)key << std::endl;
-    if (key == 32) { // Spacebar
+    std::cout << "Key: " << key << " " << (unsigned int)key << std::endl;
+    if (key == 65) { // a
         animation = !animation;
-        viewer.core().is_animating = animation;
+        //viewer.core().is_animating = animation;
         if (animation) cout << "Started animation" << endl;
         else cout << "Paused animation" << endl;
     }
+
+    cout << "animating the viewer: " << viewer.core().is_animating << endl;
+    cout << "animating globally: " << animation << endl;
     return false;
 }
 
@@ -80,9 +85,6 @@ int main(int argc, char *argv[])
 
   // Initialize viewer
   igl::opengl::glfw::Viewer viewer;
-  
-  // Update viewer
-  viewer.data().clear();
   viewer.data().set_mesh(V, F);
   viewer.data().set_face_based(true);
 
@@ -92,6 +94,7 @@ int main(int argc, char *argv[])
       if (animation) transform(viewer, V_homog_orig, V_homog, T, V, F, pos_offset, transl);
       return false;
   };
+
   //viewer.callback_pre_draw = [&]->bool {transform(viewer, V_homog_orig, V_homog, T, V, F, pos_offset, transl};
   viewer.launch();
 }
