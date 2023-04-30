@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(meshVisTempl)
 
+set (CMAKE_CXX_STANDARD 17)
+
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Libigl
