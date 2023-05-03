@@ -26,12 +26,11 @@ Input:
     csize (float): Size of a single cell (size=width=height=depth)
     V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
     F (MatrixXi*): Pointer to the matrix of faces for the given mesh
-Returns:
-    mesh_description (string): The generated .msh file description string
+    msh (string): The generated description string in .msh-format
 */
 void generate_msh(
     int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
-    vector<uint64_t>* bounds, string& mesh_description
+    vector<uint64_t>* bounds, string& msh
 ) {
     // Generate a binary density distribution on the grid based on the given mesh file
     MatrixXi DensityDistrib;
@@ -60,27 +59,27 @@ void generate_msh(
 
     // Encode mesh data into .msh-description
     // -- Format section
-    mesh_description = {
+    msh = {
         "$MeshFormat\n"
         "2.0 0 8\n"
         "$EndMeshFormat\n"
     };
 
     // -- Nodes section
-    mesh_description += "$Nodes\n";
-    mesh_description += to_string(nodes.size()) + "\n";         // Number of nodes
+    msh += "$Nodes\n";
+    msh += to_string(nodes.size()) + "\n";         // Number of nodes
     for (int i = 0; i < nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
-        mesh_description += to_string(i + 1) + " ";             // 1-based node index
-        mesh_description += to_string(nodes[i][0]) + " ";       // x
-        mesh_description += to_string(nodes[i][1]) + " ";       // y
-        mesh_description += to_string(nodes[i][2]) + "\n";      // z
+        msh += to_string(i + 1) + " ";             // 1-based node index
+        msh += to_string(nodes[i][0]) + " ";       // x
+        msh += to_string(nodes[i][1]) + " ";       // y
+        msh += to_string(nodes[i][2]) + "\n";      // z
     }
-    mesh_description += "$EndNodes\n";
+    msh += "$EndNodes\n";
 
     // -- Elements section
-    mesh_description += "$Elements\n";
+    msh += "$Elements\n";
     int no_elements = elements.size();
-    mesh_description += to_string(no_elements) + "\n";
+    msh += to_string(no_elements) + "\n";
 
     // Iterate over all elements and add to description string
     // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <tag> <node_1> ... <node_n>
@@ -94,18 +93,18 @@ void generate_msh(
     // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
     for (int i = 0; i < elements.size(); i++) {
         vector<int> element = elements[i];
-        mesh_description += to_string(element[0]) + " ";        // Element number
-        mesh_description += to_string(element[1]) + " ";        // Element type
-        mesh_description += "2 ";                               // Number of tags  TODO: Find out if this has any effect
-        mesh_description += to_string(element[2]) + " ";        // Element tag (indicating which boundary it belongs to, if any)
+        msh += to_string(element[0]) + " ";        // Element number
+        msh += to_string(element[1]) + " ";        // Element type
+        msh += "2 ";                               // Number of tags  TODO: Find out if this has any effect
+        msh += to_string(element[2]) + " ";        // Element tag (indicating which boundary it belongs to, if any)
         for (int j = 3; j < element.size(); j++) {  // Node list
-            mesh_description += to_string(element[j]) + " ";
+            msh += to_string(element[j]) + " ";
         }
-        mesh_description += "\n";
+        msh += "\n";
     }
 
     // End elements section
-    mesh_description += "$EndElements\n";
+    msh += "$EndElements\n";
 }
 
 
