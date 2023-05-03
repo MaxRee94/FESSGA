@@ -13,17 +13,7 @@ namespace mvis {
 
 		static vector<size_t> FindAll(string basestring, string target);
 
-		static string GetUniquePath(string fpath);
-
-		static string GetLatestPath(string templ);
-
-		static bool FileExists(string fpath);
-
-		static void RenameFile(string source_path, string target_path, bool verbose = false);
-
 		static std::string ReplaceOccurrences(string basestring, string toReplace, string replaceWith);
-
-		static void WriteToCSV(string csv_path, vector<string> data, string headers);
 
 		static double fisqrt(float n);
 
