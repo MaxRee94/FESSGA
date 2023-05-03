@@ -7,21 +7,20 @@
 #include <igl/writeOBJ.h>
 #include <igl/writePLY.h>
 
-using namespace std;
 
 namespace mvis {
 	class IO {
 	public:
-		static void ReadMesh(string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
+		static void ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
 
-		static bool FileExists(string fpath);
+		static bool FileExists(std::string fpath);
 
-		static void RenameFile(string source_path, string target_path, bool verbose = false);
+		static void RenameFile(std::string source_path, std::string target_path, bool verbose = false);
 
-		static void WriteToCSV(string csv_path, vector<string> data, string headers);
+		static void WriteToCSV(std::string csv_path, std::vector<std::string> data, std::string headers);
 
-		static string GetUniquePath(string fpath);
+		static std::string GetUniquePath(std::string fpath);
 
-		static string GetLatestPath(string templ);
+		static std::string GetLatestPath(std::string templ);
 	};
 };

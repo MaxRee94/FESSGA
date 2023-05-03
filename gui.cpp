@@ -6,8 +6,8 @@ using namespace Eigen;
 using namespace std;
 
 mvis::GUI::GUI(vector<MatrixXd> _V_list, vector<MatrixXi> _F_list) {
-    V_list = &_V_list;
-    F_list = &_F_list;
+    V_list = _V_list;
+    F_list = _F_list;
     viewer.data().set_face_based(true);
 }
 
@@ -22,8 +22,10 @@ void mvis::GUI::load_example() {
     MatrixXd V;
     MatrixXi F;
     mvis::IO::ReadMesh("../data/test_objects/cube.obj", V, F);
-    V_list->push_back(V);
-    F_list->push_back(F);
+    V_list.clear();
+    F_list.clear();
+    V_list.push_back(V);
+    F_list.push_back(F);
 }
 
 void mvis::GUI::transform(
@@ -56,9 +58,7 @@ void mvis::GUI::transform(
 
 void mvis::GUI::show() {
     // Update viewer with current mesh lists
-    for (int i = 0; i < V_list->size(); i++)
-        viewer.data().set_mesh(V_list->at(0), F_list->at(0));
+    for (int i = 0; i < V_list.size(); i++)
+        viewer.data().set_mesh(V_list.at(0), F_list.at(0));
     viewer.launch();
 }
-
-

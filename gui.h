@@ -15,8 +15,8 @@ namespace mvis {
 		void load_example();
 		void show();
 		igl::opengl::glfw::Viewer viewer;
-		vector<MatrixXd>* V_list;
-		vector<MatrixXi>* F_list;
+		vector<MatrixXd> V_list;
+		vector<MatrixXi> F_list;
 	};
 
 };
