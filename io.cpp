@@ -67,6 +67,13 @@ void mvis::IO::WriteToCSV(string csv_path, vector<string> data, string headers) 
     fileStream.close();
 }
 
+void mvis::IO::write_text_to_file(string text, string path) {
+    std::ofstream fileStream;
+    fileStream.open(path, std::fstream::out);
+    fileStream << text << "\n";
+    fileStream.close();
+}
+
 string mvis::IO::GetUniquePath(string fpath) {
     int vcount = 2;
     int padding = 2;

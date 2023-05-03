@@ -50,3 +50,4 @@ _deps/*
 .vs/*
 CMakeFiles/*
 CMakeCache.txt
+data/msh_output/*

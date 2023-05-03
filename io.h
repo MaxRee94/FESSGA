@@ -22,5 +22,7 @@ namespace mvis {
 		static std::string GetUniquePath(std::string fpath);
 
 		static std::string GetLatestPath(std::string templ);
+
+		static void write_text_to_file(std::string text, std::string path);
 	};
 };

@@ -128,6 +128,8 @@ int main(int argc, char* argv[])
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file
+    string output_path = "../data/msh_output/test.msh";
+    IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
 }
