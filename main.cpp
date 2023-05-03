@@ -13,11 +13,10 @@ Returns (by reference):
     DensityDistrib (MatrixXi*): Matrix which contains a binary density value for each cell in the grid
 */
 void generate_density_distribution(
-    int dim_x, int dim_y, int dim_z, float cell_size,
-    MatrixXd* V, MatrixXi* F, MatrixXi* DensityDistrib,
-    int* no_nodes, vector<vector<int>>* lines, vector<vector<int>>* quads)
+    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F, MatrixXi* DensityDistrib,
+    MatrixXd* Nodes, vector<vector<int>>* elements, vector<long long int>* bounds
+    )
 {
-    no_nodes = 0;
 }
 
 
@@ -30,43 +29,65 @@ Input:
     msh (string*): Pointer to the msh file description string to be generated
 */
 void generate_msh(
-    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F, string* msh
+    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
+    vector<long long int>* bounds, string* msh
 ) {
     // Generate a binary density distribution on the grid based on the given mesh file
     MatrixXi DensityDistrib;
-    int no_nodes;
-    vector<vector<int>> lines;  // List of lines; one line is a vector {<tag>, <node1>, <node2>}
-    vector<vector<int>> quads;  // List of quads; one quad is a vector {<tag>, <node1>, <node2>, <node3>, <node4>}
-    vector<vector<int>> voxels; // List of voxels; one voxel is a vector {<tag>, <node1>, <node2>, ..., <node8>}
+    MatrixXd Nodes;
+    vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
     generate_density_distribution(
-        dim_x, dim_y, dim_z, cell_size, V, F, &DensityDistrib, &no_nodes, &lines, &quads
+        dim_x, dim_y, dim_z, cell_size, V, F, &DensityDistrib, &Nodes, &elements, bounds
     );
 
     // Encode mesh data into .msh-description
     // -- Format section
-    string format_str = {
-        "$MeshFormat \n"
-        "2.0 0 8 \n"
-        "$EndMeshFormat"
+    *msh += {
+        "$MeshFormat\n"
+        "2.0 0 8\n"
+        "$EndMeshFormat\n"
     };
 
     // -- Nodes section
-    string entities_str = "$Entities\n";
-    entities_str += to_string(no_nodes) + "\n";
-    entities_str += "$EndEntities\n";
+    *msh += "$Nodes\n";
+    int no_nodes = Nodes.rows();
+    *msh += to_string(no_nodes) + "\n";         // Number of nodes
+    for (int i = 0; i < no_nodes; i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
+        *msh += to_string(i + 1) + " ";                // 1-based node index
+        *msh += to_string(Nodes.row(i)[0]) + " ";      // x
+        *msh += to_string(Nodes.row(i)[1]) + " ";      // y
+        *msh += to_string(Nodes.row(i)[2]) + "\n";     // z
+    }
+    *msh += "$EndNodes\n";
 
     // -- Elements section
-    string elements_str = "$Elements\n";
-    int num_elements = lines.size() + quads.size() + voxels.size();
-    elements_str += to_string(num_elements) + "\n";
+    *msh += "$Elements\n";
+    int no_elements = elements.size();
+    *msh += to_string(no_elements) + "\n";
     
-    // Add lines
-    
-
-    // Add quads
+    // Iterate over all elements and add to description string
+    // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <tag> <node_1> ... <node_n>
+    // Element types:
+    //      1 : 2-node line
+    //      2 : 3-node triangle
+    //      3 : 4-node quad
+    //      4 : 4-node tetrahedron
+    //      5 : 8-node hexahedron (a cube is a regular hexahedron)
+    //      15: 1-node point
+    // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
+    for (int i = 0; i < elements.size(); i++) {
+        vector<int> element = elements[i];
+        *msh += to_string(element[0]) + " ";        // Element number
+        *msh += to_string(element[1]) + " ";        // Element type
+        *msh += "2 ";                               // Number of tags  TODO: Find out if this has any effect
+        *msh += to_string(element[2]) + " ";        // Element tag (indicating which boundary it belongs to, if any)
+        for (int j = 2; j < element.size(); j++) {  // Node list
+            *msh += to_string(element[j]) + " ";
+        }
+    }
 
     // End elements section
-    elements_str += "$EndElements";
+    *msh += "$EndElements\n";
 }
 
 
@@ -79,7 +100,8 @@ int main(int argc, char *argv[])
     gui.load_example();
 
     string mesh_description;
-    generate_msh(5, 5, 0, 1, &gui.V_list->at(0), &gui.F_list->at(0), &mesh_description);
+    vector<long long int> bounds;
+    generate_msh(5, 5, 0, 1, &gui.V_list->at(0), &gui.F_list->at(0), &bounds, &mesh_description);
 
     gui.show();
 }
