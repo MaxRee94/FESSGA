@@ -1,43 +1,55 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <glm/glm.hpp>
+#include <Eigen/Core>
+
+
+using namespace Eigen;
+using namespace std;
 
 // Define the size of the grid
 const int GRID_SIZE = 64;
 
 // Define the struct for a cell in the grid
 struct Cell {
-    glm::vec3 position;
+    Vector3d position;
     int density;
 };
 
-// Define the function to assign density values to cells in the grid
-void assignDensityValues(std::vector<Cell>& cells, const std::vector<glm::vec3>& vertices, const std::vector<int>& indices) {
+/* Generate a binary density distribution on the grid based on the given mesh file
+Input:
+Returns (by reference):
+    DensityDistrib (MatrixXi*): Matrix which contains a binary density value for each cell in the grid
+*/
+void generate_density_distribution(
+    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
+    vector<vector<int>>& DensityDistrib, vector<vector<float>>& nodes, vector<vector<int>>& elements,
+    vector<uint64_t>* bounds
+) {
     // Compute the bounding box of the mesh
-    glm::vec3 minPoint(std::numeric_limits<float>::max());
-    glm::vec3 maxPoint(std::numeric_limits<float>::min());
-    for (const auto& vertex : vertices) {
-        minPoint = glm::min(minPoint, vertex);
-        maxPoint = glm::max(maxPoint, vertex);
-    }
+    Vector3d minPoint = V->colwise().minCoeff();
+    Vector3d maxPoint = V->colwise().maxCoeff();
 
     // Compute the size of each cell in the grid
-    glm::vec3 gridSize = (maxPoint - minPoint) / static_cast<float>(GRID_SIZE);
+    Vector3d gridSize = (maxPoint - minPoint) / static_cast<float>(GRID_SIZE);
 
     // Assign density values to cells in the grid
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             for (int k = 0; k < GRID_SIZE; k++) {
                 Cell cell;
-                cell.position = minPoint + glm::vec3(i, j, k) * gridSize;
+                cell.position = minPoint + Vector3d(i, j, k) * gridSize;
                 cell.density = 0;
-                for (int index = 0; index < indices.size(); index += 3) {
-                    glm::vec3 v0 = vertices[indices[index]];
-                    glm::vec3 v1 = vertices[indices[index + 1]];
-                    glm::vec3 v2 = vertices[indices[index + 2]];
-                    glm::vec3 normal = glm::cross(v1 - v0, v2 - v0);
-                    if (glm::dot(cell.position - v0, normal) > 0.0f && glm::dot(cell.position - v1, normal) > 0.0f && glm::dot(cell.position - v2, normal) > 0.0f) {
+                for (int index = 0; index < F->rows(); index ++) {
+                    Vector3d v0 = V->row(F->coeff(index, 0));
+                    Vector3d v1 = V->row(F->coeff(index, 1));
+                    Vector3d v2 = V->row(F->coeff(index, 2));
+                    Vector3d normal = (v1 - v0).cross(v2 - v0);
+                    if (
+                        (v0 - cell.position).dot(normal.transpose()) > 0.0 &&
+                        (v1 - cell.position).dot(normal.transpose()) > 0.0 &&
+                        (v2 - cell.position).dot(normal.transpose()) > 0.0)
+                    {
                         cell.density = 1;
                         break;
                     }

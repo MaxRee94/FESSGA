@@ -1,23 +1,11 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include "io.h"
 #include "gui.h"
+#include "voxelize.h"
 
 using namespace Eigen;
 using namespace std;
 using namespace mvis;
-
-
-/* Generate a binary density distribution on the grid based on the given mesh file
-Input:
-Returns (by reference):
-    DensityDistrib (MatrixXi*): Matrix which contains a binary density value for each cell in the grid
-*/
-void generate_density_distribution(
-    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F, MatrixXi* DensityDistrib,
-    vector<vector<float>>* nodes, vector<vector<int>>* elements, vector<uint64_t>* bounds
-    )
-{
-}
 
 
 /* Generate a grid-based description of a FE mesh that can be output as a .msh file
@@ -29,16 +17,15 @@ Input:
     msh (string): The generated description string in .msh-format
 */
 void generate_msh(
-    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
+    const int dim_x, const int dim_y, const int dim_z, const float cell_size, MatrixXd* V, MatrixXi* F,
     vector<uint64_t>* bounds, string& msh
 ) {
     // Generate a binary density distribution on the grid based on the given mesh file
-    MatrixXi DensityDistrib;
+    vector<vector<vector<int>>> DensityDistrib;
     vector<vector<float>> nodes;
     vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-    generate_density_distribution(
-        dim_x, dim_y, dim_z, cell_size, V, F, &DensityDistrib, &nodes, &elements, bounds
-    );
+    generate_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, DensityDistrib, nodes, elements, bounds);
+    print_density_distrib(&DensityDistrib);
 
 #if 1 // Test with hardcoded nodes- and elements lists
     nodes.push_back({ 0.0, 0.0, 0.0 });
@@ -123,7 +110,7 @@ int main(int argc, char* argv[])
     // Obtain a grid-based FE mesh based on the chosen mesh and boundaries, encoded in a .msh format
     vector<uint64_t> bounds = {};
     string mesh_description = "";
-    generate_msh(5, 5, 0, 1, &gui.V_list[0], &gui.F_list[0], &bounds, mesh_description);
+    generate_msh(5, 5, 1, 1, &gui.V_list[0], &gui.F_list[0], &bounds, mesh_description);
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file
