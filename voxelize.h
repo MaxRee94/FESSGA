@@ -8,7 +8,7 @@ using namespace Eigen;
 using namespace std;
 
 // Define the size of the grid
-const int GRID_SIZE = 5;
+const int GRID_SIZE = 6;
 
 // Define the struct for a cell in the grid
 struct Cell {
@@ -18,13 +18,72 @@ struct Cell {
 
 
 void print_density_distrib(vector<vector<vector<int>>>* DensityDistrib) {
-    int z_idx = 2;
-    for (int x = 0; x < DensityDistrib->at(z_idx).size(); x++) {
-        for (int y = 0; y < DensityDistrib->at(z_idx)[0].size(); y++) {
-            cout << DensityDistrib->at(0)[x][y];
+    int x_idx = 2;
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int z = 0; z < GRID_SIZE; z++) {
+            cout << DensityDistrib->at(x_idx)[y][z];
         }
         cout << endl;
     }
+}
+
+
+struct Ray {
+    Vector3d origin;
+    Vector3d direction;
+};
+
+struct Triangle {
+    Vector3d v0 = Vector3d(0.0, 0.0, 0.0);
+    Vector3d v1 = Vector3d(0.0, 0.0, 0.0);
+    Vector3d v2 = Vector3d(0.0, 0.0, 0.0);
+};
+
+bool cast_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
+    double closestDist = INFINITY;
+    bool hit = false;
+
+    for (const Triangle& triangle : triangles) {
+        Vector3d e1 = triangle.v1 - triangle.v0;
+        Vector3d e2 = triangle.v2 - triangle.v0;
+        Vector3d h = ray.direction.cross(e2);
+        double a = e1.dot(h);
+
+        if (a > -1e-8 && a < 1e-8) {
+            continue;
+        }
+
+        double f = 1.0 / a;
+        Vector3d s = ray.origin - triangle.v0;
+        double u = f * s.dot(h);
+
+        if (u < 0 || u > 1) {
+            continue;
+        }
+
+        Vector3d q = s.cross(e1);
+        double v = f * ray.direction.dot(q);
+
+        if (v < 0 || u + v > 1) {
+            continue;
+        }
+
+        double dist = f * e2.dot(q);
+
+        if (dist > 1e-8 && dist < closestDist) {
+            closestDist = dist;
+            hit = true;
+            hitPoint = ray.origin + ray.direction * dist;
+            hit_normal = e1.cross(e2).normalized();
+            /*cout << "hit normal: " << hit_normal.transpose() << endl;
+            cout << "ray origin: " << ray.origin.transpose() << endl;
+            cout << "ray direction: " << ray.direction.transpose() << endl;
+            cout << "hit point: " << hitPoint.transpose() << endl;*/
+            if (ray.origin[1] > 1.0) cout << "hit from point above cube (" << ray.origin.transpose() << ")" << endl;
+        }
+    }
+
+    return hit;
 }
 
 
@@ -39,18 +98,27 @@ void generate_density_distribution(
     vector<uint64_t>* bounds
 ) {
     // Compute the bounding box of the mesh
-    Vector3d margin; margin << 0.5, 0.5, 0.5;
+    Vector3d margin; margin << 0.7, 0.7, 0.7;
     Vector3d minPoint = V->colwise().minCoeff();
     Vector3d maxPoint = V->colwise().maxCoeff();
     minPoint -= margin;
     maxPoint += margin;
 
+    // Compute the barycenter of the mesh
+    Vector3d mesh_barycent = V->colwise().mean();
+
     // Compute the size of each cell in the grid
     Vector3d gridSize = (maxPoint - minPoint) / static_cast<float>(GRID_SIZE);
 
-    cout << "gridSize: " << gridSize << endl;
-    cout << "minPoint: " << minPoint << endl;
-    cout << "maxPoint: " << maxPoint << endl;
+    // Create list of triangles
+    std::vector<Triangle> triangles;
+    for (int face_idx = 0; face_idx < F->rows(); face_idx++) {
+        Triangle triangle;
+        triangle.v0 = V->row(F->coeff(face_idx, 0));
+        triangle.v1 = V->row(F->coeff(face_idx, 1));
+        triangle.v2 = V->row(F->coeff(face_idx, 2));
+        triangles.push_back(triangle);
+    }
 
     // Assign density values to cells in the grid
     for (int x = 0; x < GRID_SIZE; x++) {
@@ -62,42 +130,25 @@ void generate_density_distribution(
                 Vector3d indices; indices << x, y, z;
                 cell.position = minPoint + indices.cwiseProduct(gridSize);
                 cell.density = 0;
-                float min_dist = 10e8;
-                int closest_face = 0;
 
-                // Find closest face
-                for (int face_idx = 0; face_idx < F->rows(); face_idx ++) {
-                    Vector3d v0 = V->row(F->coeff(face_idx, 0));
-                    Vector3d v1 = V->row(F->coeff(face_idx, 1));
-                    Vector3d v2 = V->row(F->coeff(face_idx, 2));
+                // Cast ray and check for hits
+                Ray ray;
+                ray.origin = cell.position;
+                ray.direction << 0.0, 1.0, 0.0;
+                Vector3d hitPoint;
+                Vector3d hit_normal;
+                bool hit = cast_ray(ray, triangles, hitPoint, hit_normal);
 
-                    // Check against smallest found distance.
-                    // If smaller, update smallest distance and face_idx of closest face.
-                    float dist_cell2face = (((v0 + v1 + v2) / 3) - cell.position).norm();
-                    if (dist_cell2face < min_dist) {
-                        min_dist = dist_cell2face;
-                        closest_face = face_idx;
-                    }
+                // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
+                // If so, the cell must be inside the mesh
+                bool inside = false;
+                if (hit) {
+                    inside = hit_normal.dot(ray.direction) > 0.0;
                 }
 
-                // Check if normal of closest face points in the same direction as the vectors from the cell to each of the vertices
-                Vector3d v0 = V->row(F->coeff(closest_face, 0));
-                Vector3d v1 = V->row(F->coeff(closest_face, 1));
-                Vector3d v2 = V->row(F->coeff(closest_face, 2));
-                Vector3d barycent = (v0 + v1 + v2) / 3;
-                Vector3d normal = (v1 - v0).cross(v2 - v0);
-                if ((barycent - cell.position).dot(normal) > 0.0) {
+                // If the cell is inside the mesh, assign density 1
+                if (inside) {
                     cell.density = 1;
-                    cout << endl;
-                    cout << "v0: " << v0.transpose() << endl;
-                    cout << "v1: " << v1.transpose() << endl;
-                    cout << "v2: " << v2.transpose() << endl;
-                    cout << "vec to barycent: " << (barycent - cell.position).transpose() << endl;
-                    cout << "normal: " << normal.transpose() << endl;
-                    cout << "dens=1 for cell position " << cell.position.transpose() << " and face " << ((v0 + v1 + v2) / 3).transpose() << endl;
-                }
-                else {
-                    //cout << "dens=0 for cell position " << cell.position.transpose() << " and face " << ((v0+v1+v2)/3).transpose() << endl;
                 }
                 values_1d.push_back(cell.density);
             }
