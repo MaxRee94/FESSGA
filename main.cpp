@@ -18,14 +18,14 @@ Input:
 */
 void generate_msh(
     const int dim_x, const int dim_y, const int dim_z, const float cell_size, MatrixXd* V, MatrixXi* F,
-    vector<uint64_t>* bounds, string& msh
+    vector<uint64_t>* bounds, uint32_t* densities, string& msh
 ) {
-    // Generate a binary density distribution on the grid based on the given mesh file
-    vector<vector<vector<int>>> DensityDistrib;
+    // Generate grid-based FE mesh based on the given (unstructured) mesh file
     vector<vector<float>> nodes;
     vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-    generate_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, DensityDistrib, nodes, elements, bounds);
-    print_density_distrib(&DensityDistrib);
+    generate_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, densities, nodes, elements, bounds);
+    print_density_distrib(densities);
+    //generate_FE_mesh();
 
 #if 1 // Test with hardcoded nodes- and elements lists
     nodes.push_back({ 0.0, 0.0, 0.0 });
@@ -107,10 +107,14 @@ int main(int argc, char* argv[])
     // Load example cube
     gui.load_example();
 
-    // Obtain a grid-based FE mesh based on the chosen mesh and boundaries, encoded in a .msh format
+    // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
     vector<uint64_t> bounds = {};
     string mesh_description = "";
-    generate_msh(5, 5, 1, 1, &gui.V_list[0], &gui.F_list[0], &bounds, mesh_description);
+    int x_dim = 6;
+    int y_dim = 6;
+    int z_dim = 6;
+    uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
+    generate_msh(x_dim, y_dim, z_dim, 1, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file

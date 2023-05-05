@@ -27,6 +27,16 @@ void print_density_distrib(vector<vector<vector<int>>>* DensityDistrib) {
     }
 }
 
+void print_density_distrib(uint32_t* densities) {
+    int x = 2;
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int z = 0; z < GRID_SIZE; z++) {
+            cout << densities[x * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + z];
+        }
+        cout << endl;
+    }
+}
+
 
 struct Ray {
     Vector3d origin;
@@ -75,11 +85,6 @@ bool cast_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& 
             hit = true;
             hitPoint = ray.origin + ray.direction * dist;
             hit_normal = e1.cross(e2).normalized();
-            /*cout << "hit normal: " << hit_normal.transpose() << endl;
-            cout << "ray origin: " << ray.origin.transpose() << endl;
-            cout << "ray direction: " << ray.direction.transpose() << endl;
-            cout << "hit point: " << hitPoint.transpose() << endl;*/
-            if (ray.origin[1] > 1.0) cout << "hit from point above cube (" << ray.origin.transpose() << ")" << endl;
         }
     }
 
@@ -94,7 +99,7 @@ Returns (by reference):
 */
 void generate_density_distribution(
     int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
-    vector<vector<vector<int>>>& DensityDistrib, vector<vector<float>>& nodes, vector<vector<int>>& elements,
+    uint32_t* densities, vector<vector<float>>& nodes, vector<vector<int>>& elements,
     vector<uint64_t>* bounds
 ) {
     // Compute the bounding box of the mesh
@@ -122,9 +127,7 @@ void generate_density_distribution(
 
     // Assign density values to cells in the grid
     for (int x = 0; x < GRID_SIZE; x++) {
-        vector<vector<int>> values_2d;
         for (int y = 0; y < GRID_SIZE; y++) {
-            vector<int> values_1d;
             for (int z = 0; z < GRID_SIZE; z++) {
                 Cell cell;
                 Vector3d indices; indices << x, y, z;
@@ -150,29 +153,8 @@ void generate_density_distribution(
                 if (inside) {
                     cell.density = 1;
                 }
-                values_1d.push_back(cell.density);
+                densities[x * dim_x * dim_y + y * dim_y + z] = cell.density;
             }
-            values_2d.push_back(values_1d);
         }
-        DensityDistrib.push_back(values_2d);
     }
 }
-
-
-//int main() {
-//    // Read in the mesh file
-//    std::vector<glm::vec3> vertices;
-//    std::vector<int> indices;
-//
-//    // Assign density values to cells in the grid
-//    std::vector<Cell> cells;
-//    assignDensityValues(cells, vertices, indices);
-//
-//    // Print the density values of the cells
-//    for (const auto& cell : cells) {
-//        std::cout << cell.density << " ";
-//    }
-//    std::cout << std::endl;
-//
-//    return 0;
-//}
