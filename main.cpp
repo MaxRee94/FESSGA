@@ -2,11 +2,15 @@
 #include "io.h"
 #include "gui.h"
 #include "voxelize.h"
+//#include "physics.h"
 
 using namespace Eigen;
 using namespace std;
 using namespace mvis;
 
+
+#define TEST2D true;
+#define TEST3D false;
 
 /* Generate a grid-based description of a FE mesh that can be output as a .msh file
 Input: 
@@ -20,14 +24,21 @@ void generate_msh(
     const int dim_x, const int dim_y, const int dim_z, const float cell_size, MatrixXd* V, MatrixXi* F,
     vector<uint64_t>* bounds, uint32_t* densities, string& msh
 ) {
-    // Generate grid-based FE mesh based on the given (unstructured) mesh file
-    vector<vector<float>> nodes;
+    // Generate grid-based binary density distribution based on the given (unstructured) mesh file
+    vector<string> nodes;
     vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-    generate_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, densities, nodes, elements, bounds);
+    generate_3d_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, densities);
     print_density_distrib(densities);
-    //generate_FE_mesh();
 
-#if 1 // Test with hardcoded nodes- and elements lists
+    // Generate Finite Element mesh from binary density distribution
+#if TEST2D:
+    generate_2d_FE_mesh(dim_x, dim_y, cell_size, densities, nodes, elements, bounds);
+#elif TEST3D:
+    generate_3d_FE_mesh(dim_x, dim_y, dim_z, cell_size, densities, nodes, elements, bounds);
+#endif
+
+
+#if !TEST2D && !TEST3D // Test with hardcoded nodes- and elements lists
     nodes.push_back({ 0.0, 0.0, 0.0 });
     nodes.push_back({ 1.0, 0.0, 0.0 });
     nodes.push_back({ 1.0, 1.0, 0.0 });
@@ -54,12 +65,9 @@ void generate_msh(
 
     // -- Nodes section
     msh += "$Nodes\n";
-    msh += to_string(nodes.size()) + "\n";         // Number of nodes
+    msh += to_string(nodes.size()) + "\n";          // Number of nodes
     for (int i = 0; i < nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
-        msh += to_string(i + 1) + " ";             // 1-based node index
-        msh += to_string(nodes[i][0]) + " ";       // x
-        msh += to_string(nodes[i][1]) + " ";       // y
-        msh += to_string(nodes[i][2]) + "\n";      // z
+        msh += nodes[i];
     }
     msh += "$EndNodes\n";
 
@@ -69,7 +77,7 @@ void generate_msh(
     msh += to_string(no_elements) + "\n";
 
     // Iterate over all elements and add to description string
-    // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <tag> <node_1> ... <node_n>
+    // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <physical entity> <tag> <node_1> ... <node_n>
     // Element types:
     //      1 : 2-node line
     //      2 : 3-node triangle
@@ -80,11 +88,7 @@ void generate_msh(
     // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
     for (int i = 0; i < elements.size(); i++) {
         vector<int> element = elements[i];
-        msh += to_string(element[0]) + " ";        // Element number
-        msh += to_string(element[1]) + " ";        // Element type
-        msh += "2 ";                               // Number of tags  TODO: Find out if this has any effect
-        msh += to_string(element[2]) + " ";        // Element tag (indicating which boundary it belongs to, if any)
-        for (int j = 3; j < element.size(); j++) {  // Node list
+        for (int j = 0; j < element.size(); j++) {
             msh += to_string(element[j]) + " ";
         }
         msh += "\n";
@@ -97,6 +101,7 @@ void generate_msh(
 
 int main(int argc, char* argv[])
 {
+#if 1:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -114,7 +119,7 @@ int main(int argc, char* argv[])
     int y_dim = 6;
     int z_dim = 6;
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
-    generate_msh(x_dim, y_dim, z_dim, 1, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
+    generate_msh(x_dim, y_dim, z_dim, 0.1, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file
@@ -122,4 +127,9 @@ int main(int argc, char* argv[])
     IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
+#else
+    MatrixXd stress;
+    string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
+    load_physics_data(filename, stress);
+#endif
 }

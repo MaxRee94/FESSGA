@@ -1,7 +1,10 @@
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <Eigen/Core>
+#include <algorithm>
+#include <map>
 
 
 using namespace Eigen;
@@ -15,17 +18,6 @@ struct Cell {
     Vector3d position;
     int density;
 };
-
-
-void print_density_distrib(vector<vector<vector<int>>>* DensityDistrib) {
-    int x_idx = 2;
-    for (int y = 0; y < GRID_SIZE; y++) {
-        for (int z = 0; z < GRID_SIZE; z++) {
-            cout << DensityDistrib->at(x_idx)[y][z];
-        }
-        cout << endl;
-    }
-}
 
 void print_density_distrib(uint32_t* densities) {
     int x = 2;
@@ -95,25 +87,23 @@ bool cast_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& 
 /* Generate a binary density distribution on the grid based on the given mesh file
 Input:
 Returns (by reference):
-    DensityDistrib (MatrixXi*): Matrix which contains a binary density value for each cell in the grid
+    densities (uint32_t*): Array which contains a binary density value (0 or 1) for each cell in the grid
 */
-void generate_density_distribution(
-    int dim_x, int dim_y, int dim_z, float cell_size, MatrixXd* V, MatrixXi* F,
-    uint32_t* densities, vector<vector<float>>& nodes, vector<vector<int>>& elements,
-    vector<uint64_t>* bounds
+void generate_3d_density_distribution(
+    int dim_x, int dim_y, int dim_z, double cell_size, MatrixXd* V, MatrixXi* F,
+    uint32_t* densities
 ) {
     // Compute the bounding box of the mesh
-    Vector3d margin; margin << 0.7, 0.7, 0.7;
-    Vector3d minPoint = V->colwise().minCoeff();
-    Vector3d maxPoint = V->colwise().maxCoeff();
-    minPoint -= margin;
-    maxPoint += margin;
+    Vector3d minPoint = Vector3d(0.0, 0.0, 0.0);
 
     // Compute the barycenter of the mesh
     Vector3d mesh_barycent = V->colwise().mean();
 
     // Compute the size of each cell in the grid
-    Vector3d gridSize = (maxPoint - minPoint) / static_cast<float>(GRID_SIZE);
+    Vector3d grid_size = Vector3d(dim_x, dim_y, dim_z);
+
+    // Compute vector to center of a grid cell from its corner
+    Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5) * cell_size;
 
     // Create list of triangles
     std::vector<Triangle> triangles;
@@ -126,12 +116,12 @@ void generate_density_distribution(
     }
 
     // Assign density values to cells in the grid
-    for (int x = 0; x < GRID_SIZE; x++) {
-        for (int y = 0; y < GRID_SIZE; y++) {
-            for (int z = 0; z < GRID_SIZE; z++) {
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            for (int z = 0; z < dim_z; z++) {
                 Cell cell;
                 Vector3d indices; indices << x, y, z;
-                cell.position = minPoint + indices.cwiseProduct(gridSize);
+                cell.position = minPoint + indices * cell_size + to_cell_center;
                 cell.density = 0;
 
                 // Cast ray and check for hits
@@ -154,6 +144,74 @@ void generate_density_distribution(
                     cell.density = 1;
                 }
                 densities[x * dim_x * dim_y + y * dim_y + z] = cell.density;
+            }
+        }
+    }
+}
+
+bool node_exists(std::map<int, int>* node_coords, int coords) {
+    return node_coords->find(coords) == node_coords->end();
+}
+
+int add_node_if_not_exists(
+    int x, int y, int dim_x, std::map<int, int>& node_coords, float cell_size,
+    vector<string>& nodes, int& _node_idx)
+{
+    int node_idx = _node_idx;
+    if (!node_exists(&node_coords, x * dim_x + y)) {
+        string node = to_string(_node_idx) + " " + to_string(cell_size * x) + " " + to_string(cell_size * y) + "\n";
+        nodes.push_back(node);
+        node_coords[x * dim_x + y] = _node_idx;
+        _node_idx++;
+        cout << "node does not exist. Created new node " << _node_idx << endl;
+    }
+    else {
+        node_idx = node_coords[x * dim_x + y];
+        cout << "node already existed" << endl;
+
+    }
+
+    return node_idx;
+}
+
+int get_2d_tag(vector<uint64_t>* bounds, int element_idx, int type) {
+    int tag = 1;
+    if (type == 3) {
+        if (bounds->size() > 0) {
+            // TODO: Check if element index corresponds to an item in bounds, and if so, which tag should be applied
+        }
+    }
+    return tag;
+}
+
+/* Generate a 2d Finite Element mesh from the given binary density distribution
+*/
+void generate_2d_FE_mesh(
+    int dim_x, int dim_y, double cell_size, uint32_t* densities, vector<string>& nodes,
+    vector<vector<int>>& elements, vector<uint64_t>* bounds
+) {
+    int node_idx = 1;
+    int surface_idx = 1;
+    std::map<int, int> node_coords;
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            bool filled = (bool)densities[x * dim_x + y];
+            if (filled) {
+                // Create 4 nodes that enclose the surface element to be created (if they do not yet exist)
+                int node1_idx = add_node_if_not_exists(x, y, dim_x, node_coords, cell_size, nodes, node_idx);
+                int node2_idx = add_node_if_not_exists(x, y + 1, dim_x, node_coords, cell_size, nodes, node_idx);
+                int node3_idx = add_node_if_not_exists(x + 1, y, dim_x, node_coords, cell_size, nodes, node_idx);
+                cout << "node 4.." << endl;
+                int node4_idx = add_node_if_not_exists(x + 1, y + 1, dim_x, node_coords, cell_size, nodes, node_idx);
+
+                // Get the tag belonging to the surface element (if it has any)
+                // This information is stored in the bounds vector
+                int tag = get_2d_tag(bounds, surface_idx, 3);
+
+                // Create the surface element
+                vector<int> surface = { surface_idx, 3, 2, 1, tag, node1_idx, node2_idx, node3_idx, node4_idx };
+                elements.push_back(surface);
+                surface_idx++;
             }
         }
     }
