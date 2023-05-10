@@ -8,6 +8,27 @@ using namespace Eigen;
 using namespace std;
 
 
+
+void mvis::help::print_map(std::map<int, int>* map) {
+    int i = 0;
+    for (auto const& [key, val] : (*map))
+    {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << key        // string (key)
+            << ':'
+            << val;        // string's value
+        i++;
+    }
+    if (i == 0) {
+        cout << "<empty map>" << endl;
+    }
+    else {
+        cout << endl;
+    }
+}
+
 void mvis::help::NormalizeElementWise(Matrix3d* M) {
     for (int i = 0; i < M->cols(); i++) {
         for (int j = 0; j < M->rows(); j++) {

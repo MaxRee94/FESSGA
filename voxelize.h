@@ -5,13 +5,13 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
+#include "Helpers.h"
 
 
 using namespace Eigen;
 using namespace std;
+using namespace mvis;
 
-// Define the size of the grid
-const int GRID_SIZE = 6;
 
 // Define the struct for a cell in the grid
 struct Cell {
@@ -19,11 +19,11 @@ struct Cell {
     int density;
 };
 
-void print_density_distrib(uint32_t* densities) {
-    int x = 2;
-    for (int y = 0; y < GRID_SIZE; y++) {
-        for (int z = 0; z < GRID_SIZE; z++) {
-            cout << densities[x * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + z];
+void print_density_distrib(uint32_t* densities, int grid_size) {
+    int x = grid_size / 2;
+    for (int y = 0; y < grid_size; y++) {
+        for (int z = 0; z < grid_size; z++) {
+            cout << densities[x * grid_size * grid_size + y * grid_size + z];
         }
         cout << endl;
     }
@@ -90,11 +90,9 @@ Returns (by reference):
     densities (uint32_t*): Array which contains a binary density value (0 or 1) for each cell in the grid
 */
 void generate_3d_density_distribution(
-    int dim_x, int dim_y, int dim_z, double cell_size, MatrixXd* V, MatrixXi* F,
+    int dim_x, int dim_y, int dim_z, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
     uint32_t* densities
 ) {
-    // Compute the bounding box of the mesh
-    Vector3d minPoint = Vector3d(0.0, 0.0, 0.0);
 
     // Compute the barycenter of the mesh
     Vector3d mesh_barycent = V->colwise().mean();
@@ -121,7 +119,7 @@ void generate_3d_density_distribution(
             for (int z = 0; z < dim_z; z++) {
                 Cell cell;
                 Vector3d indices; indices << x, y, z;
-                cell.position = minPoint + indices * cell_size + to_cell_center;
+                cell.position = offset + indices * cell_size + to_cell_center;
                 cell.density = 0;
 
                 // Cast ray and check for hits
@@ -149,26 +147,34 @@ void generate_3d_density_distribution(
     }
 }
 
+
 bool node_exists(std::map<int, int>* node_coords, int coords) {
-    return node_coords->find(coords) == node_coords->end();
+    bool exists = !(node_coords->find(coords) == node_coords->end());
+    //cout << "node with coords " << coords << " exists?  " << to_string(exists) << endl;
+    //cout << "node coords: ";
+    //help::print_map(node_coords);
+
+    return exists;
 }
 
 int add_node_if_not_exists(
-    int x, int y, int dim_x, std::map<int, int>& node_coords, float cell_size,
+    int x, int y, Vector3d offset, int dim_x, std::map<int, int>& node_coords, float cell_size,
     vector<string>& nodes, int& _node_idx)
 {
+    dim_x += 1; // Number of nodes along an axis = number of cells + 1
     int node_idx = _node_idx;
     if (!node_exists(&node_coords, x * dim_x + y)) {
-        string node = to_string(_node_idx) + " " + to_string(cell_size * x) + " " + to_string(cell_size * y) + "\n";
+        string node = 
+            to_string(_node_idx) + " " + to_string(cell_size * x + offset(0)) + " "
+            + to_string(cell_size * y + offset(1)) + "\n";
         nodes.push_back(node);
         node_coords[x * dim_x + y] = _node_idx;
         _node_idx++;
-        cout << "node does not exist. Created new node " << _node_idx << endl;
+        //cout << "node for (" << x << ", " << y << " ) does not exist.Created new node " << _node_idx-1 << endl;
     }
     else {
         node_idx = node_coords[x * dim_x + y];
-        cout << "node already existed" << endl;
-
+        //cout << "node for (" << x << ", " << y << " ) already existed" << endl;
     }
 
     return node_idx;
@@ -187,7 +193,7 @@ int get_2d_tag(vector<uint64_t>* bounds, int element_idx, int type) {
 /* Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void generate_2d_FE_mesh(
-    int dim_x, int dim_y, double cell_size, uint32_t* densities, vector<string>& nodes,
+    int dim_x, int dim_y, Vector3d offset, double cell_size, uint32_t* densities, vector<string>& nodes,
     vector<vector<int>>& elements, vector<uint64_t>* bounds
 ) {
     int node_idx = 1;
@@ -195,14 +201,13 @@ void generate_2d_FE_mesh(
     std::map<int, int> node_coords;
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
-            bool filled = (bool)densities[x * dim_x + y];
+            int filled = densities[x * dim_x + y];
             if (filled) {
-                // Create 4 nodes that enclose the surface element to be created (if they do not yet exist)
-                int node1_idx = add_node_if_not_exists(x, y, dim_x, node_coords, cell_size, nodes, node_idx);
-                int node2_idx = add_node_if_not_exists(x, y + 1, dim_x, node_coords, cell_size, nodes, node_idx);
-                int node3_idx = add_node_if_not_exists(x + 1, y, dim_x, node_coords, cell_size, nodes, node_idx);
-                cout << "node 4.." << endl;
-                int node4_idx = add_node_if_not_exists(x + 1, y + 1, dim_x, node_coords, cell_size, nodes, node_idx);
+                // Create 4 nodes that will enclose the surface element to be created (if they do not yet exist)
+                int node4_idx = add_node_if_not_exists(x, y, offset, dim_x, node_coords, cell_size, nodes, node_idx);
+                int node1_idx = add_node_if_not_exists(x + 1, y, offset, dim_x, node_coords, cell_size, nodes, node_idx);
+                int node2_idx = add_node_if_not_exists(x + 1, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
+                int node3_idx = add_node_if_not_exists(x, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
 
                 // Get the tag belonging to the surface element (if it has any)
                 // This information is stored in the bounds vector

@@ -21,18 +21,26 @@ Input:
     msh (string): The generated description string in .msh-format
 */
 void generate_msh(
-    const int dim_x, const int dim_y, const int dim_z, const float cell_size, MatrixXd* V, MatrixXi* F,
+    const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, MatrixXd* V, MatrixXi* F,
     vector<uint64_t>* bounds, uint32_t* densities, string& msh
 ) {
     // Generate grid-based binary density distribution based on the given (unstructured) mesh file
     vector<string> nodes;
     vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-    generate_3d_density_distribution(dim_x, dim_y, dim_z, cell_size, V, F, densities);
-    print_density_distrib(densities);
+    generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
+    print_density_distrib(densities, dim_x);
 
     // Generate Finite Element mesh from binary density distribution
 #if TEST2D:
-    generate_2d_FE_mesh(dim_x, dim_y, cell_size, densities, nodes, elements, bounds);
+    // Create slice from 3d binary density distribution for 2d test
+    int z = dim_x / 2;
+    uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            slice_2d[x * dim_x + y] = densities[z * dim_x * dim_y + x * dim_x + y];
+        }
+    }
+    generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, bounds);
 #elif TEST3D:
     generate_3d_FE_mesh(dim_x, dim_y, dim_z, cell_size, densities, nodes, elements, bounds);
 #endif
@@ -101,7 +109,7 @@ void generate_msh(
 
 int main(int argc, char* argv[])
 {
-#if 0:
+#if 1:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -115,11 +123,14 @@ int main(int argc, char* argv[])
     // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
     vector<uint64_t> bounds = {};
     string mesh_description = "";
-    int x_dim = 6;
-    int y_dim = 6;
-    int z_dim = 6;
+    float domain_size = 1.5;
+    int x_dim = 50;
+    int y_dim = 50;
+    int z_dim = 50;
+    float cell_size = domain_size / (float)x_dim;
+    Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
-    generate_msh(x_dim, y_dim, z_dim, 0.1, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
+    generate_msh(x_dim, y_dim, z_dim, cell_size, offset, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file
@@ -127,7 +138,7 @@ int main(int argc, char* argv[])
     IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
-#elif 1
+#elif 0
     MatrixXd stress;
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
     load_physics_data(filename, stress);
