@@ -2,7 +2,7 @@
 #include "io.h"
 #include "gui.h"
 #include "voxelize.h"
-//#include "physics.h"
+#include "physics.h"
 
 using namespace Eigen;
 using namespace std;
@@ -101,7 +101,7 @@ void generate_msh(
 
 int main(int argc, char* argv[])
 {
-#if 1:
+#if 0:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -127,9 +127,51 @@ int main(int argc, char* argv[])
     IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
-#else
+#elif 1
     MatrixXd stress;
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
     load_physics_data(filename, stress);
+#elif 0
+    std::string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
+
+    // read all the data from the file
+    vtkNew<vtkXMLUnstructuredGridReader> reader;
+    reader->SetFileName(filename.c_str());
+    reader->Update();
+
+    vtkNew<vtkNamedColors> colors;
+
+    // Create a mapper and actor
+    vtkNew<vtkDataSetMapper> mapper;
+    mapper->SetInputConnection(reader->GetOutputPort());
+    mapper->ScalarVisibilityOff();
+
+    vtkNew<vtkActor> actor;
+    actor->SetMapper(mapper);
+    actor->GetProperty()->EdgeVisibilityOn();
+    actor->GetProperty()->SetLineWidth(2.0);
+    actor->GetProperty()->SetColor(colors->GetColor3d("MistyRose").GetData());
+
+    vtkNew<vtkProperty> backFace;
+    backFace->SetColor(colors->GetColor3d("Tomato").GetData());
+    actor->SetBackfaceProperty(backFace);
+
+    // Create a renderer, render window, and interactor
+    vtkNew<vtkRenderer> renderer;
+    vtkNew<vtkRenderWindow> renderWindow;
+    renderWindow->AddRenderer(renderer);
+    vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
+    renderWindowInteractor->SetRenderWindow(renderWindow);
+
+    // Add the actor to the scene
+    renderer->AddActor(actor);
+    renderer->SetBackground(colors->GetColor3d("Wheat").GetData());
+
+    // Render and interact
+    renderWindow->SetSize(640, 480);
+
+    renderWindow->Render();
+    renderWindowInteractor->Start();
+
 #endif
 }
