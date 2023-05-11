@@ -11,6 +11,8 @@ namespace mvis {
 	public:
 		static void print_map(std::map<int, int>* map);
 
+		static void print_vector(std::vector<int>* vec);
+
 		static void NormalizeElementWise(Eigen::Matrix3d* M);
 
 		static vector<size_t> FindAll(string basestring, string target);
@@ -24,6 +26,8 @@ namespace mvis {
 		static float get_value(std::map<std::string, float>* map, std::string key);
 
 		static int get_value(std::map<std::string, int>* map, std::string key);
+
+		static int get_value(std::map<int, int>* map, int key);
 
 	};
 };

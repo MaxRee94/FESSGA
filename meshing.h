@@ -245,20 +245,78 @@ void generate_2d_FE_mesh(
                 int cell_is_filled = densities[(x - 1 + x_offset) * dim_x + (y - 1 + y_offset)];
                 if (!cell_is_filled) {
                     boundary_node_coords[node_coord] = node_idx;
-                    no_boundary_nodes++;
                     empty = true;
+                    no_boundary_nodes++;
                     break;
                 }
             }
             if (empty) break;
         }
     }
-    cout << "number of boundary nodes: " << no_boundary_nodes << endl;
 
-    //// Order boundary nodes according to occurrence along perimeter of the mesh
-    //std::vector<int> ordered_boundary_node_indices;
-    //auto [node_idx, node_coord] = *boundary_node_coords.begin();
-    //while (true) {
+    // Order boundary nodes according to occurrence along perimeter of the mesh
+    int node_coord = boundary_node_coords.begin()->first;
+    node_idx = boundary_node_coords.begin()->second;
+    std::vector<int> ordered_boundary_node_coords = {node_idx};
 
-    //}
+    // Initialize previous coordinates to an arbitrary neighboring location on the grid
+    int x = node_coord / (dim_x + 1);
+    int y = node_coord % (dim_x + 1);
+    int previous_x = x;
+    int previous_y = y - 1;
+    if (previous_y < 0) previous_y = y + 1;
+
+    // Trace perimeter by stepping from one boundary node to the direct neighbor that
+    // was not visited in the previous iteration
+    int i = 0;
+    while (i < no_boundary_nodes) {
+        // Check which of the other three neighboring grid indices contains a boundary node
+        bool neighbor_found = false;
+        int neighbor_idx, neighbor_coord, neighbor_x, neighbor_y;
+        for (int x_offset = 0; x_offset < 3; x_offset++) {
+            for (int y_offset = 0; y_offset < 3; y_offset++) {
+                // Skip coordinates on opposite corner of neighboring cell
+                if (x_offset == y_offset == 1 || x_offset == y_offset == -1) continue;
+
+                // Compute neighbor coordinates
+                neighbor_x = (x + x_offset);
+                neighbor_y = (y + y_offset);
+
+                // Check coordinate validity
+                if (neighbor_x < 0 || neighbor_y < 0 || neighbor_x > dim_x || neighbor_y > dim_y)
+                    continue; // coordinates outside design domain are invalid
+                if (neighbor_x == previous_x && neighbor_y == previous_y)
+                    continue; // skip the boundary node we found in the previous iteration
+
+                // Check whether the neighbor coordinates contain a boundary node
+                neighbor_coord = (x + x_offset) * dim_x + (y + y_offset);
+                neighbor_idx = mvis::help::get_value(&boundary_node_coords, neighbor_coord);
+                neighbor_found = neighbor_idx != -1;
+                if (neighbor_found) {
+                    break;
+                }
+            }
+            if (neighbor_found) break;
+        }
+
+        // Get node coordinates of neighbor
+        x = node_coord / (dim_x + 1);
+        y = node_coord % (dim_x + 1);
+
+        // Add neighboring boundary node to vector
+        ordered_boundary_node_coords.push_back(neighbor_idx);
+
+        // Set previous x and y coordinates to current ones
+        previous_x = x;
+        previous_y = y;
+
+        // Set next node coordinates to those of neighbor
+        x = neighbor_x;
+        y = neighbor_y;
+
+        i++;
+    }
+    cout << "no of ordered bound elements: " << i << endl;
+    cout << "ordered bound elements: ";
+    mvis::help::print_vector(&ordered_boundary_node_coords);
 }

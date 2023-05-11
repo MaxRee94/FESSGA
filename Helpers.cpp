@@ -29,6 +29,14 @@ void mvis::help::print_map(std::map<int, int>* map) {
     }
 }
 
+void mvis::help::print_vector(std::vector<int>* vec) {
+    for (int i = 0; i < vec->size(); i++) {
+        if (i > 0) cout << ", ";
+        cout << vec->at(i);
+    }
+    cout << endl;
+}
+
 void mvis::help::NormalizeElementWise(Matrix3d* M) {
     for (int i = 0; i < M->cols(); i++) {
         for (int j = 0; j < M->rows(); j++) {
@@ -102,6 +110,15 @@ float mvis::help::get_value(std::map<std::string, float>* map, std::string key) 
 int mvis::help::get_value(std::map<std::string, int>* map, std::string key) {
     if (map->find(key) == map->end()) {
         return 0;
+    }
+    else {
+        return map->at(key);
+    }
+}
+
+int mvis::help::get_value(std::map<int, int>* map, int key) {
+    if (map->find(key) == map->end()) {
+        return -1;
     }
     else {
         return map->at(key);
