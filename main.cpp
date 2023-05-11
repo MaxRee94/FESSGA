@@ -1,7 +1,7 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include "io.h"
 #include "gui.h"
-#include "voxelize.h"
+#include "meshing.h"
 #include "physics.h"
 
 using namespace Eigen;
@@ -124,9 +124,9 @@ int main(int argc, char* argv[])
     vector<uint64_t> bounds = {};
     string mesh_description = "";
     float domain_size = 1.5;
-    int x_dim = 50;
-    int y_dim = 50;
-    int z_dim = 50;
+    int x_dim = 10;
+    int y_dim = 10;
+    int z_dim = 10;
     float cell_size = domain_size / (float)x_dim;
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];

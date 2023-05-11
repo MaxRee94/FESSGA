@@ -21,7 +21,7 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
 void mvis::GUI::load_example() {
     MatrixXd V;
     MatrixXi F;
-    mvis::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
+    mvis::IO::ReadMesh("../data/test_objects/cube.obj", V, F);
     V_list.clear();
     F_list.clear();
     V_list.push_back(V);

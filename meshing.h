@@ -41,7 +41,7 @@ struct Triangle {
     Vector3d v2 = Vector3d(0.0, 0.0, 0.0);
 };
 
-bool cast_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
+bool trace_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
     double closestDist = INFINITY;
     bool hit = false;
 
@@ -72,7 +72,7 @@ bool cast_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& 
 
         double dist = f * e2.dot(q);
 
-        if (dist > 1e-8 && dist < closestDist) {
+        if (dist > 1e-12 && dist < closestDist) {
             closestDist = dist;
             hit = true;
             hitPoint = ray.origin + ray.direction * dist;
@@ -113,6 +113,9 @@ void generate_3d_density_distribution(
         triangles.push_back(triangle);
     }
 
+    // Set ray direction
+    Vector3d ray_dir = Vector3d(1.0, 1.0, 1.0).normalized();
+
     // Assign density values to cells in the grid
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
@@ -125,10 +128,10 @@ void generate_3d_density_distribution(
                 // Cast ray and check for hits
                 Ray ray;
                 ray.origin = cell.position;
-                ray.direction << 0.0, 1.0, 0.0;
+                ray.direction = ray_dir;
                 Vector3d hitPoint;
                 Vector3d hit_normal;
-                bool hit = cast_ray(ray, triangles, hitPoint, hit_normal);
+                bool hit = trace_ray(ray, triangles, hitPoint, hit_normal);
 
                 // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
                 // If so, the cell must be inside the mesh
@@ -220,4 +223,42 @@ void generate_2d_FE_mesh(
             }
         }
     }
+
+    // Find boundary nodes
+    std::map<int, int> boundary_node_coords;
+    int no_boundary_nodes = 0;
+    for (auto const& [node_idx, node_coord] : node_coords) {
+        int x = node_coord / (dim_x + 1);
+        int y = node_coord % (dim_x + 1);
+
+        // Nodes at an extreme of at least one axis are always boundary nodes
+        if (x == 0 || y == 0 || x == dim_x || y == dim_y) {
+            boundary_node_coords[node_coord] = node_idx;
+            no_boundary_nodes++;
+            continue;
+        }
+
+        // Nodes with at least one empty neighboring cell are boundary nodes
+        bool empty = false;
+        for (int x_offset = 0; x_offset < 2; x_offset++) {
+            for (int y_offset = 0; y_offset < 2; y_offset++) {
+                int cell_is_filled = densities[(x - 1 + x_offset) * dim_x + (y - 1 + y_offset)];
+                if (!cell_is_filled) {
+                    boundary_node_coords[node_coord] = node_idx;
+                    no_boundary_nodes++;
+                    empty = true;
+                    break;
+                }
+            }
+            if (empty) break;
+        }
+    }
+    cout << "number of boundary nodes: " << no_boundary_nodes << endl;
+
+    //// Order boundary nodes according to occurrence along perimeter of the mesh
+    //std::vector<int> ordered_boundary_node_indices;
+    //auto [node_idx, node_coord] = *boundary_node_coords.begin();
+    //while (true) {
+
+    //}
 }
