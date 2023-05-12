@@ -193,6 +193,20 @@ int get_2d_tag(vector<uint64_t>* bounds, int element_idx, int type) {
     return tag;
 }
 
+/* Find a node that has not yet been visited
+*/
+int find_unvisited_node(
+    std::map<int, int>* boundary_nodes, std::vector<int>* ordered_boundary_nodes
+) {
+    for (auto [node_coord, node_idx] : *boundary_nodes) {
+        bool visited = std::find(
+            ordered_boundary_nodes->begin(), ordered_boundary_nodes->end(), node_idx) != ordered_boundary_nodes->end();
+        if (!visited) {
+            return node_coord;
+        }
+    }
+}
+
 /* Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void generate_2d_FE_mesh(
@@ -227,7 +241,7 @@ void generate_2d_FE_mesh(
     // Find boundary nodes
     std::map<int, int> boundary_node_coords;
     int no_boundary_nodes = 0;
-    for (auto const& [node_idx, node_coord] : node_coords) {
+    for (auto const& [node_coord, node_idx] : node_coords) {
         int x = node_coord / (dim_x + 1);
         int y = node_coord % (dim_x + 1);
 
@@ -254,54 +268,94 @@ void generate_2d_FE_mesh(
         }
     }
 
-    // Order boundary nodes according to occurrence along perimeter of the mesh
+    // ----  Order boundary nodes according to occurrence along perimeter of the mesh ---- //
+    // Initialize starting node and ordered boundary nodes maps
     int node_coord = boundary_node_coords.begin()->first;
     node_idx = boundary_node_coords.begin()->second;
     std::vector<int> ordered_boundary_node_coords = {node_idx};
-
-    // Initialize previous coordinates to an arbitrary neighboring location on the grid
-    int x = node_coord / (dim_x + 1);
+    int x = node_coord / (dim_x + 1); 
     int y = node_coord % (dim_x + 1);
-    int previous_x = x;
+    int start_x = x; 
+    int start_y = y;
+
+    // Initialize 'previous' coordinates to an arbitrary neighboring location on the grid 
+    int previous_x = x; 
     int previous_y = y - 1;
     if (previous_y < 0) previous_y = y + 1;
 
     // Trace perimeter by stepping from one boundary node to the direct neighbor that
     // was not visited in the previous iteration
-    int i = 0;
-    while (i < no_boundary_nodes) {
-        // Check which of the other three neighboring grid indices contains a boundary node
-        bool neighbor_found = false;
-        int neighbor_idx, neighbor_coord, neighbor_x, neighbor_y;
-        for (int x_offset = 0; x_offset < 3; x_offset++) {
-            for (int y_offset = 0; y_offset < 3; y_offset++) {
-                // Skip coordinates on opposite corner of neighboring cell
-                if (x_offset == y_offset == 1 || x_offset == y_offset == -1) continue;
+    int i = 1;
+    bool neighbor_found = false;
+    int neighbor_idx, neighbor_coord, neighbor_x, neighbor_y;
+    vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
+    while (i < (no_boundary_nodes + 1)) {
+        // If current node is the same as the starting node of the perimeter walk, search for
+        // nodes that have not yet been visited (these are part of another component, for example a hole)
+        if (x == start_x && y == start_y) {
+            cout << "starting perimeter walk on new component" << endl;
+            node_coord = find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+            x = node_coord / (dim_x + 1);
+            y = node_coord % (dim_x + 1);
+            start_x = x;
+            start_y = y;
 
-                // Compute neighbor coordinates
-                neighbor_x = (x + x_offset);
-                neighbor_y = (y + y_offset);
-
-                // Check coordinate validity
-                if (neighbor_x < 0 || neighbor_y < 0 || neighbor_x > dim_x || neighbor_y > dim_y)
-                    continue; // coordinates outside design domain are invalid
-                if (neighbor_x == previous_x && neighbor_y == previous_y)
-                    continue; // skip the boundary node we found in the previous iteration
-
-                // Check whether the neighbor coordinates contain a boundary node
-                neighbor_coord = (x + x_offset) * dim_x + (y + y_offset);
-                neighbor_idx = mvis::help::get_value(&boundary_node_coords, neighbor_coord);
-                neighbor_found = neighbor_idx != -1;
-                if (neighbor_found) {
-                    break;
-                }
-            }
-            if (neighbor_found) break;
+            // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
+            previous_x = x;
+            previous_y = y - 1;
+            if (previous_y < 0) previous_y = y + 1;
         }
 
-        // Get node coordinates of neighbor
-        x = node_coord / (dim_x + 1);
-        y = node_coord % (dim_x + 1);
+        // Check which of the other three neighboring grid indices contains a boundary node
+        for (auto _offset : offsets) {
+            // Compute neighbor coordinates
+            neighbor_x = (x + _offset.first);
+            neighbor_y = (y + _offset.second);
+
+            cout << "checking neighbor coord: " << neighbor_x << ", " << neighbor_y << " of cur node " << x << ", " << y << endl;
+
+            // Check coordinate validity
+            if (neighbor_x < 0 || neighbor_y < 0 || neighbor_x > dim_x || neighbor_y > dim_y)
+                continue; // coordinates outside design domain are invalid
+            if (neighbor_x == previous_x && neighbor_y == previous_y)
+                continue; // skip the boundary node we found in the previous iteration
+
+            // Check whether line connecting current node to neighbor is blocked by two adjacent filled cells
+            bool blocked = false;
+            if (x == neighbor_x && x != 0 && x != dim_x) // Vertical line
+            {
+                int y_diff = neighbor_y - y;
+                int left_cell   = densities[(x - 1) * dim_x + y + y_diff];
+                int right_cell  = densities[x * dim_x + y + y_diff];
+                blocked = right_cell && left_cell;
+                cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << neighbor_x << ", " << neighbor_y << endl;
+            }
+            else if (y == neighbor_y && y != 0 && y != dim_y) // Horizontal line
+            {
+                int x_diff = neighbor_x - x;
+                int up_cell     = densities[(x + x_diff) * dim_x + y];
+                int down_cell   = densities[(x + x_diff) * dim_x + y - 1];
+                blocked = up_cell && down_cell;
+                cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << neighbor_x << ", " << neighbor_y << endl;
+            }
+            if (blocked) continue; // Skip neighbor if line is blocked by adjacent filled cells
+
+            cout << "coordinates valid. " << endl;
+
+            // Check whether the neighbor coordinates contain a boundary node
+            neighbor_coord = (x + _offset.first) * (dim_x + 1) + (y + _offset.second);
+            neighbor_idx = mvis::help::get_value(&boundary_node_coords, neighbor_coord);
+            cout << "neigh idx: " << neighbor_idx << endl;
+            neighbor_found = neighbor_idx != -1;
+            if (neighbor_found) {
+                break;
+            }
+        }
+
+        if (neighbor_idx == -1) {
+            cout << "Neighbor not found. Previous x, y: " << previous_x << ", " << previous_y <<
+                ", next x, y: " << neighbor_x << ", " << neighbor_y << endl;
+        }
 
         // Add neighboring boundary node to vector
         ordered_boundary_node_coords.push_back(neighbor_idx);
@@ -316,7 +370,8 @@ void generate_2d_FE_mesh(
 
         i++;
     }
-    cout << "no of ordered bound elements: " << i << endl;
-    cout << "ordered bound elements: ";
+    cout << "no of unordered bound nodes: " << boundary_node_coords.size() << endl;
+    cout << "no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
+    cout << "ordered bound nodes: ";
     mvis::help::print_vector(&ordered_boundary_node_coords);
 }

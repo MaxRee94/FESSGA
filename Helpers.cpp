@@ -2,11 +2,11 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <filesystem.>
 
 using namespace Eigen;
 using namespace std;
-
 
 
 void mvis::help::print_map(std::map<int, int>* map) {
@@ -116,11 +116,12 @@ int mvis::help::get_value(std::map<std::string, int>* map, std::string key) {
     }
 }
 
-int mvis::help::get_value(std::map<int, int>* map, int key) {
-    if (map->find(key) == map->end()) {
+int mvis::help::get_value(std::map<int, int>* _map, int key) {
+    map<int, int>::iterator it = _map->find(key);
+    if (it == _map->end()) {
         return -1;
     }
     else {
-        return map->at(key);
+        return it->second;
     }
 }
