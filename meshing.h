@@ -268,6 +268,12 @@ void generate_2d_FE_mesh(
         }
     }
 
+    cout << "node coord of node 6: " << mvis::help::get_key(&boundary_node_coords, 6) << endl;
+    cout << "node coord of node 23: " << mvis::help::get_key(&boundary_node_coords, 23) << endl;
+    cout << "node coord of node 4: " << mvis::help::get_key(&boundary_node_coords, 4) << endl;
+    cout << "node coord of node 2: " << mvis::help::get_key(&boundary_node_coords, 2) << endl;
+    cout << "node coord of node 1: " << mvis::help::get_key(&boundary_node_coords, 1) << endl;
+
     // ----  Order boundary nodes according to occurrence along perimeter of the mesh ---- //
     // Initialize starting node and ordered boundary nodes maps
     int node_coord = boundary_node_coords.begin()->first;
@@ -288,11 +294,12 @@ void generate_2d_FE_mesh(
     int i = 1;
     bool neighbor_found = false;
     int neighbor_idx, neighbor_coord, neighbor_x, neighbor_y;
+    int _neighbor_idx, _neighbor_coord, _neighbor_x, _neighbor_y;
     vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
     while (i < (no_boundary_nodes + 1)) {
-        // If current node is the same as the starting node of the perimeter walk, search for
-        // nodes that have not yet been visited (these are part of another component, for example a hole)
-        if (x == start_x && y == start_y) {
+        // If current node is the same as the starting node of the perimeter walk, re-start walk on a
+        // node that has not yet been visited (such a node must be part of another component, for example a hole)
+        if (i > 1 && x == start_x && y == start_y) {
             cout << "starting perimeter walk on new component" << endl;
             node_coord = find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
             x = node_coord / (dim_x + 1);
@@ -307,53 +314,76 @@ void generate_2d_FE_mesh(
         }
 
         // Check which of the other three neighboring grid indices contains a boundary node
+        vector<pair<int,int>> valid_neighbors;
         for (auto _offset : offsets) {
             // Compute neighbor coordinates
-            neighbor_x = (x + _offset.first);
-            neighbor_y = (y + _offset.second);
+            _neighbor_x = (x + _offset.first);
+            _neighbor_y = (y + _offset.second);
 
-            cout << "checking neighbor coord: " << neighbor_x << ", " << neighbor_y << " of cur node " << x << ", " << y << endl;
+            //cout << "checking neighbor coord: " << _neighbor_x << ", " << _neighbor_y << " of cur node " << x << ", " << y << endl;
 
             // Check coordinate validity
-            if (neighbor_x < 0 || neighbor_y < 0 || neighbor_x > dim_x || neighbor_y > dim_y)
+            if (_neighbor_x < 0 || _neighbor_y < 0 || _neighbor_x > dim_x || _neighbor_y > dim_y)
                 continue; // coordinates outside design domain are invalid
-            if (neighbor_x == previous_x && neighbor_y == previous_y)
+            if (_neighbor_x == previous_x && _neighbor_y == previous_y)
                 continue; // skip the boundary node we found in the previous iteration
 
             // Check whether line connecting current node to neighbor is blocked by two adjacent filled cells
             bool blocked = false;
-            if (x == neighbor_x && x != 0 && x != dim_x) // Vertical line
+            if (x == _neighbor_x && x != 0 && x != dim_x) // Vertical line
             {
-                int y_diff = neighbor_y - y;
+                int y_diff = _neighbor_y - y;
                 int left_cell   = densities[(x - 1) * dim_x + y + y_diff];
                 int right_cell  = densities[x * dim_x + y + y_diff];
                 blocked = right_cell && left_cell;
-                cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << neighbor_x << ", " << neighbor_y << endl;
+                //cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y << endl;
             }
-            else if (y == neighbor_y && y != 0 && y != dim_y) // Horizontal line
+            else if (y == _neighbor_y && y != 0 && y != dim_y) // Horizontal line
             {
-                int x_diff = neighbor_x - x;
+                int x_diff = _neighbor_x - x;
                 int up_cell     = densities[(x + x_diff) * dim_x + y];
                 int down_cell   = densities[(x + x_diff) * dim_x + y - 1];
                 blocked = up_cell && down_cell;
-                cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << neighbor_x << ", " << neighbor_y << endl;
+                //cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y << endl;
             }
             if (blocked) continue; // Skip neighbor if line is blocked by adjacent filled cells
 
-            cout << "coordinates valid. " << endl;
+            //cout << "coordinates valid. " << endl;
 
             // Check whether the neighbor coordinates contain a boundary node
-            neighbor_coord = (x + _offset.first) * (dim_x + 1) + (y + _offset.second);
-            neighbor_idx = mvis::help::get_value(&boundary_node_coords, neighbor_coord);
-            cout << "neigh idx: " << neighbor_idx << endl;
-            neighbor_found = neighbor_idx != -1;
+            _neighbor_coord = (x + _offset.first) * (dim_x + 1) + (y + _offset.second);
+            _neighbor_idx = mvis::help::get_value(&boundary_node_coords, _neighbor_coord);
+            neighbor_found = _neighbor_idx != -1;
             if (neighbor_found) {
-                break;
+                neighbor_x = _neighbor_x;
+                neighbor_y = _neighbor_y;
+                neighbor_idx = _neighbor_idx;
+                neighbor_coord = _neighbor_coord;
+                valid_neighbors.push_back(pair(_neighbor_coord, _neighbor_idx));
             }
         }
 
+        // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
+        if (valid_neighbors.size() > 1) {
+            cout << "More than one neighbor found for node with coordinates " << x << ", " << y << endl;
+            int j = 0;
+            while (j < 4) {
+                bool neighbor_visited = mvis::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].second);
+                if (!neighbor_visited) {
+                    break; // Found a valid neighbor that hasn't been visited yet
+                }
+                j++;
+            }
+
+            // Set the neighbor data to the data of the unvisited neighbor
+            neighbor_coord = valid_neighbors[j].first;
+            neighbor_idx = valid_neighbors[j].second;
+            neighbor_x = node_coord / (dim_x + 1);
+            neighbor_y = node_coord % (dim_x + 1);
+        }
+
         if (neighbor_idx == -1) {
-            cout << "Neighbor not found. Previous x, y: " << previous_x << ", " << previous_y <<
+            cout << "ERROR: Neighbor not found. Previous x, y: " << previous_x << ", " << previous_y <<
                 ", next x, y: " << neighbor_x << ", " << neighbor_y << endl;
         }
 
@@ -372,6 +402,5 @@ void generate_2d_FE_mesh(
     }
     cout << "no of unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
-    cout << "ordered bound nodes: ";
-    mvis::help::print_vector(&ordered_boundary_node_coords);
+    cout << "ordered bound nodes: "; mvis::help::print_vector(&ordered_boundary_node_coords);
 }

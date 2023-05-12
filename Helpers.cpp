@@ -9,6 +9,10 @@ using namespace Eigen;
 using namespace std;
 
 
+bool mvis::help::is_in(std::vector<int>* vec, int item) {
+    return find(vec->begin(), vec->end(), item) != vec->end();
+}
+
 void mvis::help::print_map(std::map<int, int>* map) {
     int i = 0;
     for (auto const& [key, val] : (*map))
@@ -124,4 +128,14 @@ int mvis::help::get_value(std::map<int, int>* _map, int key) {
     else {
         return it->second;
     }
+}
+
+int mvis::help::get_key(std::map<int, int>* _map, int value) {
+    for (auto const& [key, val] : (*_map))
+    {
+        if (val == value) {
+            return key;
+        }
+    }
+    return -1;
 }

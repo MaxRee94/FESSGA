@@ -9,6 +9,13 @@ namespace mvis {
 	class help
 	{
 	public:
+		static int get_key(std::map<int, int>* _map, int value);
+
+		/*
+		Return whether the given vector <vec> contains the integer <item>
+		 */
+		static bool is_in(std::vector<int>* vec, int item);
+
 		static void print_map(std::map<int, int>* map);
 
 		static void print_vector(std::vector<int>* vec);
