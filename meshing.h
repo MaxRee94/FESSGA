@@ -93,6 +93,7 @@ void generate_3d_density_distribution(
     int dim_x, int dim_y, int dim_z, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
     uint32_t* densities
 ) {
+    cout << "Generating 3d grid-based density distribution..." << endl;
 
     // Compute the barycenter of the mesh
     Vector3d mesh_barycent = V->colwise().mean();
@@ -102,6 +103,10 @@ void generate_3d_density_distribution(
 
     // Compute vector to center of a grid cell from its corner
     Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5) * cell_size;
+
+    // Initialize two different ray directions, (this is a temporary fix for a bug whereby some cells
+    // are not properly assigned a density of 1)
+    vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized() };
 
     // Create list of triangles
     std::vector<Triangle> triangles;
@@ -113,9 +118,6 @@ void generate_3d_density_distribution(
         triangles.push_back(triangle);
     }
 
-    // Set ray direction
-    Vector3d ray_dir = Vector3d(1.0, 1.0, 1.0).normalized();
-
     // Assign density values to cells in the grid
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
@@ -124,25 +126,28 @@ void generate_3d_density_distribution(
                 Vector3d indices; indices << x, y, z;
                 cell.position = offset + indices * cell_size + to_cell_center;
                 cell.density = 0;
+                // Try two ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
+                for (int i = 0; i < 2; i++) { 
+                    // Cast ray and check for hits
+                    Ray ray;
+                    ray.origin = cell.position;
+                    ray.direction = ray_directions[i];
+                    Vector3d hitPoint;
+                    Vector3d hit_normal;
+                    bool hit = trace_ray(ray, triangles, hitPoint, hit_normal);
 
-                // Cast ray and check for hits
-                Ray ray;
-                ray.origin = cell.position;
-                ray.direction = ray_dir;
-                Vector3d hitPoint;
-                Vector3d hit_normal;
-                bool hit = trace_ray(ray, triangles, hitPoint, hit_normal);
+                    // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
+                    // If so, the cell must be inside the mesh
+                    bool inside = false;
+                    if (hit) {
+                        inside = hit_normal.dot(ray.direction) > 0.0;
+                    }
 
-                // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
-                // If so, the cell must be inside the mesh
-                bool inside = false;
-                if (hit) {
-                    inside = hit_normal.dot(ray.direction) > 0.0;
-                }
-
-                // If the cell is inside the mesh, assign density 1
-                if (inside) {
-                    cell.density = 1;
+                    // If the cell is inside the mesh, assign density 1
+                    if (inside) {
+                        cell.density = 1;
+                        break;
+                    }
                 }
                 densities[x * dim_x * dim_y + y * dim_y + z] = cell.density;
             }
@@ -464,7 +469,7 @@ void generate_2d_FE_mesh(
         int physical_entity = 0;
 
         // Create the line element
-        vector<int> line = { (int)line_idx + 1 + 100, type, no_tags, physical_entity, _tag, node1_idx, node2_idx };
+        vector<int> line = { (int)line_idx + 1, type, no_tags, physical_entity, _tag, node1_idx, node2_idx };
         elements.push_back(line);
     }
 }

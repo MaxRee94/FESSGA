@@ -103,9 +103,9 @@ int main(int argc, char* argv[])
     map<uint32_t, uint32_t> line_bounds;
     string mesh_description = "";
     float domain_size = 2.0;
-    int x_dim = 5;
-    int y_dim = 5;
-    int z_dim = 5;
+    int x_dim = 30;
+    int y_dim = 30;
+    int z_dim = 30;
     float cell_size = domain_size / (float)x_dim;
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];

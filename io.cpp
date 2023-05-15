@@ -29,6 +29,8 @@ void mvis::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& 
     else {
         throw std::runtime_error("File type '." + extension + "' not supported.");
     }
+
+    cout << "Finished reading mesh." << endl;
 }
 
 bool mvis::IO::FileExists(std::string fpath) {
