@@ -130,6 +130,16 @@ int mvis::help::get_value(std::map<int, int>* _map, int key) {
     }
 }
 
+int mvis::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
+    std::map<uint32_t, uint32_t>::iterator it = _map->find(key);
+    if (it == _map->end()) {
+        return -1;
+    }
+    else {
+        return it->second;
+    }
+}
+
 int mvis::help::get_key(std::map<int, int>* _map, int value) {
     for (auto const& [key, val] : (*_map))
     {

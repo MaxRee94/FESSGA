@@ -22,7 +22,7 @@ Input:
 */
 void generate_msh(
     const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, MatrixXd* V, MatrixXi* F,
-    vector<uint64_t>* bounds, uint32_t* densities, string& msh
+    map<uint32_t, uint32_t>* line_bounds, uint32_t* densities, string& msh
 ) {
     // Generate grid-based binary density distribution based on the given (unstructured) mesh file
     vector<string> nodes;
@@ -30,8 +30,6 @@ void generate_msh(
     generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
     print_density_distrib(densities, dim_x);
 
-    // Generate Finite Element mesh from binary density distribution
-#if TEST2D:
     // Create slice from 3d binary density distribution for 2d test
     int z = dim_x / 2;
     uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
@@ -40,28 +38,9 @@ void generate_msh(
             slice_2d[x * dim_x + y] = densities[z * dim_x * dim_y + x * dim_x + y];
         }
     }
-    generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, bounds);
-#elif TEST3D:
-    generate_3d_FE_mesh(dim_x, dim_y, dim_z, cell_size, densities, nodes, elements, bounds);
-#endif
 
-
-#if !TEST2D && !TEST3D // Test with hardcoded nodes- and elements lists
-    nodes.push_back({ 0.0, 0.0, 0.0 });
-    nodes.push_back({ 1.0, 0.0, 0.0 });
-    nodes.push_back({ 1.0, 1.0, 0.0 });
-    nodes.push_back({ 0.0, 1.0, 0.0 });
-    nodes.push_back({ 2.0, 0.0, 0.0 });
-    nodes.push_back({ 2.0, 1.0, 0.0 });
-    elements.push_back({ 3, 1, 0, 1, 1, 4 });
-    elements.push_back({ 4, 1, 0, 2, 4, 3 });
-    elements.push_back({ 5, 1, 0, 2, 3, 6 });
-    elements.push_back({ 6, 1, 0, 3, 6, 5 });
-    elements.push_back({ 7, 1, 0, 4, 5, 2 });
-    elements.push_back({ 8, 1, 0, 4, 2, 1 });
-    elements.push_back({ 1, 3, 0, 2, 1, 2, 3, 4 });
-    elements.push_back({ 2, 3, 0, 2, 2, 5, 6, 3 });
-#endif
+    // Generate Finite Element mesh from binary density distribution
+    generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, line_bounds);
 
     // Encode mesh data into .msh-description
     // -- Format section
@@ -121,7 +100,7 @@ int main(int argc, char* argv[])
     gui.load_example();
 
     // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
-    vector<uint64_t> bounds = {};
+    map<uint32_t, uint32_t> line_bounds;
     string mesh_description = "";
     float domain_size = 2.0;
     int x_dim = 5;
@@ -130,7 +109,10 @@ int main(int argc, char* argv[])
     float cell_size = domain_size / (float)x_dim;
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
-    generate_msh(x_dim, y_dim, z_dim, cell_size, offset, &gui.V_list[0], &gui.F_list[0], &bounds, densities, mesh_description);
+    generate_msh(
+        x_dim, y_dim, z_dim, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
+        &line_bounds, densities, mesh_description
+    );
     cout << mesh_description << endl;
 
     // Write mesh description to .msh file

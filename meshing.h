@@ -183,14 +183,17 @@ int add_node_if_not_exists(
     return node_idx;
 }
 
-int get_2d_tag(vector<uint64_t>* bounds, uint32_t element_idx, int type) {
-    int tag = 1;
-    if (type == 3) {
-        if (bounds->size() > 0) {
-            // TODO: Check if element index corresponds to an item in bounds, and if so, which tag should be applied
-        }
+/* Return the tag that corresponds to the 
+*/
+int get_tag(map<uint32_t, uint32_t>* bounds, uint32_t element_idx, int type, int& tag) {
+    int _tag = mvis::help::get_value(bounds, element_idx);
+    if (_tag == -1) {
+        tag++; // If no tag was specified simply give each element a unique tag by incrementing it
+        return tag;
     }
-    return tag;
+    else {
+        return _tag; // Use the found tag
+    }
 }
 
 /* Find a node that has not yet been visited
@@ -211,7 +214,7 @@ int find_unvisited_node(
 */
 void generate_2d_FE_mesh(
     int dim_x, int dim_y, Vector3d offset, double cell_size, uint32_t* densities, vector<string>& nodes,
-    vector<vector<int>>& elements, vector<uint64_t>* bounds
+    vector<vector<int>>& elements, map<uint32_t, uint32_t>* bounds
 ) {
     int node_idx = 1;
     std::map<int, int> node_coords;
@@ -225,13 +228,21 @@ void generate_2d_FE_mesh(
                 int node2_idx = add_node_if_not_exists(x + 1, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
                 int node3_idx = add_node_if_not_exists(x, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
 
-                // Get the tag belonging to the surface element (if it has any)
-                // This information is stored in the bounds vector
+                // Compute surface index (equals coordinates + 1)
                 int surface_idx = x * dim_x + y + 1;
-                int tag = get_2d_tag(bounds, surface_idx, 3);
+
+                // For the 2d case, surfaces are never boundary elements. Therefore, tag is given a default value of 1.                int tag = 1;
+                int tag = 1;
+                
+                // Other default indices
+                int type = 3;
+                int physical_entity = 0;
+                int no_tags = 2;
 
                 // Create the surface element
-                vector<int> surface = { surface_idx, 3, 2, 1, tag, node1_idx, node2_idx, node3_idx, node4_idx };
+                vector<int> surface = {
+                    surface_idx, type, no_tags, physical_entity, tag, node1_idx, node2_idx, node3_idx, node4_idx
+                };
                 elements.push_back(surface);
             }
         }
@@ -406,6 +417,7 @@ void generate_2d_FE_mesh(
     cout << "ordered bound nodes: "; mvis::help::print_vector(&ordered_boundary_node_coords);
 
     // ---- Generate boundary lines ---- //
+    int tag = 1;
     for (int i = 1; i < ordered_boundary_node_coords.size(); i++) {
         // Get the 2 nodes that define the line
         int node1_coord = ordered_boundary_node_coords[i - 1];
@@ -444,11 +456,15 @@ void generate_2d_FE_mesh(
         uint32_t line_idx = (cell_coord << 2) + local_line_idx;
 
         // Get the tag belonging to the surface element (if it has any)
-        // This information is stored in the bounds vector
-        int tag = get_2d_tag(bounds, line_idx, 1);
+        int _tag = get_tag(bounds, line_idx, 1, tag);
+
+        // Unchanging indices
+        int type = 1;
+        int no_tags = 2;
+        int physical_entity = 0;
 
         // Create the line element
-        vector<int> line = { (int)line_idx + 1, 1, 2, 1, tag, node1_idx, node2_idx };
+        vector<int> line = { (int)line_idx + 1 + 100, type, no_tags, physical_entity, _tag, node1_idx, node2_idx };
         elements.push_back(line);
     }
 }

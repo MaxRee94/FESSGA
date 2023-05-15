@@ -36,5 +36,7 @@ namespace mvis {
 
 		static int get_value(std::map<int, int>* map, int key);
 
+		static int get_value(std::map<uint32_t, uint32_t>* map, uint32_t key);
+
 	};
 };
