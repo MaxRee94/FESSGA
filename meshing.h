@@ -183,7 +183,7 @@ int add_node_if_not_exists(
     return node_idx;
 }
 
-int get_2d_tag(vector<uint64_t>* bounds, int element_idx, int type) {
+int get_2d_tag(vector<uint64_t>* bounds, uint32_t element_idx, int type) {
     int tag = 1;
     if (type == 3) {
         if (bounds->size() > 0) {
@@ -214,7 +214,6 @@ void generate_2d_FE_mesh(
     vector<vector<int>>& elements, vector<uint64_t>* bounds
 ) {
     int node_idx = 1;
-    int surface_idx = 1;
     std::map<int, int> node_coords;
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
@@ -228,12 +227,12 @@ void generate_2d_FE_mesh(
 
                 // Get the tag belonging to the surface element (if it has any)
                 // This information is stored in the bounds vector
+                int surface_idx = x * dim_x + y + 1;
                 int tag = get_2d_tag(bounds, surface_idx, 3);
 
                 // Create the surface element
                 vector<int> surface = { surface_idx, 3, 2, 1, tag, node1_idx, node2_idx, node3_idx, node4_idx };
                 elements.push_back(surface);
-                surface_idx++;
             }
         }
     }
@@ -268,17 +267,13 @@ void generate_2d_FE_mesh(
         }
     }
 
-    cout << "node coord of node 6: " << mvis::help::get_key(&boundary_node_coords, 6) << endl;
-    cout << "node coord of node 23: " << mvis::help::get_key(&boundary_node_coords, 23) << endl;
-    cout << "node coord of node 4: " << mvis::help::get_key(&boundary_node_coords, 4) << endl;
-    cout << "node coord of node 2: " << mvis::help::get_key(&boundary_node_coords, 2) << endl;
-    cout << "node coord of node 1: " << mvis::help::get_key(&boundary_node_coords, 1) << endl;
+    //cout << "node coord of node 6: " << mvis::help::get_key(&boundary_node_coords, 6) << endl;
 
     // ----  Order boundary nodes according to occurrence along perimeter of the mesh ---- //
     // Initialize starting node and ordered boundary nodes maps
     int node_coord = boundary_node_coords.begin()->first;
     node_idx = boundary_node_coords.begin()->second;
-    std::vector<int> ordered_boundary_node_coords = {node_idx};
+    std::vector<int> ordered_boundary_node_coords = { node_coord };
     int x = node_coord / (dim_x + 1); 
     int y = node_coord % (dim_x + 1);
     int start_x = x; 
@@ -300,12 +295,14 @@ void generate_2d_FE_mesh(
         // If current node is the same as the starting node of the perimeter walk, re-start walk on a
         // node that has not yet been visited (such a node must be part of another component, for example a hole)
         if (i > 1 && x == start_x && y == start_y) {
-            cout << "starting perimeter walk on new component" << endl;
             node_coord = find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+            int node_idx = boundary_node_coords[node_coord];
+            ordered_boundary_node_coords.push_back(node_coord);
             x = node_coord / (dim_x + 1);
             y = node_coord % (dim_x + 1);
             start_x = x;
             start_y = y;
+            cout << "starting perimeter walk on new component. New Idx " << node_idx << ", New start x, y: " << x << ", " << y << endl;
 
             // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
             previous_x = x;
@@ -365,14 +362,17 @@ void generate_2d_FE_mesh(
 
         // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
         if (valid_neighbors.size() > 1) {
-            cout << "More than one neighbor found for node with coordinates " << x << ", " << y << endl;
             int j = 0;
-            while (j < 4) {
+            while (j < valid_neighbors.size()) {
                 bool neighbor_visited = mvis::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].second);
                 if (!neighbor_visited) {
                     break; // Found a valid neighbor that hasn't been visited yet
                 }
                 j++;
+            }
+            if (j == valid_neighbors.size()) {
+                // No unvisited neighbor was found. 
+                j = 0;
             }
 
             // Set the neighbor data to the data of the unvisited neighbor
@@ -380,6 +380,7 @@ void generate_2d_FE_mesh(
             neighbor_idx = valid_neighbors[j].second;
             neighbor_x = node_coord / (dim_x + 1);
             neighbor_y = node_coord % (dim_x + 1);
+            cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
         }
 
         if (neighbor_idx == -1) {
@@ -388,7 +389,7 @@ void generate_2d_FE_mesh(
         }
 
         // Add neighboring boundary node to vector
-        ordered_boundary_node_coords.push_back(neighbor_idx);
+        ordered_boundary_node_coords.push_back(neighbor_coord);
 
         // Set previous x and y coordinates to current ones
         previous_x = x;
@@ -403,4 +404,51 @@ void generate_2d_FE_mesh(
     cout << "no of unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
     cout << "ordered bound nodes: "; mvis::help::print_vector(&ordered_boundary_node_coords);
+
+    // ---- Generate boundary lines ---- //
+    for (int i = 1; i < ordered_boundary_node_coords.size(); i++) {
+        // Get the 2 nodes that define the line
+        int node1_coord = ordered_boundary_node_coords[i - 1];
+        int node2_coord = ordered_boundary_node_coords[i];
+        int node1_idx = boundary_node_coords[node1_coord];
+        int node2_idx = boundary_node_coords[node2_coord];
+
+        // Get line idx. Convention: line_idx = (<surface_coord> << 2) + <local_line_idx>
+        // local_line_idx: Stepping clockwise from left edge of cell (local_line_idx = 0)
+        int node1_x = node1_coord / (dim_x + 1);
+        int node1_y = node1_coord % (dim_x + 1);
+        int node2_x = node2_coord / (dim_x + 1);
+        int node2_y = node2_coord % (dim_x + 1);
+        int cell_x, cell_y;
+        uint32_t cell_coord, local_line_idx;
+        if (node1_x == node2_x) {   // Vertical line
+            cell_x = node1_x;
+            cell_y = min(node1_y, node2_y);
+            local_line_idx = 0;
+            if (node1_x == dim_x) { // Choose cell that has the line as its left side unless line is on the upper x-limit
+                cell_x = node1_x - 1;
+                local_line_idx = 2;
+            }
+        }
+        else { // Horizontal line
+            cell_y = node1_y;
+            cell_x = min(node1_x, node2_x);
+            local_line_idx = 3;
+            if (node1_y == dim_y) { // Choose cell that has the line as its bottom side unless line is on the upper y-limit
+                cell_y = node1_y - 1;
+                local_line_idx = 1;
+            }
+        }
+        // Use the last two bits of the integer to store the line idx. The first 30 are used for the cell coordinates
+        cell_coord = cell_x * dim_x + cell_y;
+        uint32_t line_idx = (cell_coord << 2) + local_line_idx;
+
+        // Get the tag belonging to the surface element (if it has any)
+        // This information is stored in the bounds vector
+        int tag = get_2d_tag(bounds, line_idx, 1);
+
+        // Create the line element
+        vector<int> line = { (int)line_idx + 1, 1, 2, 1, tag, node1_idx, node2_idx };
+        elements.push_back(line);
+    }
 }

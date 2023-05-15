@@ -123,10 +123,10 @@ int main(int argc, char* argv[])
     // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
     vector<uint64_t> bounds = {};
     string mesh_description = "";
-    float domain_size = 1.5;
-    int x_dim = 10;
-    int y_dim = 10;
-    int z_dim = 10;
+    float domain_size = 2.0;
+    int x_dim = 5;
+    int y_dim = 5;
+    int z_dim = 5;
     float cell_size = domain_size / (float)x_dim;
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
