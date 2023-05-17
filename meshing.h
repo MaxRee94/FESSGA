@@ -5,12 +5,12 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "Helpers.h"
+#include "helpers.h"
 
 
 using namespace Eigen;
 using namespace std;
-using namespace mvis;
+using namespace fessga;
 
 
 // Define the struct for a cell in the grid
@@ -200,7 +200,7 @@ int add_node_if_not_exists(
 /* Return the tag that corresponds to the 
 */
 int get_tag(map<uint, uint>* bounds, uint element_idx, int type, int& tag) {
-    int _tag = mvis::help::get_value(bounds, element_idx);
+    int _tag = fessga::help::get_value(bounds, element_idx);
     if (_tag == -1) {
         tag++; // If no tag was specified simply give each element a unique tag by incrementing it
         return tag;
@@ -293,7 +293,7 @@ void generate_2d_FE_mesh(
         }
     }
 
-    //cout << "node coord of node 6: " << mvis::help::get_key(&boundary_node_coords, 6) << endl;
+    //cout << "node coord of node 6: " << fessga::help::get_key(&boundary_node_coords, 6) << endl;
 
     // ----  Order boundary nodes according to occurrence along perimeter of the mesh ---- //
     // Initialize starting node and ordered boundary nodes maps
@@ -375,7 +375,7 @@ void generate_2d_FE_mesh(
 
             // Check whether the neighbor coordinates contain a boundary node
             _neighbor_coord = (x + _offset.first) * (dim_x + 1) + (y + _offset.second);
-            _neighbor_idx = mvis::help::get_value(&boundary_node_coords, _neighbor_coord);
+            _neighbor_idx = fessga::help::get_value(&boundary_node_coords, _neighbor_coord);
             neighbor_found = _neighbor_idx != -1;
             if (neighbor_found) {
                 neighbor_x = _neighbor_x;
@@ -390,7 +390,7 @@ void generate_2d_FE_mesh(
         if (valid_neighbors.size() > 1) {
             int j = 0;
             while (j < valid_neighbors.size()) {
-                bool neighbor_visited = mvis::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].second);
+                bool neighbor_visited = fessga::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].second);
                 if (!neighbor_visited) {
                     break; // Found a valid neighbor that hasn't been visited yet
                 }
@@ -429,7 +429,7 @@ void generate_2d_FE_mesh(
     }
     cout << "no of unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
-    cout << "ordered bound nodes: "; mvis::help::print_vector(&ordered_boundary_node_coords);
+    cout << "ordered bound nodes: "; fessga::help::print_vector(&ordered_boundary_node_coords);
 
     // ---- Generate boundary lines ---- //
     int tag = 1;

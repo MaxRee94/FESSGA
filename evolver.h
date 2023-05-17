@@ -5,7 +5,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "Helpers.h"
+#include "helpers.h"
 #include <functional>
 
 

@@ -6,7 +6,7 @@
 using namespace Eigen;
 using namespace std;
 
-namespace mvis {
+namespace fessga {
 	class GUI {
 	public:
 		GUI() = default;

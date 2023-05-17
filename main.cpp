@@ -7,7 +7,7 @@
 
 using namespace Eigen;
 using namespace std;
-using namespace mvis;
+using namespace fessga;
 
 
 int main(int argc, char* argv[])

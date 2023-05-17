@@ -5,7 +5,7 @@
 using namespace Eigen;
 using namespace std;
 
-mvis::GUI::GUI(vector<MatrixXd> _V_list, vector<MatrixXi> _F_list) {
+fessga::GUI::GUI(vector<MatrixXd> _V_list, vector<MatrixXi> _F_list) {
     V_list = _V_list;
     F_list = _F_list;
     viewer.data().set_face_based(true);
@@ -18,17 +18,17 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
     return false;
 }
 
-void mvis::GUI::load_example() {
+void fessga::GUI::load_example() {
     MatrixXd V;
     MatrixXi F;
-    mvis::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
+    fessga::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
     V_list.clear();
     F_list.clear();
     V_list.push_back(V);
     F_list.push_back(F);
 }
 
-void mvis::GUI::transform(
+void fessga::GUI::transform(
     igl::opengl::glfw::Viewer& viewer, MatrixXd& Vhom_orig, MatrixXd& Vhom, Matrix4d& T,
     MatrixXd& V, MatrixXi F, Vector3d pos_offset, float rot_y_offset
 ) {
@@ -56,7 +56,7 @@ void mvis::GUI::transform(
     viewer.data().set_face_based(true);
 }
 
-void mvis::GUI::show() {
+void fessga::GUI::show() {
     // Update viewer with current mesh lists
     for (int i = 0; i < V_list.size(); i++)
         viewer.data().set_mesh(V_list.at(0), F_list.at(0));

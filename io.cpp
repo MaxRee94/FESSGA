@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void mvis::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
+void fessga::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
 {
     if (!suppress_output) cout << "Reading mesh " << fpath << endl;
 
@@ -33,12 +33,12 @@ void mvis::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& 
     cout << "Finished reading mesh." << endl;
 }
 
-bool mvis::IO::FileExists(std::string fpath) {
+bool fessga::IO::FileExists(std::string fpath) {
     struct stat buffer;
     return (stat(fpath.c_str(), &buffer) == 0);
 }
 
-void mvis::IO::RenameFile(string _source, string _target, bool verbose) {
+void fessga::IO::RenameFile(string _source, string _target, bool verbose) {
     if (verbose) { cout << "Renaming file " << _source << " to " << _target << "..." << endl; }
 
     std::ifstream  src(_source, std::ios::binary);
@@ -56,7 +56,7 @@ void mvis::IO::RenameFile(string _source, string _target, bool verbose) {
         if (verbose) { puts("File successfully deleted"); }
 }
 
-void mvis::IO::WriteToCSV(string csv_path, vector<string> data, string headers) {
+void fessga::IO::WriteToCSV(string csv_path, vector<string> data, string headers) {
     std::ofstream fileStream;
     fileStream.open(csv_path, std::fstream::out);
     fileStream << headers << "\n";
@@ -69,14 +69,14 @@ void mvis::IO::WriteToCSV(string csv_path, vector<string> data, string headers) 
     fileStream.close();
 }
 
-void mvis::IO::write_text_to_file(string text, string path) {
+void fessga::IO::write_text_to_file(string text, string path) {
     std::ofstream fileStream;
     fileStream.open(path, std::fstream::out);
     fileStream << text << "\n";
     fileStream.close();
 }
 
-string mvis::IO::GetUniquePath(string fpath) {
+string fessga::IO::GetUniquePath(string fpath) {
     int vcount = 2;
     int padding = 2;
     while (IO::FileExists(fpath)) {
@@ -103,7 +103,7 @@ string mvis::IO::GetUniquePath(string fpath) {
     return fpath;
 }
 
-string mvis::IO::GetLatestPath(string templ) {
+string fessga::IO::GetLatestPath(string templ) {
     std::string path = help::ReplaceOccurrences(templ, "#", "_v002");
     std::string _path = path;
     int vcount = 2;

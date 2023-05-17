@@ -4,7 +4,7 @@
 
 void Evolver::do_2d_crossover(uint* parent1, uint* parent2, uint* child1, uint* child2, int dim_x, int dim_y) {
 	int domain_size = dim_x * dim_y;
-	vector<uint> crosspoints = { mvis::help::get_rand_uint(0, domain_size), mvis::help::get_rand_uint(0, domain_size) };
+	vector<uint> crosspoints = { fessga::help::get_rand_uint(0, domain_size), fessga::help::get_rand_uint(0, domain_size) };
 	uint crosspoint_1 = min(crosspoints[0], crosspoints[1]);
 	uint crosspoint_2 = max(crosspoints[0], crosspoints[1]);
 	//cout << "crosspoint 1: " << crosspoint_1 << ", crosspoint 2: " << crosspoint_2 << endl;

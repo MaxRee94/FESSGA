@@ -8,7 +8,7 @@ using namespace std;
 
 typedef unsigned int uint;
 
-namespace mvis {
+namespace fessga {
 	class help
 	{
 	public:

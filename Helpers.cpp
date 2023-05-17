@@ -1,4 +1,4 @@
-#include "Helpers.h"
+#include "helpers.h"
 #include <cstdio>
 #include <iostream>
 #include <fstream>
@@ -11,20 +11,20 @@ using namespace std;
 
 float INV_RAND_MAX = 1.0 / (float)RAND_MAX;
 
-float mvis::help::get_rand_float(float min, float max) {
+float fessga::help::get_rand_float(float min, float max) {
     return min + (float)rand() * INV_RAND_MAX * (max - min);
 }
 
-uint mvis::help::get_rand_uint(float min, float max) {
+uint fessga::help::get_rand_uint(float min, float max) {
     float float_rand_range = (float)rand() * INV_RAND_MAX * (max - min);
     return (int)(min + float_rand_range);
 }
 
-bool mvis::help::is_in(std::vector<int>* vec, int item) {
+bool fessga::help::is_in(std::vector<int>* vec, int item) {
     return find(vec->begin(), vec->end(), item) != vec->end();
 }
 
-void mvis::help::print_map(std::map<int, int>* map) {
+void fessga::help::print_map(std::map<int, int>* map) {
     int i = 0;
     for (auto const& [key, val] : (*map))
     {
@@ -44,7 +44,7 @@ void mvis::help::print_map(std::map<int, int>* map) {
     }
 }
 
-void mvis::help::print_vector(std::vector<int>* vec) {
+void fessga::help::print_vector(std::vector<int>* vec) {
     for (int i = 0; i < vec->size(); i++) {
         if (i > 0) cout << ", ";
         cout << vec->at(i);
@@ -52,7 +52,7 @@ void mvis::help::print_vector(std::vector<int>* vec) {
     cout << endl;
 }
 
-void mvis::help::NormalizeElementWise(Matrix3d* M) {
+void fessga::help::NormalizeElementWise(Matrix3d* M) {
     for (int i = 0; i < M->cols(); i++) {
         for (int j = 0; j < M->rows(); j++) {
             if ((*M)(i, j) != 0) {
@@ -62,7 +62,7 @@ void mvis::help::NormalizeElementWise(Matrix3d* M) {
     };
 }
 
-string mvis::help::ReplaceOccurrences(string basestring, string toReplace, string replaceWith) {
+string fessga::help::ReplaceOccurrences(string basestring, string toReplace, string replaceWith) {
     int pos = 0;
     string newstring = basestring;
     while (basestring.find(toReplace, pos) != string::npos) {
@@ -75,7 +75,7 @@ string mvis::help::ReplaceOccurrences(string basestring, string toReplace, strin
 }
 
 
-vector<size_t> mvis::help::FindAll(string basestring, string target) {
+vector<size_t> fessga::help::FindAll(string basestring, string target) {
     vector<size_t> occurrences;
     size_t found = 0;
     while (true) {
@@ -93,7 +93,7 @@ vector<size_t> mvis::help::FindAll(string basestring, string target) {
 }
 
 
-double mvis::help::fisqrt(float n)
+double fessga::help::fisqrt(float n)
 {
     float y = n;
     long i = *(long*)&y;
@@ -104,7 +104,7 @@ double mvis::help::fisqrt(float n)
 }
 
 
-void mvis::help::increment_key(std::map<std::string, int>* map, std::string key) {
+void fessga::help::increment_key(std::map<std::string, int>* map, std::string key) {
     if (map->find(key) == map->end()) {
         (*map)[key] = 1;
     }
@@ -113,7 +113,7 @@ void mvis::help::increment_key(std::map<std::string, int>* map, std::string key)
     }
 }
 
-float mvis::help::get_value(std::map<std::string, float>* map, std::string key) {
+float fessga::help::get_value(std::map<std::string, float>* map, std::string key) {
     if (map->find(key) == map->end()) {
         return 0;
     }
@@ -122,7 +122,7 @@ float mvis::help::get_value(std::map<std::string, float>* map, std::string key) 
     }
 }
 
-int mvis::help::get_value(std::map<std::string, int>* map, std::string key) {
+int fessga::help::get_value(std::map<std::string, int>* map, std::string key) {
     if (map->find(key) == map->end()) {
         return 0;
     }
@@ -131,7 +131,7 @@ int mvis::help::get_value(std::map<std::string, int>* map, std::string key) {
     }
 }
 
-int mvis::help::get_value(std::map<int, int>* _map, int key) {
+int fessga::help::get_value(std::map<int, int>* _map, int key) {
     map<int, int>::iterator it = _map->find(key);
     if (it == _map->end()) {
         return -1;
@@ -141,7 +141,7 @@ int mvis::help::get_value(std::map<int, int>* _map, int key) {
     }
 }
 
-int mvis::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
+int fessga::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
     std::map<uint32_t, uint32_t>::iterator it = _map->find(key);
     if (it == _map->end()) {
         return -1;
@@ -151,7 +151,7 @@ int mvis::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
     }
 }
 
-int mvis::help::get_key(std::map<int, int>* _map, int value) {
+int fessga::help::get_key(std::map<int, int>* _map, int value) {
     for (auto const& [key, val] : (*_map))
     {
         if (val == value) {

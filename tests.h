@@ -8,7 +8,7 @@
 #include "io.h"
 #include "gui.h"
 #include "meshing.h"
-#include "Helpers.h"
+#include "helpers.h"
 #include "evolver.h"
 
 
@@ -35,6 +35,7 @@ public:
         densities = new uint[dim_x * dim_y * dim_z];
         generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
     };
+    void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
     bool test_full_evolution();
 private:
@@ -52,18 +53,28 @@ private:
     uint* densities = 0;
 };
 
-bool Tester::test_2d_crossover() {
-    // Create 2 parent slices from the 3d binary density distribution for 2d test
-    int z1 = dim_x / 2 ;
+/*
+Create 2 parent slices from the 3d binary density distribution for 2d test
+*/
+void Tester::create_parents(uint* parent1, uint* parent2) {
+    
+    int z1 = dim_x / 2;
     int z2 = dim_x / 2 + (dim_x / 5);
-    uint* parent1 = new uint[dim_x * dim_y];
-    uint* parent2 = new uint[dim_x * dim_y];
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
             parent1[x * dim_x + y] = densities[z1 * dim_x * dim_y + x * dim_x + y];
             parent2[x * dim_x + y] = densities[z2 * dim_x * dim_y + x * dim_x + y];
         }
     }
+}
+
+/*
+Test 2-point crossover of two 2d parent solutions. Print parents and children to console
+*/
+bool Tester::test_2d_crossover() {
+    uint* parent1 = new uint[dim_x * dim_y];
+    uint* parent2 = new uint[dim_x * dim_y];
+    create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
     print_2d_density_distrib(parent1, dim_x);
     cout << "\nParent 2: \n";

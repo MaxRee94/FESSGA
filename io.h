@@ -8,7 +8,7 @@
 #include <igl/writePLY.h>
 
 
-namespace mvis {
+namespace fessga {
 	class IO {
 	public:
 		static void ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
