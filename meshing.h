@@ -19,11 +19,20 @@ struct Cell {
     int density;
 };
 
-void print_density_distrib(uint32_t* densities, int grid_size) {
-    int x = grid_size / 2;
+void print_density_distrib(uint* densities, int grid_size, int x = -1) {
+    if (x == -1) x = grid_size / 2;
     for (int y = 0; y < grid_size; y++) {
         for (int z = 0; z < grid_size; z++) {
             cout << densities[x * grid_size * grid_size + y * grid_size + z];
+        }
+        cout << endl;
+    }
+}
+
+void print_2d_density_distrib(uint* densities, int grid_size) {
+    for (int x = 0; x < grid_size; x++) {
+        for (int y = 0; y < grid_size; y++) {
+            cout << densities[x * grid_size + y];
         }
         cout << endl;
     }
@@ -87,11 +96,11 @@ bool trace_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d&
 /* Generate a binary density distribution on the grid based on the given mesh file
 Input:
 Returns (by reference):
-    densities (uint32_t*): Array which contains a binary density value (0 or 1) for each cell in the grid
+    densities (uint*): Array which contains a binary density value (0 or 1) for each cell in the grid
 */
 void generate_3d_density_distribution(
     int dim_x, int dim_y, int dim_z, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
-    uint32_t* densities
+    uint* densities
 ) {
     cout << "Generating 3d grid-based density distribution..." << endl;
 
@@ -190,7 +199,7 @@ int add_node_if_not_exists(
 
 /* Return the tag that corresponds to the 
 */
-int get_tag(map<uint32_t, uint32_t>* bounds, uint32_t element_idx, int type, int& tag) {
+int get_tag(map<uint, uint>* bounds, uint element_idx, int type, int& tag) {
     int _tag = mvis::help::get_value(bounds, element_idx);
     if (_tag == -1) {
         tag++; // If no tag was specified simply give each element a unique tag by incrementing it
@@ -218,9 +227,10 @@ int find_unvisited_node(
 /* Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void generate_2d_FE_mesh(
-    int dim_x, int dim_y, Vector3d offset, double cell_size, uint32_t* densities, vector<string>& nodes,
-    vector<vector<int>>& elements, map<uint32_t, uint32_t>* bounds
+    int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, vector<string>& nodes,
+    vector<vector<int>>& elements, map<uint, uint>* bounds
 ) {
+    // Create nodes and surfaces
     int node_idx = 1;
     std::map<int, int> node_coords;
     for (int x = 0; x < dim_x; x++) {
@@ -233,7 +243,7 @@ void generate_2d_FE_mesh(
                 int node2_idx = add_node_if_not_exists(x + 1, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
                 int node3_idx = add_node_if_not_exists(x, y + 1, offset, dim_x, node_coords, cell_size, nodes, node_idx);
 
-                // Compute surface index (equals coordinates + 1)
+                // Compute surface index (equals flattened coordinates + 1)
                 int surface_idx = x * dim_x + y + 1;
 
                 // For the 2d case, surfaces are never boundary elements. Therefore, tag is given a default value of 1.                int tag = 1;
@@ -437,7 +447,7 @@ void generate_2d_FE_mesh(
         int node2_x = node2_coord / (dim_x + 1);
         int node2_y = node2_coord % (dim_x + 1);
         int cell_x, cell_y;
-        uint32_t cell_coord, local_line_idx;
+        uint cell_coord, local_line_idx;
         if (node1_x == node2_x) {   // Vertical line
             cell_x = node1_x;
             cell_y = min(node1_y, node2_y);
@@ -458,7 +468,7 @@ void generate_2d_FE_mesh(
         }
         // Use the last two bits of the integer to store the line idx. The first 30 are used for the cell coordinates
         cell_coord = cell_x * dim_x + cell_y;
-        uint32_t line_idx = (cell_coord << 2) + local_line_idx;
+        uint line_idx = (cell_coord << 2) + local_line_idx;
 
         // Get the tag belonging to the surface element (if it has any)
         int _tag = get_tag(bounds, line_idx, 1, tag);
@@ -472,4 +482,82 @@ void generate_2d_FE_mesh(
         vector<int> line = { (int)line_idx + 1, type, no_tags, physical_entity, _tag, node1_idx, node2_idx };
         elements.push_back(line);
     }
+}
+
+
+#define TEST2D true;
+#define TEST3D false;
+#define TESTCROSSOVER true;
+
+/* Generate a grid-based description of a FE mesh that can be output as a .msh file
+Input:
+    dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
+    csize (float): Size of a single cell (size=width=height=depth)
+    V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
+    F (MatrixXi*): Pointer to the matrix of faces for the given mesh
+    msh (string): The generated description string in .msh-format
+*/
+void generate_msh(
+    const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, MatrixXd* V, MatrixXi* F,
+    map<uint32_t, uint32_t>* line_bounds, uint32_t* densities, string& msh
+) {
+    // Generate grid-based binary density distribution based on the given (unstructured) mesh file
+    vector<string> nodes;
+    vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
+    generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
+    print_density_distrib(densities, dim_x);
+
+    // Create slice from 3d binary density distribution for 2d test
+    int z = dim_x / 2;
+    uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            slice_2d[x * dim_x + y] = densities[z * dim_x * dim_y + x * dim_x + y];
+        }
+    }
+
+    // Generate Finite Element mesh from binary density distribution
+    generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, line_bounds);
+
+    // Encode mesh data into .msh-description
+    // -- Format section
+    msh = {
+        "$MeshFormat\n"
+        "2.0 0 8\n"
+        "$EndMeshFormat\n"
+    };
+
+    // -- Nodes section
+    msh += "$Nodes\n";
+    msh += to_string(nodes.size()) + "\n";          // Number of nodes
+    for (int i = 0; i < nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
+        msh += nodes[i];
+    }
+    msh += "$EndNodes\n";
+
+    // -- Elements section
+    msh += "$Elements\n";
+    int no_elements = elements.size();
+    msh += to_string(no_elements) + "\n";
+
+    // Iterate over all elements and add to description string
+    // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <physical entity> <tag> <node_1> ... <node_n>
+    // Element types:
+    //      1 : 2-node line
+    //      2 : 3-node triangle
+    //      3 : 4-node quad
+    //      4 : 4-node tetrahedron
+    //      5 : 8-node hexahedron (a cube is a regular hexahedron)
+    //      15: 1-node point
+    // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
+    for (int i = 0; i < elements.size(); i++) {
+        vector<int> element = elements[i];
+        for (int j = 0; j < element.size(); j++) {
+            msh += to_string(element[j]) + " ";
+        }
+        msh += "\n";
+    }
+
+    // End elements section
+    msh += "$EndElements\n";
 }

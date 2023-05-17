@@ -3,92 +3,16 @@
 #include "gui.h"
 #include "meshing.h"
 #include "physics.h"
+#include "tests.h"
 
 using namespace Eigen;
 using namespace std;
 using namespace mvis;
 
 
-#define TEST2D true;
-#define TEST3D false;
-
-/* Generate a grid-based description of a FE mesh that can be output as a .msh file
-Input: 
-    dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
-    csize (float): Size of a single cell (size=width=height=depth)
-    V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
-    F (MatrixXi*): Pointer to the matrix of faces for the given mesh
-    msh (string): The generated description string in .msh-format
-*/
-void generate_msh(
-    const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, MatrixXd* V, MatrixXi* F,
-    map<uint32_t, uint32_t>* line_bounds, uint32_t* densities, string& msh
-) {
-    // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-    vector<string> nodes;
-    vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-    generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
-    print_density_distrib(densities, dim_x);
-
-    // Create slice from 3d binary density distribution for 2d test
-    int z = dim_x / 2;
-    uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
-    for (int x = 0; x < dim_x; x++) {
-        for (int y = 0; y < dim_y; y++) {
-            slice_2d[x * dim_x + y] = densities[z * dim_x * dim_y + x * dim_x + y];
-        }
-    }
-
-    // Generate Finite Element mesh from binary density distribution
-    generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, line_bounds);
-
-    // Encode mesh data into .msh-description
-    // -- Format section
-    msh = {
-        "$MeshFormat\n"
-        "2.0 0 8\n"
-        "$EndMeshFormat\n"
-    };
-
-    // -- Nodes section
-    msh += "$Nodes\n";
-    msh += to_string(nodes.size()) + "\n";          // Number of nodes
-    for (int i = 0; i < nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
-        msh += nodes[i];
-    }
-    msh += "$EndNodes\n";
-
-    // -- Elements section
-    msh += "$Elements\n";
-    int no_elements = elements.size();
-    msh += to_string(no_elements) + "\n";
-
-    // Iterate over all elements and add to description string
-    // Each element is encoded as <elm-number> <elm-type> <number-of-tags> <physical entity> <tag> <node_1> ... <node_n>
-    // Element types:
-    //      1 : 2-node line
-    //      2 : 3-node triangle
-    //      3 : 4-node quad
-    //      4 : 4-node tetrahedron
-    //      5 : 8-node hexahedron (a cube is a regular hexahedron)
-    //      15: 1-node point
-    // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
-    for (int i = 0; i < elements.size(); i++) {
-        vector<int> element = elements[i];
-        for (int j = 0; j < element.size(); j++) {
-            msh += to_string(element[j]) + " ";
-        }
-        msh += "\n";
-    }
-
-    // End elements section
-    msh += "$EndElements\n";
-}
-
-
 int main(int argc, char* argv[])
 {
-#if 1:
+#if 0:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -96,7 +20,7 @@ int main(int argc, char* argv[])
     // Initialize gui
     GUI gui = GUI(V_list, F_list);
 
-    // Load example cube
+    // Load example object
     gui.load_example();
 
     // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
@@ -165,6 +89,11 @@ int main(int argc, char* argv[])
 
     renderWindow->Render();
     renderWindowInteractor->Start();
+
+#elif 1
+    // Do tests
+    Tester tester = Tester();
+    tester.test_2d_crossover();
 
 #endif
 }
