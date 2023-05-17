@@ -9,6 +9,7 @@ using namespace std;
 namespace mvis {
 	class GUI {
 	public:
+		GUI() = default;
 		GUI(vector<MatrixXd> _V_list, vector<MatrixXi> _F_list);
 		void transform(igl::opengl::glfw::Viewer& viewer, MatrixXd& Vhom_orig, MatrixXd& Vhom, Matrix4d& T,
 			MatrixXd& V, MatrixXi F, Vector3d pos_offset, float rot_y_offset);

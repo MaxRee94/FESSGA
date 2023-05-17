@@ -4,10 +4,21 @@
 #include <fstream>
 #include <algorithm>
 #include <filesystem.>
+#include <time.h>
 
 using namespace Eigen;
 using namespace std;
 
+float INV_RAND_MAX = 1.0 / (float)RAND_MAX;
+
+float mvis::help::get_rand_float(float min, float max) {
+    return min + (float)rand() * INV_RAND_MAX * (max - min);
+}
+
+uint mvis::help::get_rand_uint(float min, float max) {
+    float float_rand_range = (float)rand() * INV_RAND_MAX * (max - min);
+    return (int)(min + float_rand_range);
+}
 
 bool mvis::help::is_in(std::vector<int>* vec, int item) {
     return find(vec->begin(), vec->end(), item) != vec->end();

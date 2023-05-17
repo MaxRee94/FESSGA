@@ -2,8 +2,11 @@
 #include <Eigen/Core>
 #include <vector>
 #include <map>
+#include <cstdlib>
 
 using namespace std;
+
+typedef unsigned int uint;
 
 namespace mvis {
 	class help
@@ -37,6 +40,10 @@ namespace mvis {
 		static int get_value(std::map<int, int>* map, int key);
 
 		static int get_value(std::map<uint32_t, uint32_t>* map, uint32_t key);
+
+		static float get_rand_float(float min, float max);
+
+		static uint get_rand_uint(float min, float max);
 
 	};
 };
