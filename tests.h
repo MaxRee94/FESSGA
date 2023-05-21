@@ -84,7 +84,7 @@ bool Tester::test_2d_crossover() {
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
     Evolver evolver = Evolver();
-    evolver.do_2d_crossover(parent1, parent2, child1, child2, dim_x, dim_y);
+    evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
     print_2d_density_distrib(child1, dim_x);
@@ -95,5 +95,7 @@ bool Tester::test_2d_crossover() {
 }
 
 bool Tester::test_full_evolution() {
+    Evolver evolver = Evolver();
+    
     return true;
 }
