@@ -34,6 +34,10 @@ public:
         Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
         densities = new uint[dim_x * dim_y * dim_z];
         generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
+        
+        // Change domain to 2d
+        dim_z = 0;
+        no_cells = dim_x * dim_y;
     };
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
@@ -44,6 +48,7 @@ private:
     GUI gui;
     map<uint, uint> line_bounds;
     string mesh_description = "";
+    uint no_cells;
     float domain_size;
     int dim_x;
     int dim_y;
@@ -74,6 +79,7 @@ Test 2-point crossover of two 2d parent solutions. Print parents and children to
 bool Tester::test_2d_crossover() {
     uint* parent1 = new uint[dim_x * dim_y];
     uint* parent2 = new uint[dim_x * dim_y];
+
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
     print_2d_density_distrib(parent1, dim_x);
@@ -83,7 +89,7 @@ bool Tester::test_2d_crossover() {
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
-    Evolver evolver = Evolver();
+    Evolver evolver = Evolver(4, (float)0.01, &termination_condition_reached, 2, parent1, dim_x, dim_y);
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
