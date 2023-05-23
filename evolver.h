@@ -9,13 +9,13 @@
 #include <functional>
 
 
-bool termination_condition_reached(uint* population, int pop_size, int no_cells, float threshold);
+bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold);
 
 class Evolver {
 public:
 	Evolver() = default;
 	Evolver(
-		int _pop_size, float _mutation_rate, function<bool(uint*, int, int, float)> _terminate,
+		int _pop_size, float _mutation_rate, function<bool(uint*, int, int, float)> _termination_condition,
 		int _tournament_size, uint* _base_densities, int _dim_x, int _dim_y, int _dim_z = 0,
 		float _initial_perturbation_size = 0.5, float variance_treshold = 0.5
 	) {
@@ -30,7 +30,7 @@ public:
 		pop_size = _pop_size;
 		mutation_rate = _mutation_rate;
 		tournament_size = _tournament_size;
-		terminate = _terminate;
+		termination_condition = _termination_condition;
 		initial_perturbation_size = _initial_perturbation_size;
 	}
 	void do_2d_crossover(uint* parent1, uint* parent2, uint* child1, uint* child2);
@@ -50,6 +50,6 @@ private:
 	int tournament_size = 1;
 	uint* base_densities = 0;
 	uint* population = 0;
-	function<bool(uint*, int, int, float)> terminate = 0;
+	function<bool(uint*, int, int, float)> termination_condition = 0;
 };
 

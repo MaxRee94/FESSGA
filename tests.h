@@ -89,7 +89,7 @@ bool Tester::test_2d_crossover() {
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
-    Evolver evolver = Evolver(4, (float)0.01, &termination_condition_reached, 2, parent1, dim_x, dim_y);
+    Evolver evolver = Evolver(4, (float)0.01, &variation_minimum_passed, 2, parent1, dim_x, dim_y);
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";

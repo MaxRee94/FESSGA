@@ -2,16 +2,27 @@
 #include <iostream>
 
 
-bool termination_condition_reached(uint* population, int pop_size, int no_cells, float threshold) {
+/*
+Termination condition based on the 'variation' within the population.
+Variation is not the same as variance; it is determined by the number of times each solution differs from another solution
+where the 'other solution' is randomly chosen from the population (to avoid doing a costly n^2 check of all combinations
+of solutions).
+*/
+bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold) {
 	float sum_of_sq_diffs = 0;
 	for (int i = 0; i < pop_size; i++) {
-		for (int c = 0; c < no_cells; c++) {
-			int diff = abs((int)(population[i * no_cells + c] - population[i * no_cells + c]));
-			sum_of_sq_diffs += diff * diff;
+		int individual_diff = 0;
+		int other_indiv_idx = i;
+		while (other_indiv_idx == i) {
+			other_indiv_idx = fessga::help::get_rand_uint(0, pop_size - 1);
 		}
+		for (int c = 0; c < no_cells; c++) {
+			individual_diff += (int)population[i * no_cells + c] - (int)population[other_indiv_idx * no_cells + c];
+		}
+		sum_of_sq_diffs += individual_diff * individual_diff;
 	}
-	float variance = sqrt(sum_of_sq_diffs) / pop_size;
-	if (variance < threshold) return true;
+	float variation = sqrt(sum_of_sq_diffs) / (float)(pop_size * no_cells);
+	if (variation < threshold) return true;
 	else return false;
 }
 
