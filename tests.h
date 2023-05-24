@@ -11,6 +11,7 @@
 #include "helpers.h"
 #include "evolver.h"
 
+using namespace fessga;
 
 class Tester {
 public:
@@ -20,7 +21,7 @@ public:
         srand(time(0));
 
         // Initialize gui
-        gui = GUI(V_list, F_list);
+        gui = fessga::GUI(V_list, F_list);
 
         // Load example object
         gui.load_example();
@@ -33,7 +34,7 @@ public:
         cell_size = domain_size / (float)dim_x;
         Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
         densities = new uint[dim_x * dim_y * dim_z];
-        generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
+        mesher::generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
         
         // Change domain to 2d
         dim_z = 0;
@@ -82,9 +83,9 @@ bool Tester::test_2d_crossover() {
 
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
-    print_2d_density_distrib(parent1, dim_x);
+    mesher::print_2d_density_distrib(parent1, dim_x);
     cout << "\nParent 2: \n";
-    print_2d_density_distrib(parent2, dim_x);
+    mesher::print_2d_density_distrib(parent2, dim_x);
 
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
@@ -93,9 +94,9 @@ bool Tester::test_2d_crossover() {
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
-    print_2d_density_distrib(child1, dim_x);
+    mesher::print_2d_density_distrib(child1, dim_x);
     cout << "\Child 2: \n";
-    print_2d_density_distrib(child2, dim_x);
+    mesher::print_2d_density_distrib(child2, dim_x);
 
     return true;
 }

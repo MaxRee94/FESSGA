@@ -12,6 +12,9 @@ using namespace fessga;
 
 int main(int argc, char* argv[])
 {
+    int x_dim = 30;
+    int y_dim = 30;
+    int z_dim = 30;
 #if 0:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
@@ -27,13 +30,11 @@ int main(int argc, char* argv[])
     map<uint32_t, uint32_t> line_bounds;
     string mesh_description = "";
     float domain_size = 2.0;
-    int x_dim = 30;
-    int y_dim = 30;
-    int z_dim = 30;
+    
     float cell_size = domain_size / (float)x_dim;
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
     uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
-    generate_msh(
+    mesher::generate_msh(
         x_dim, y_dim, z_dim, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
         &line_bounds, densities, mesh_description
     );
@@ -44,10 +45,10 @@ int main(int argc, char* argv[])
     IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
-#elif 0
-    MatrixXd stress;
+#elif 1
+    SparseMatrix<double> Vonmises;
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
-    load_physics_data(filename, stress);
+    load_physics_data(filename, &Vonmises);
 #elif 0
     std::string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
 
@@ -90,7 +91,7 @@ int main(int argc, char* argv[])
     renderWindow->Render();
     renderWindowInteractor->Start();
 
-#elif 1
+#elif 0
     // Do tests
     Tester tester = Tester();
     tester.test_2d_crossover();

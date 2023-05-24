@@ -9,6 +9,7 @@ using namespace std;
 typedef unsigned int uint;
 
 namespace fessga {
+
 	class help
 	{
 	public:
