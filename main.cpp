@@ -46,9 +46,10 @@ int main(int argc, char* argv[])
 
     gui.show();
 #elif 1
-    SparseMatrix<double> Vonmises;
+    SparseMatrix<double> VonmisesStress;
+    //string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
-    load_physics_data(filename, &Vonmises);
+    load_physics_data(filename, &VonmisesStress);
 #elif 0
     std::string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
 
