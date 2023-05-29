@@ -8,6 +8,7 @@
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 #include <vtkXMLUnstructuredGridReader.h>
+#include <vtkUnstructuredGridReader.h>
 #include <vtkAutoInit.h>
 #include <vtkTypedDataArray.h>
 #include <vtkTypedDataArrayIterator.h>
@@ -31,17 +32,18 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 void load_physics_data(string filename, SparseMatrix<double>* VonmisesStress)
 {
     // Read data from file
-    vtkNew<vtkXMLUnstructuredGridReader> reader;
+    //vtkNew<vtkXMLUnstructuredGridReader> reader;
+    vtkNew<vtkUnstructuredGridReader> reader;
     reader->SetFileName(filename.c_str());
+    reader->ReadAllScalarsOn();
     reader->Update();
     vtkUnstructuredGrid* output = reader->GetOutput();
 
     // Get node indices
-    //vtkCellArray* cell_array = output->GetCells();
     vtkPoints* points = output->GetPoints();
     for (int i = 0; i < points->GetNumberOfPoints(); i++) {
         double* point = points->GetData()->GetTuple(i);
-        cout << "point " << i + 1 << ": " << point[0]  << ", " << point[1] << endl;
+        //cout << "point " << i + 1 << ": " << point[0] << ", " << point[1] << endl;
     }
     cout << endl;
 
@@ -53,18 +55,23 @@ void load_physics_data(string filename, SparseMatrix<double>* VonmisesStress)
     }
     cout << endl;*/
     
-    // Get point data (this is the physics data)
+    // Get point data (this object contains the physics data)
     vtkPointData* point_data = output->GetPointData();
 
+    cout << "number of scalars: " << reader->GetNumberOfScalarsInFile() << endl;
+
     // Obtain Von Mises stress array
-    vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(point_data->GetArray("vonmises"));
+    vtkDataArray* vonmises_data = point_data->GetScalars("Vonmises");
+    cout << "vonmises data array size: " << vonmises_data->GetDataSize() << endl;
+    vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(vonmises_data);
+
+    cout << "num values: " << vonmises_array->GetNumberOfValues() << endl;
 
     // Reformat data as sparse matrix which contains an entry for each cell in the grid
     // (including cells not present in the FE mesh, these will have the value 0. Hence the sparse matrix representation).
     // TODO: do this by first obtaining the node indices (with output->getCellData?) and then using these to infer which values
     // in the stress array correspond to which cells in the grid.
-    // vonmises_array->GetNumberOfValues();
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < vonmises_array->GetNumberOfValues(); i++) {
         cout << vonmises_array->GetValue(i) << endl;
     }
 }
