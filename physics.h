@@ -3,11 +3,7 @@
 #include <vtkNamedColors.h>
 #include <vtkNew.h>
 #include <vtkProperty.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderWindowInteractor.h>
-#include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
-#include <vtkXMLUnstructuredGridReader.h>
 #include <vtkUnstructuredGridReader.h>
 #include <vtkAutoInit.h>
 #include <vtkTypedDataArray.h>
@@ -18,60 +14,42 @@
 #include <vtkPointData.h>
 #include <vtkFloatArray.h>
 #include <vtkDoubleArray.h>
-#include <vtkIntArray.h>
-#include <vtkCellData.h>
-#include <vtkCell.h>
-#include <vtkCellArray.h>
 #include <vtkPoints.h>
-#include <vtkIdList.h>
 #include "vtkUnstructuredGridAlgorithm.h"
 
 VTK_MODULE_INIT(vtkRenderingOpenGL2)
 
 
-void load_physics_data(string filename, SparseMatrix<double>* VonmisesStress)
+void load_physics_data(string filename, double* vonmises, int dim_x, int dim_y, int dim_z)
 {
     // Read data from file
-    //vtkNew<vtkXMLUnstructuredGridReader> reader;
     vtkNew<vtkUnstructuredGridReader> reader;
     reader->SetFileName(filename.c_str());
     reader->ReadAllScalarsOn();
     reader->Update();
     vtkUnstructuredGrid* output = reader->GetOutput();
 
-    // Get node indices
-    vtkPoints* points = output->GetPoints();
-    for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-        double* point = points->GetData()->GetTuple(i);
-        //cout << "point " << i + 1 << ": " << point[0] << ", " << point[1] << endl;
+    // Initially, populate vonmises array with zeroes (nodes on the grid which are part of the FE mesh will have their
+    // corresponding values in the vonmises array overwritten later)
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            for (int z = 0; z < dim_z; z++) {
+                vonmises[x * dim_z * dim_y + y * dim_z + z] = 0;
+            }
+        }
     }
-    cout << endl;
 
-    // Get point ids
-    /*vtkIdList* point_ids;
-    output->GetCellPoints(8, point_ids);
-    for (int i = 0; i < point_ids->GetNumberOfIds(); i++) {
-        cout << point_ids->GetId(0) << endl;
-    }
-    cout << endl;*/
-    
     // Get point data (this object contains the physics data)
     vtkPointData* point_data = output->GetPointData();
 
-    cout << "number of scalars: " << reader->GetNumberOfScalarsInFile() << endl;
-
     // Obtain Von Mises stress array
-    vtkDataArray* vonmises_data = point_data->GetScalars("Vonmises");
-    cout << "vonmises data array size: " << vonmises_data->GetDataSize() << endl;
-    vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(vonmises_data);
+    vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
 
-    cout << "num values: " << vonmises_array->GetNumberOfValues() << endl;
-
-    // Reformat data as sparse matrix which contains an entry for each cell in the grid
-    // (including cells not present in the FE mesh, these will have the value 0. Hence the sparse matrix representation).
-    // TODO: do this by first obtaining the node indices (with output->getCellData?) and then using these to infer which values
-    // in the stress array correspond to which cells in the grid.
-    for (int i = 0; i < vonmises_array->GetNumberOfValues(); i++) {
-        cout << vonmises_array->GetValue(i) << endl;
+    // Overwrite vonmises values for nodes on the grid which are part of the FE mesh
+    vtkPoints* points = output->GetPoints();
+    for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+        double* point = points->GetData()->GetTuple(i);
+        int coord = (int)(point[0] * dim_x * dim_y + point[1] * dim_x + point[2]);
+        vonmises[coord] = vonmises_array->GetValue(i);
     }
 }

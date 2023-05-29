@@ -12,9 +12,9 @@ using namespace fessga;
 
 int main(int argc, char* argv[])
 {
-    int x_dim = 30;
-    int y_dim = 30;
-    int z_dim = 30;
+    int dim_x = 30;
+    int dim_y = 30;
+    int dim_z = 30;
 #if 0:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
@@ -31,11 +31,11 @@ int main(int argc, char* argv[])
     string mesh_description = "";
     float domain_size = 2.0;
     
-    float cell_size = domain_size / (float)x_dim;
-    Vector3d offset = -cell_size * 0.5 * Vector3d((double)x_dim, (double)y_dim, (double)z_dim);
-    uint32_t* densities = new uint32_t[x_dim * y_dim * z_dim];
+    float cell_size = domain_size / (float)dim_x;
+    Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
+    uint32_t* densities = new uint32_t[dim_x * dim_y * dim_z];
     mesher::generate_msh(
-        x_dim, y_dim, z_dim, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
+        dim_x, dim_y, dim_z, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
         &line_bounds, densities, mesh_description
     );
     cout << mesh_description << endl;
@@ -46,10 +46,9 @@ int main(int argc, char* argv[])
 
     gui.show();
 #elif 1
-    SparseMatrix<double> VonmisesStress;
+    double* vonmises = new double[dim_x * dim_y * dim_z];
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case0001.vtk";
-    //string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
-    load_physics_data(filename, &VonmisesStress);
+    load_physics_data(filename, vonmises, dim_x, dim_y, dim_z);
 #elif 0
     std::string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
 
