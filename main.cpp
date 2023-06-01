@@ -12,10 +12,10 @@ using namespace fessga;
 
 int main(int argc, char* argv[])
 {
-    int dim_x = 30;
-    int dim_y = 30;
-    int dim_z = 30;
-#if 0:
+    int dim_x = 100;
+    int dim_y = 100;
+    int dim_z = 100;
+#if 1:
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -45,54 +45,14 @@ int main(int argc, char* argv[])
     IO::write_text_to_file(mesh_description, output_path);
 
     gui.show();
-#elif 1
+#elif 0
     double* vonmises = new double[dim_x * dim_y * dim_z];
     string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case0001.vtk";
+    cout << "started reading physics data..." << endl;
     load_physics_data(filename, vonmises, dim_x, dim_y, dim_z);
+    cout << "finished reading physics data." << endl;
 #elif 0
-    std::string filename = "D:/OneDrive/Documenten/CSYST_Project/geometry/gmesh/test_2elements/case_t0001.vtu";
-
-    // read all the data from the file
-    vtkNew<vtkXMLUnstructuredGridReader> reader;
-    reader->SetFileName(filename.c_str());
-    reader->Update();
-
-    vtkNew<vtkNamedColors> colors;
-
-    // Create a mapper and actor
-    vtkNew<vtkDataSetMapper> mapper;
-    mapper->SetInputConnection(reader->GetOutputPort());
-    mapper->ScalarVisibilityOff();
-
-    vtkNew<vtkActor> actor;
-    actor->SetMapper(mapper);
-    actor->GetProperty()->EdgeVisibilityOn();
-    actor->GetProperty()->SetLineWidth(2.0);
-    actor->GetProperty()->SetColor(colors->GetColor3d("MistyRose").GetData());
-
-    vtkNew<vtkProperty> backFace;
-    backFace->SetColor(colors->GetColor3d("Tomato").GetData());
-    actor->SetBackfaceProperty(backFace);
-
-    // Create a renderer, render window, and interactor
-    vtkNew<vtkRenderer> renderer;
-    vtkNew<vtkRenderWindow> renderWindow;
-    renderWindow->AddRenderer(renderer);
-    vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
-    renderWindowInteractor->SetRenderWindow(renderWindow);
-
-    // Add the actor to the scene
-    renderer->AddActor(actor);
-    renderer->SetBackground(colors->GetColor3d("Wheat").GetData());
-
-    // Render and interact
-    renderWindow->SetSize(640, 480);
-
-    renderWindow->Render();
-    renderWindowInteractor->Start();
-
-#elif 0
-    // Do tests
+    // Do crossover test
     Tester tester = Tester();
     tester.test_2d_crossover();
 

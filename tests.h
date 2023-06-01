@@ -83,9 +83,9 @@ bool Tester::test_2d_crossover() {
 
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
-    mesher::print_2d_density_distrib(parent1, dim_x);
+    mesher::print_2d_density_distrib(parent1, dim_x, dim_y);
     cout << "\nParent 2: \n";
-    mesher::print_2d_density_distrib(parent2, dim_x);
+    mesher::print_2d_density_distrib(parent2, dim_x, dim_y);
 
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
@@ -94,9 +94,9 @@ bool Tester::test_2d_crossover() {
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
-    mesher::print_2d_density_distrib(child1, dim_x);
+    mesher::print_2d_density_distrib(child1, dim_x, dim_y);
     cout << "\Child 2: \n";
-    mesher::print_2d_density_distrib(child2, dim_x);
+    mesher::print_2d_density_distrib(child2, dim_x, dim_y);
 
     return true;
 }

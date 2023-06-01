@@ -24,25 +24,24 @@ namespace fessga {
             int density;
         };
 
-        static void print_density_distrib(uint* densities, int grid_size, int x = -1) {
-            if (x == -1) x = grid_size / 2;
-            for (int y = 0; y < grid_size; y++) {
-                for (int z = 0; z < grid_size; z++) {
-                    cout << densities[x * grid_size * grid_size + y * grid_size + z];
-                }
-                cout << endl;
-            }
-        }
-
-        static void print_2d_density_distrib(uint* densities, int grid_size) {
+        static void print_density_distrib(uint* densities, int grid_size, int z = -1) {
+            if (z == -1) z = grid_size / 2;
             for (int x = 0; x < grid_size; x++) {
                 for (int y = 0; y < grid_size; y++) {
-                    cout << densities[x * grid_size + y];
+                    cout << densities[z * grid_size * grid_size + x * grid_size + y];
                 }
                 cout << endl;
             }
         }
 
+        static void print_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
+            for (int y = dim_y -1; y > -1; y--) {
+                for (int x = 0; x < dim_x; x++) {
+                    cout << densities[x * dim_x + y];
+                }
+                cout << endl;
+            }
+        }
 
         struct Ray {
             Vector3d origin;
@@ -118,9 +117,9 @@ namespace fessga {
             // Compute vector to center of a grid cell from its corner
             Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5) * cell_size;
 
-            // Initialize two different ray directions, (this is a temporary fix for a bug whereby some cells
+            // Initialize different ray directions, (this is a temporary fix for a bug whereby some cells
             // are not properly assigned a density of 1)
-            vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized() };
+            vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0) };
 
             // Create list of triangles
             std::vector<Triangle> triangles;
@@ -133,6 +132,7 @@ namespace fessga {
             }
 
             // Assign density values to cells in the grid
+#pragma omp parallel for
             for (int x = 0; x < dim_x; x++) {
                 for (int y = 0; y < dim_y; y++) {
                     for (int z = 0; z < dim_z; z++) {
@@ -140,8 +140,8 @@ namespace fessga {
                         Vector3d indices; indices << x, y, z;
                         cell.position = offset + indices * cell_size + to_cell_center;
                         cell.density = 0;
-                        // Try two ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
-                        for (int i = 0; i < 2; i++) {
+                        // Try three ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
+                        for (int i = 0; i < 3; i++) {
                             // Cast ray and check for hits
                             Ray ray;
                             ray.origin = cell.position;
@@ -167,6 +167,63 @@ namespace fessga {
                     }
                 }
             }
+            cout << "Finished generating density distribution. Filtering out floating cells..." << endl;
+
+            // Filter out floating cells that have no direct neighbors
+#pragma omp parallel for
+            for (int x = 0; x < dim_x; x++) {
+                for (int y = 0; y < dim_y; y++) {
+                    for (int z = 0; z < dim_z; z++) {
+                        int filled = densities[x * dim_x * dim_y + y * dim_y + z];
+                        if (!filled) continue;
+                        int neighbor = 0;
+                        for (int _x = -1; _x <= 1; _x++) {
+                            for (int _y = -1; _y <= 1; _y++) {
+                                for (int _z = -1; _z <= 1; _z++) {
+                                    if (x+_x == dim_x || y + _y == dim_y || z+_z == dim_z) continue;
+                                    if (x+_x == 0 || y+_y == 0 || z+_z == 0) continue;
+                                    neighbor = densities[(x+_x) * dim_x * dim_y + (y+_y) * dim_y + (z+_z)];
+                                    if (neighbor) break;
+                                }
+                                if (neighbor) break;
+                            }
+                            if (neighbor) break;
+                        }
+                        if (!neighbor) {
+                            cout << "floating cell detected. Setting to 0" << endl;
+                            densities[x * dim_x * dim_y + y * dim_y + z] = 0; // Set density to 0 if the cell has no neighbors
+                        }
+                    }
+                }
+            }
+            cout << "Finished filtering floating cells." << endl;
+        }
+
+        static void filter_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
+            // Filter out floating cells that have no direct neighbors
+#pragma omp parallel for
+            for (int x = 0; x < dim_x; x++) {
+                for (int y = 0; y < dim_y; y++) {
+                    int filled = densities[x * dim_y + y];
+                    if (!filled) continue;
+                    int neighbor = 0;
+                    for (int _x = -1; _x <= 1; _x++) {
+                        for (int _y = -1; _y <= 1; _y++) {
+                            if (_y == _x == 0) continue;
+                            if (x + _x == dim_x || y + _y == dim_y) continue;
+                            if (x + _x == 0 || y + _y == 0) continue;
+                            neighbor = densities[(x + _x) * dim_y + (y + _y)];
+                            if (neighbor) break;
+                        }
+                        if (neighbor) break;
+                    }
+                    if (!neighbor) {
+                        cout << "floating cell detected. Setting to 0" << endl;
+                        densities[x * dim_y + y] = 0; // Set density to 0 if the cell has no neighbors
+                    }
+                }
+            }
+            cout << "Finished filtering floating cells." << endl;
         }
 
         static bool node_exists(std::map<int, int>* node_coords, int coords) {
@@ -185,11 +242,12 @@ namespace fessga {
             dim_x += 1; // Number of nodes along an axis = number of cells + 1
             int node_idx = _node_idx;
             if (!node_exists(&node_coords, x * dim_x + y)) {
+                uint node_coord = x * dim_x + y;
+                node_coords[node_coord] = _node_idx;
                 string node =
-                    to_string(_node_idx) + " " + to_string(cell_size * x + offset(0)) + " "
+                    to_string(node_coord + 1) + " " + to_string(cell_size * x + offset(0)) + " "
                     + to_string(cell_size * y + offset(1)) + "\n";
                 nodes.push_back(node);
-                node_coords[x * dim_x + y] = _node_idx;
                 _node_idx++;
                 //cout << "node for (" << x << ", " << y << " ) does not exist.Created new node " << _node_idx-1 << endl;
             }
@@ -198,10 +256,10 @@ namespace fessga {
                 //cout << "node for (" << x << ", " << y << " ) already existed" << endl;
             }
 
-            return node_idx;
+            return x * dim_x + y + 1;
         }
 
-        /* Return the tag that corresponds to the
+        /* Return the tag that corresponds to the given element index
         */
         static int get_tag(map<uint, uint>* bounds, uint element_idx, int type, int& tag) {
             int _tag = fessga::help::get_value(bounds, element_idx);
@@ -221,7 +279,8 @@ namespace fessga {
         ) {
             for (auto [node_coord, node_idx] : *boundary_nodes) {
                 bool visited = std::find(
-                    ordered_boundary_nodes->begin(), ordered_boundary_nodes->end(), node_idx) != ordered_boundary_nodes->end();
+                    ordered_boundary_nodes->begin(), ordered_boundary_nodes->end(), node_coord) != ordered_boundary_nodes->end();
+                cout << "node coord: " << node_coord << " visited? " << visited << endl;
                 if (!visited) {
                     return node_coord;
                 }
@@ -250,7 +309,7 @@ namespace fessga {
                         // Compute surface index (equals flattened coordinates + 1)
                         int surface_idx = x * dim_x + y + 1;
 
-                        // For the 2d case, surfaces are never boundary elements. Therefore, tag is given a default value of 1.                int tag = 1;
+                        // For the 2d case, surfaces are never boundary elements. Therefore, tag is given a default value of 1.
                         int tag = 1;
 
                         // Other default indices
@@ -296,6 +355,13 @@ namespace fessga {
                     if (empty) break;
                 }
             }
+            cout << "unordered boundary node coords: \n";
+            for (auto [coord, idx] : boundary_node_coords) {
+                int x = coord / (dim_x + 1);
+                int y = coord % (dim_x + 1);
+                cout << "(" << x << ", " << y << "), ";
+            }
+            cout << endl;
 
             //cout << "node coord of node 6: " << fessga::help::get_key(&boundary_node_coords, 6) << endl;
 
@@ -332,7 +398,7 @@ namespace fessga {
                     y = node_coord % (dim_x + 1);
                     start_x = x;
                     start_y = y;
-                    cout << "starting perimeter walk on new component. New Idx " << node_idx << ", New start x, y: " << x << ", " << y << endl;
+                    cout << "starting perimeter walk on new component. New Idx: " << node_idx << ", New start x, y: " << x << ", " << y << endl;
 
                     // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
                     previous_x = x;
@@ -347,38 +413,55 @@ namespace fessga {
                     _neighbor_x = (x + _offset.first);
                     _neighbor_y = (y + _offset.second);
 
-                    //cout << "checking neighbor coord: " << _neighbor_x << ", " << _neighbor_y << " of cur node " << x << ", " << y << endl;
+                    //cout << "checking node with coords: " << _neighbor_x << ", " << _neighbor_y << endl;
 
+                    //cout << "checking neighbor coord: " << _neighbor_x << ", " << _neighbor_y << " of cur node " << x << ", " << y << endl;
                     // Check coordinate validity
                     if (_neighbor_x < 0 || _neighbor_y < 0 || _neighbor_x > dim_x || _neighbor_y > dim_y)
                         continue; // coordinates outside design domain are invalid
                     if (_neighbor_x == previous_x && _neighbor_y == previous_y)
                         continue; // skip the boundary node we found in the previous iteration
 
+                    //cout << "passed validity checks" << endl;
+
                     // Check whether line connecting current node to neighbor is blocked by two adjacent filled cells
                     bool blocked = false;
                     if (x == _neighbor_x && x != 0 && x != dim_x) // Vertical line
                     {
-                        int y_diff = _neighbor_y - y;
+                        int y_diff = min(0, _neighbor_y - y);
                         int left_cell = densities[(x - 1) * dim_x + y + y_diff];
                         int right_cell = densities[x * dim_x + y + y_diff];
                         blocked = right_cell && left_cell;
-                        //cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y << endl;
+                        if (blocked) {
+                            //cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
+                            //cout << ". cells checked: left cell (" << x - 1 << ", " << y + y_diff << "), right cell (" << x << ", " << y + y_diff << ")" << endl;
+                        }
+                        else {
+                            //cout << "Vertical line FREE. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
+                            //cout << ". cells checked: left cell (" << x - 1 << ", " << y + y_diff << "), right cell (" << x << ", " << y + y_diff << ")" << endl;
+                        }
                     }
                     else if (y == _neighbor_y && y != 0 && y != dim_y) // Horizontal line
                     {
-                        int x_diff = _neighbor_x - x;
+                        int x_diff = min(0, _neighbor_x - x);
                         int up_cell = densities[(x + x_diff) * dim_x + y];
                         int down_cell = densities[(x + x_diff) * dim_x + y - 1];
                         blocked = up_cell && down_cell;
-                        //cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y << endl;
+                        if (blocked) {
+                            //cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
+                            //cout << ". cells checked: up cell (" << x + x_diff << ", " << y << "), down cell (" << x + x_diff << ", " << y - 1 << ")" << endl;
+                        }
+                        else {
+                            //cout << "Horizontal line FREE. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
+                            //cout << ". cells checked: up cell (" << x + x_diff << ", " << y << "), down cell (" << x + x_diff << ", " << y - 1 << ")" << endl;
+                        }
                     }
                     if (blocked) continue; // Skip neighbor if line is blocked by adjacent filled cells
 
-                    //cout << "coordinates valid. " << endl;
+                    //cout << "not blocked " << endl;
 
                     // Check whether the neighbor coordinates contain a boundary node
-                    _neighbor_coord = (x + _offset.first) * (dim_x + 1) + (y + _offset.second);
+                    _neighbor_coord = _neighbor_x * (dim_x + 1) + _neighbor_y;
                     _neighbor_idx = fessga::help::get_value(&boundary_node_coords, _neighbor_coord);
                     neighbor_found = _neighbor_idx != -1;
                     if (neighbor_found) {
@@ -387,14 +470,19 @@ namespace fessga {
                         neighbor_idx = _neighbor_idx;
                         neighbor_coord = _neighbor_coord;
                         valid_neighbors.push_back(pair(_neighbor_coord, _neighbor_idx));
+                        //cout << "valid neighbor coords: " << neighbor_x << ", " << neighbor_y << endl;
+                    }
+                    else {
+                        //cout << "invalid neighbor coords: " << _neighbor_x << ", " << _neighbor_y << endl;
                     }
                 }
-
+                cout << "current coords: " << x << ", " << y << ". no of valid neighbors: " << valid_neighbors.size() << endl;
                 // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
                 if (valid_neighbors.size() > 1) {
                     int j = 0;
                     while (j < valid_neighbors.size()) {
-                        bool neighbor_visited = fessga::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].second);
+                        //cout << "checking whether " << valid_neighbors[j].first << " is in ordered boundary node coords" << endl;
+                        bool neighbor_visited = fessga::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].first);
                         if (!neighbor_visited) {
                             break; // Found a valid neighbor that hasn't been visited yet
                         }
@@ -402,15 +490,17 @@ namespace fessga {
                     }
                     if (j == valid_neighbors.size()) {
                         // No unvisited neighbor was found. 
+                        cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
                         j = 0;
                     }
 
                     // Set the neighbor data to the data of the unvisited neighbor
+                    cout << "j: " << j << endl;
                     neighbor_coord = valid_neighbors[j].first;
                     neighbor_idx = valid_neighbors[j].second;
-                    neighbor_x = node_coord / (dim_x + 1);
-                    neighbor_y = node_coord % (dim_x + 1);
-                    cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
+                    neighbor_x = neighbor_coord / (dim_x + 1);
+                    neighbor_y = neighbor_coord % (dim_x + 1);
+                    //cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
                 }
 
                 if (neighbor_idx == -1) {
@@ -483,7 +573,7 @@ namespace fessga {
                 int physical_entity = 0;
 
                 // Create the line element
-                vector<int> line = { (int)line_idx + 1, type, no_tags, physical_entity, _tag, node1_idx, node2_idx };
+                vector<int> line = { (int)line_idx + 1, type, no_tags, physical_entity, _tag, node1_coord + 1, node2_coord + 1 };
                 elements.push_back(line);
             }
         }
@@ -501,21 +591,24 @@ namespace fessga {
             map<uint32_t, uint32_t>* line_bounds, uint32_t* densities, string& msh
         ) {
             // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-            vector<string> nodes;
-            vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
+            int z = dim_x / 2;
+            //z = 2;
             generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
-            print_density_distrib(densities, dim_x);
+            //print_density_distrib(densities, dim_x, z);
 
             // Create slice from 3d binary density distribution for 2d test
-            int z = dim_x / 2;
             uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
             for (int x = 0; x < dim_x; x++) {
                 for (int y = 0; y < dim_y; y++) {
-                    slice_2d[x * dim_x + y] = densities[z * dim_x * dim_y + x * dim_x + y];
+                    slice_2d[x * dim_y + y] = densities[z * dim_x * dim_y + x * dim_y + y];
                 }
             }
+            filter_2d_density_distrib(slice_2d, dim_x, dim_y);
+            print_2d_density_distrib(slice_2d, dim_x, dim_y);
 
             // Generate Finite Element mesh from binary density distribution
+            vector<string> nodes;
+            vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
             generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, line_bounds);
 
             // Encode mesh data into .msh-description
