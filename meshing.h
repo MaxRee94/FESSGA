@@ -201,6 +201,7 @@ namespace fessga {
 
         static void filter_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
             // Filter out floating cells that have no direct neighbors
+            cout << "Filtering 2d floating cells..." << endl;
 #pragma omp parallel for
             for (int x = 0; x < dim_x; x++) {
                 for (int y = 0; y < dim_y; y++) {
@@ -209,7 +210,7 @@ namespace fessga {
                     int neighbor = 0;
                     for (int _x = -1; _x <= 1; _x++) {
                         for (int _y = -1; _y <= 1; _y++) {
-                            if (_y == _x == 0) continue;
+                            if (_y == 0 && _x == 0) continue;
                             if (x + _x == dim_x || y + _y == dim_y) continue;
                             if (x + _x == 0 || y + _y == 0) continue;
                             neighbor = densities[(x + _x) * dim_y + (y + _y)];
@@ -280,11 +281,11 @@ namespace fessga {
             for (auto [node_coord, node_idx] : *boundary_nodes) {
                 bool visited = std::find(
                     ordered_boundary_nodes->begin(), ordered_boundary_nodes->end(), node_coord) != ordered_boundary_nodes->end();
-                cout << "node coord: " << node_coord << " visited? " << visited << endl;
                 if (!visited) {
                     return node_coord;
                 }
             }
+            return -1; // Return -1 if no unvisited node was found
         }
 
         /* Generate a 2d Finite Element mesh from the given binary density distribution
@@ -387,11 +388,19 @@ namespace fessga {
             int neighbor_idx, neighbor_coord, neighbor_x, neighbor_y;
             int _neighbor_idx, _neighbor_coord, _neighbor_x, _neighbor_y;
             vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
-            while (i < (no_boundary_nodes + 1)) {
+            int no_components = 1;
+            while (i < (no_boundary_nodes + no_components)) {
                 // If current node is the same as the starting node of the perimeter walk, re-start walk on a
                 // node that has not yet been visited (such a node must be part of another component, for example a hole)
                 if (i > 1 && x == start_x && y == start_y) {
                     node_coord = find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+                    if (node_coord == -1) {
+                        break;
+                    }
+                    else {
+                        no_components++;
+                        cout << "no of components: " << no_components << endl;
+                    }
                     int node_idx = boundary_node_coords[node_coord];
                     ordered_boundary_node_coords.push_back(node_coord);
                     x = node_coord / (dim_x + 1);
@@ -495,7 +504,6 @@ namespace fessga {
                     }
 
                     // Set the neighbor data to the data of the unvisited neighbor
-                    cout << "j: " << j << endl;
                     neighbor_coord = valid_neighbors[j].first;
                     neighbor_idx = valid_neighbors[j].second;
                     neighbor_x = neighbor_coord / (dim_x + 1);

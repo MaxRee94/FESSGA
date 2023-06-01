@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
         dim_x, dim_y, dim_z, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
         &line_bounds, densities, mesh_description
     );
-    cout << mesh_description << endl;
+    //cout << mesh_description << endl;
 
     // Write mesh description to .msh file
     string output_path = "../data/msh_output/test.msh";
