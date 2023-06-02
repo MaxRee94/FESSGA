@@ -58,14 +58,9 @@ int main(int argc, char* argv[])
     Vector2d offset = cell_size * 0.5 * Vector2d((double)dim_x, (double)dim_y);
     double* vonmises = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dimension
     string filename = "../data/msh_output/case0001.vtk";
-    for (int i = 0; i < 10; i++) {
-        cout << "started reading physics data..." << endl;
-        load_2d_physics_data(filename, vonmises, dim_x + 1, dim_y + 1, offset, inv_cell_size);
-        cout << "finished reading physics data." << endl;
-        cout << i + 1 << " / " << 10 << endl;
-    }
-    //delete[] vonmises;
-    cout << "eo loop" << endl;
+    cout << "started reading physics data..." << endl;
+    load_2d_physics_data(filename, vonmises, dim_x + 1, dim_y + 1, offset, inv_cell_size);
+    cout << "finished reading physics data." << endl;
 #elif 0
     // Do crossover test
     Tester tester = Tester();

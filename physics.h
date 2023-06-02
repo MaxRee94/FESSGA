@@ -28,8 +28,6 @@ void load_2d_physics_data(string filename, double* vonmises, int dim_x, int dim_
     reader->SetFileName(filename.c_str());
     reader->ReadAllScalarsOn();
     reader->Update();
-    //vtkNew<vtkUnstructuredGrid> output;
-    //output->(reader->GetOutputPort());
     vtkUnstructuredGrid* output = reader->GetOutput();
 
     // Initially, populate vonmises array with zeroes (nodes on the grid which are part of the FE mesh will have their
@@ -42,8 +40,6 @@ void load_2d_physics_data(string filename, double* vonmises, int dim_x, int dim_
 
     // Get point data (this object contains the physics data)
     vtkPointData* point_data = output->GetPointData();
-    //vtkNew<vtkPointData> point_data;
-    //point_data->set= reader->GetPointData();
 
     // Obtain Von Mises stress array
     vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
@@ -55,20 +51,11 @@ void load_2d_physics_data(string filename, double* vonmises, int dim_x, int dim_
     for (int i = 0; i < points->GetNumberOfPoints(); i++) {
         point = points->GetData()->GetTuple(i);
         Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) + offset;
-        //cout << "\norigin aligned coord: " << origin_aligned_coord.transpose();
         Vector2d gridscale_coord = inv_cell_size * origin_aligned_coord;
-        //cout << ", gridscale coord: " << gridscale_coord.transpose();
         int coord = (int)(gridscale_coord[0] * dim_y + gridscale_coord[1]);
-        //cout << ", flat grid coord: " << coord << endl;
         int x = coord / dim_y;
         int y = coord % dim_y;
         coords.push_back(coord);
-        //if (fessga::help::is_in(&coords, coord)) cout << "non unique coord: " << x << ", " << y << endl;
         vonmises[coord] = (double)vonmises_array->GetValue(i);
-        //cout << "coord: " << x << ", " << y << ".  value: " << (double)vonmises_array->GetValue(i) << endl;
     }
-
-    ////output->Delete();
-    //reader->Delete();
-    cout << "end of function." << endl;
 }
