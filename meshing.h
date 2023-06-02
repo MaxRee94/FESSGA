@@ -132,8 +132,11 @@ namespace fessga {
             }
 
             // Assign density values to cells in the grid
+            int slices_done = 0;
 #pragma omp parallel for
             for (int x = 0; x < dim_x; x++) {
+                cout << "slices_done: " << slices_done << " / " << dim_x << endl;
+                slices_done++;
                 for (int y = 0; y < dim_y; y++) {
                     for (int z = 0; z < dim_z; z++) {
                         Cell cell;
@@ -159,6 +162,7 @@ namespace fessga {
 
                             // If the cell is inside the mesh, assign density 1
                             if (inside) {
+                                //cout << "density 1" << endl;
                                 cell.density = 1;
                                 break;
                             }
