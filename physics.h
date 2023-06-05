@@ -44,13 +44,13 @@ void load_2d_physics_data(string filename, double* vonmises, int dim_x, int dim_
     // Obtain Von Mises stress array
     vtkDoubleArray* vonmises_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
 
-    //// Overwrite grid values with values from vonmises array (only for nodes with coordinates that lie within the FE mesh)
+    // Overwrite grid values with values from vonmises array (only for nodes with coordinates that lie within the FE mesh)
     vtkPoints* points = output->GetPoints();
     double* point = new double[3];
     vector<int> coords = {};
     for (int i = 0; i < points->GetNumberOfPoints(); i++) {
         point = points->GetData()->GetTuple(i);
-        Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) + offset;
+        Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
         Vector2d gridscale_coord = inv_cell_size * origin_aligned_coord;
         int coord = (int)(gridscale_coord[0] * dim_y + gridscale_coord[1]);
         int x = coord / dim_y;
