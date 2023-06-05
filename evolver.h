@@ -7,7 +7,7 @@
 #include <map>
 #include <functional>
 #include "helpers.h"
-#include "baseOptimizer.h"
+#include "optimizerBase.h"
 
 
 bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold);
