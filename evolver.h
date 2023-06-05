@@ -5,11 +5,13 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "helpers.h"
 #include <functional>
+#include "helpers.h"
+#include "baseOptimizer.h"
 
 
 bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold);
+
 
 class Evolver {
 public:
@@ -52,4 +54,3 @@ private:
 	uint* population = 0;
 	function<bool(uint*, int, int, float)> termination_condition = 0;
 };
-
