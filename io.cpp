@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include "io.h"
 #include "Helpers.h"
 
@@ -33,9 +34,27 @@ void fessga::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi
     cout << "Finished reading mesh." << endl;
 }
 
+void fessga::IO::create_folder_if_not_exists(std::string folder_path) {
+    if (!fessga::IO::FileExists) {
+        std::filesystem::create_directories(folder_path);
+    }
+}
+
 bool fessga::IO::FileExists(std::string fpath) {
     struct stat buffer;
     return (stat(fpath.c_str(), &buffer) == 0);
+}
+
+void fessga::IO::copy_file(std::string _source, std::string _target, bool verbose) {
+    if (verbose) { cout << "Renaming file " << _source << " to " << _target << "..." << endl; }
+
+    std::ifstream  src(_source, std::ios::binary);
+    std::ofstream  dst(_target, std::ios::binary);
+
+    dst << src.rdbuf();
+
+    dst.close();
+    src.close();
 }
 
 void fessga::IO::RenameFile(string _source, string _target, bool verbose) {
@@ -130,4 +149,11 @@ string fessga::IO::GetLatestPath(string templ) {
     }
 
     return path;
+}
+
+bool fessga::IO::is_empty(string folder) {
+    for (const auto& _ : std::filesystem::directory_iterator(folder)) {
+        return true;
+    }
+    return false;
 }
