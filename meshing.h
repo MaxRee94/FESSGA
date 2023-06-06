@@ -18,6 +18,31 @@ namespace fessga {
     class mesher
     {
     public:
+        // Define the struct for a 3d Grid
+        struct Grid3D {
+            int dim_x, dim_y, dim_z;
+        };
+
+        // Define the struct for a 2d Grid
+        struct Grid2D {
+            int dim_x, dim_y;
+        };
+
+        // Define the struct for a Surface mesh
+        struct SurfaceMesh {
+            Vector3d offset;
+            MatrixXd bounding_box = MatrixXd(2, 3);
+            MatrixXd* V = 0;
+            MatrixXi* F = 0;
+        };
+
+        // Define the struct for a 2D Finite Element mesh
+        struct FEMesh2D {
+            map<uint32_t, uint32_t> line_boundaries;
+            vector<vector<int>> elements;
+            vector<string> nodes;
+        };
+
         // Define the struct for a cell in the grid
         struct Cell {
             Vector3d position;
@@ -590,39 +615,7 @@ namespace fessga {
             }
         }
 
-        /* Generate a grid-based description of a FE mesh that can be output as a .msh file
-        Input:
-            dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
-            csize (float): Size of a single cell (size=width=height=depth)
-            V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
-            F (MatrixXi*): Pointer to the matrix of faces for the given mesh
-            msh (string): The generated description string in .msh-format
-        */
-        static void generate_msh(
-            const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, MatrixXd* V, MatrixXi* F,
-            map<uint32_t, uint32_t>* line_bounds, uint32_t* densities, string& msh
-        ) {
-            // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-            int z = dim_x / 2;
-            //z = 2;
-            generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, V, F, densities);
-            //print_density_distrib(densities, dim_x, z);
-
-            // Create slice from 3d binary density distribution for 2d test
-            uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    slice_2d[x * dim_y + y] = densities[z * dim_x * dim_y + x * dim_y + y];
-                }
-            }
-            filter_2d_density_distrib(slice_2d, dim_x, dim_y);
-            print_2d_density_distrib(slice_2d, dim_x, dim_y);
-
-            // Generate Finite Element mesh from binary density distribution
-            vector<string> nodes;
-            vector<vector<int>> elements;  // List of elements. One element is {<number>, <type>, <tag>, <node_1>, ..., <node_n>}
-            generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, nodes, elements, line_bounds);
-
+        static void generate_msh_description(FEMesh2D fe_mesh, string& msh) {
             // Encode mesh data into .msh-description
             // -- Format section
             msh = {
@@ -633,15 +626,15 @@ namespace fessga {
 
             // -- Nodes section
             msh += "$Nodes\n";
-            msh += to_string(nodes.size()) + "\n";          // Number of nodes
-            for (int i = 0; i < nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
-                msh += nodes[i];
+            msh += to_string(fe_mesh.nodes.size()) + "\n";          // Number of nodes
+            for (int i = 0; i < fe_mesh.nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
+                msh += fe_mesh.nodes.at(i);
             }
             msh += "$EndNodes\n";
 
             // -- Elements section
             msh += "$Elements\n";
-            int no_elements = elements.size();
+            int no_elements = fe_mesh.nodes.size();
             msh += to_string(no_elements) + "\n";
 
             // Iterate over all elements and add to description string
@@ -654,8 +647,8 @@ namespace fessga {
             //      5 : 8-node hexahedron (a cube is a regular hexahedron)
             //      15: 1-node point
             // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
-            for (int i = 0; i < elements.size(); i++) {
-                vector<int> element = elements[i];
+            for (int i = 0; i < fe_mesh.nodes.size(); i++) {
+                vector<int> element = fe_mesh.elements[i];
                 for (int j = 0; j < element.size(); j++) {
                     msh += to_string(element[j]) + " ";
                 }
@@ -664,6 +657,27 @@ namespace fessga {
 
             // End elements section
             msh += "$EndElements\n";
+        }
+
+        /* Generate a grid-based description of a FE mesh that can be output as a .msh file
+        Input:
+            dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
+            csize (float): Size of a single cell (size=width=height=depth)
+            V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
+            F (MatrixXi*): Pointer to the matrix of faces for the given mesh
+            msh (string): The generated description string in .msh-format
+        */
+        static void convert_to_FE_mesh(
+            const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, uint32_t* densities, FEMesh2D& fe_mesh)
+        {
+            map<uint32_t, uint32_t> line_bounds;
+            vector<vector<int>> elements;
+            vector<string> nodes;
+            generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, densities, nodes, elements, &line_bounds);
+            
+            fe_mesh.elements = elements;
+            fe_mesh.line_boundaries = line_bounds;
+            fe_mesh.nodes = nodes;
         }
     };
 }

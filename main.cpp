@@ -16,6 +16,7 @@ int main(int argc, char* argv[])
     int dim_x = 100;
     int dim_y = 100;
     int dim_z = 100;
+    float domain_size = 2.0;
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -26,11 +27,6 @@ int main(int argc, char* argv[])
     // Load example object
     gui.load_example();
 
-    // Obtain a grid-based FE representation based on the chosen mesh, encoded in a .msh format
-    map<uint32_t, uint32_t> line_bounds;
-    string mesh_description = "";
-    float domain_size = 2.0;
-
     // -- Normalize mesh --
     // Align barycenter to world origin
     // Get bounding box (min and max for x,y,z)
@@ -39,20 +35,36 @@ int main(int argc, char* argv[])
     // Get offset along each dimension
     Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
 
+    string output_folder = "E:/Development/FESSGA/data/msh_output/test";
+
 #if 0:
+#elif 1:
 
-
-#elif 0:
+    // Generate grid-based binary density distribution based on the given (unstructured) mesh file
     uint32_t* densities = new uint32_t[dim_x * dim_y * dim_z];
-    mesher::generate_msh(
-        dim_x, dim_y, dim_z, cell_size, offset, &gui.V_list[0], &gui.F_list[0],
-        &line_bounds, densities, mesh_description
-    );
-    //cout << mesh_description << endl;
+    mesher::generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
 
-    // Write mesh description to .msh file
-    string output_path = "../data/msh_output/test.msh";
-    IO::write_text_to_file(mesh_description, output_path);
+    // Create slice from 3d binary density distribution for 2d test
+    int z = dim_x / 2;
+    uint32_t* slice_2d = new uint32_t[dim_x * dim_y];
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            slice_2d[x * dim_y + y] = densities[z * dim_x * dim_y + x * dim_y + y];
+        }
+    }
+    mesher::filter_2d_density_distrib(slice_2d, dim_x, dim_y);
+    mesher::print_2d_density_distrib(slice_2d, dim_x, dim_y);
+
+    // Obtain a grid-based FE representation based on the chosen mesh
+    mesher::FEMesh2D fe_mesh;
+    mesher::convert_to_FE_mesh(dim_x, dim_y, dim_z, cell_size, offset, slice_2d, fe_mesh);
+
+    // Encode the FE mesh in a .msh format
+    string msh_name = "test";
+    string msh_output_path = output_folder + "/" + msh_name + ".msh";
+    string msh_description;
+    mesher::generate_msh_description(fe_mesh, msh_description);
+    IO::write_text_to_file(msh_description, msh_output_path);
 
     gui.show();
 #elif 0
@@ -65,9 +77,13 @@ int main(int argc, char* argv[])
     cout << "started reading physics data..." << endl;
     load_2d_physics_data(filename, vonmises, dim_x + 1, dim_y + 1, offset, inv_cell_size);
     cout << "finished reading physics data." << endl;
-#elif 1
+#elif 0
     // Do crossover test
     Tester tester = Tester();
     tester.test_2d_crossover();
+#elif 0
+    // Do FESS test
+    Tester tester = Tester();
+    tester.test_fess();
 #endif
 }
