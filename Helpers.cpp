@@ -24,6 +24,28 @@ bool fessga::help::is_in(std::vector<int>* vec, int item) {
     return find(vec->begin(), vec->end(), item) != vec->end();
 }
 
+// Add padding as suffix to given basestring
+std::string fessga::help::add_padding(std::string basestring, int version) {
+    int padding = 4;
+    if (version > 9) {
+        if (version > 99) {
+            if (version > 999) {
+                if (version > 9999) {
+                    padding = 0;
+                }
+                else padding = 1;
+            }
+            else padding = 2;
+        }
+        else padding = 3;
+    }
+    string pad = "";
+    for (int i = 0; i < padding; i++) {
+        pad += "0";
+    }
+    return basestring + pad;
+}
+
 void fessga::help::print_map(std::map<int, int>* map) {
     int i = 0;
     for (auto const& [key, val] : (*map))

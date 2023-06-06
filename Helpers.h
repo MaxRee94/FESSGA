@@ -46,5 +46,7 @@ namespace fessga {
 
 		static uint get_rand_uint(float min, float max);
 
+		static std::string add_padding(std::string basestring, int version);
+
 	};
 };
