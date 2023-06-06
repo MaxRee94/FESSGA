@@ -10,6 +10,7 @@
 #include "meshing.h"
 #include "helpers.h"
 #include "evolver.h"
+#include "fess.h"
 
 using namespace fessga;
 
@@ -28,9 +29,9 @@ public:
 
         // Generate a 3d grid-based binary density distribution of the chosen mesh
         domain_size = 2.0;
-        dim_x = 30;
-        dim_y = 30;
-        dim_z = 30;
+        dim_x = 6;
+        dim_y = 6;
+        dim_z = 1;
         cell_size = domain_size / (float)dim_x;
         Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
         densities = new uint[dim_x * dim_y * dim_z];
@@ -43,6 +44,7 @@ public:
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
     bool test_full_evolution();
+    bool test_fess();
 private:
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -80,6 +82,7 @@ Test 2-point crossover of two 2d parent solutions. Print parents and children to
 bool Tester::test_2d_crossover() {
     uint* parent1 = new uint[dim_x * dim_y];
     uint* parent2 = new uint[dim_x * dim_y];
+    double max_stress = 1e9; // arbitrary maximum stress
 
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
@@ -87,10 +90,15 @@ bool Tester::test_2d_crossover() {
     cout << "\nParent 2: \n";
     mesher::print_2d_density_distrib(parent2, dim_x, dim_y);
 
+    string msh_file = "../data/msh_output/test.msh";
+    string case_file = "../data/msh_output/case.sif";
+    string output_folder = "../data/msh_output/FESSGA_test_output";
+
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
-    Evolver evolver = Evolver(4, (float)0.01, &variation_minimum_passed, 2, parent1, dim_x, dim_y);
+    Evolver evolver = Evolver(
+        msh_file, case_file, output_folder, 4, (float)0.01, &variation_minimum_passed, 2, max_stress, parent1, dim_x, dim_y);
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
@@ -104,5 +112,20 @@ bool Tester::test_2d_crossover() {
 bool Tester::test_full_evolution() {
     Evolver evolver = Evolver();
     
+    return true;
+}
+
+bool Tester::test_fess() {
+    // Parameters
+    double max_stress = 1e9;
+    double min_stress = 1e-3;
+    string msh_file = "../data/msh_output/test.msh";
+    string case_file = "../data/msh_output/case.sif";
+    string output_folder = "../data/msh_output/FESSGA_test_output";
+    
+    // Run optimization
+    FESS fess = FESS(msh_file, case_file, output_folder, min_stress, max_stress, densities, dim_x, dim_y);
+    fess.run();
+
     return true;
 }
