@@ -52,8 +52,8 @@ void mesher::generate_2d_FE_mesh(
     std::map<int, int> boundary_node_coords;
     int no_boundary_nodes = 0;
     for (auto const& [node_coord, node_idx] : node_coords) {
-        int x = node_coord / (dim_x + 1);
-        int y = node_coord % (dim_x + 1);
+        int x = node_coord / (dim_y + 1);
+        int y = node_coord % (dim_y + 1);
 
         // Nodes at an extreme of at least one axis are always boundary nodes
         if (x == 0 || y == 0 || x == dim_x || y == dim_y) {
@@ -79,8 +79,8 @@ void mesher::generate_2d_FE_mesh(
     }
     cout << "unordered boundary node coords: \n";
     for (auto [coord, idx] : boundary_node_coords) {
-        int x = coord / (dim_x + 1);
-        int y = coord % (dim_x + 1);
+        int x = coord / (dim_y + 1);
+        int y = coord % (dim_y + 1);
         cout << "(" << x << ", " << y << "), ";
     }
     cout << endl;
@@ -92,8 +92,8 @@ void mesher::generate_2d_FE_mesh(
     int node_coord = boundary_node_coords.begin()->first;
     node_idx = boundary_node_coords.begin()->second;
     std::vector<int> ordered_boundary_node_coords = { node_coord };
-    int x = node_coord / (dim_x + 1);
-    int y = node_coord % (dim_x + 1);
+    int x = node_coord / (dim_y + 1);
+    int y = node_coord % (dim_y + 1);
     int start_x = x;
     int start_y = y;
 
@@ -124,8 +124,8 @@ void mesher::generate_2d_FE_mesh(
             }
             int node_idx = boundary_node_coords[node_coord];
             ordered_boundary_node_coords.push_back(node_coord);
-            x = node_coord / (dim_x + 1);
-            y = node_coord % (dim_x + 1);
+            x = node_coord / (dim_y + 1);
+            y = node_coord % (dim_y + 1);
             start_x = x;
             start_y = y;
             cout << "starting perimeter walk on new component. New Idx: " << node_idx << ", New start x, y: " << x << ", " << y << endl;
@@ -227,8 +227,8 @@ void mesher::generate_2d_FE_mesh(
             // Set the neighbor data to the data of the unvisited neighbor
             neighbor_coord = valid_neighbors[j].first;
             neighbor_idx = valid_neighbors[j].second;
-            neighbor_x = neighbor_coord / (dim_x + 1);
-            neighbor_y = neighbor_coord % (dim_x + 1);
+            neighbor_x = neighbor_coord / (dim_y + 1);
+            neighbor_y = neighbor_coord % (dim_y + 1);
             //cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
         }
 
@@ -265,10 +265,10 @@ void mesher::generate_2d_FE_mesh(
 
         // Get line idx. Convention: line_idx = (<surface_coord> << 2) + <local_line_idx>
         // local_line_idx: Stepping clockwise from left edge of cell (local_line_idx = 0)
-        int node1_x = node1_coord / (dim_x + 1);
-        int node1_y = node1_coord % (dim_x + 1);
-        int node2_x = node2_coord / (dim_x + 1);
-        int node2_y = node2_coord % (dim_x + 1);
+        int node1_x = node1_coord / (dim_y + 1);
+        int node1_y = node1_coord % (dim_y + 1);
+        int node2_x = node2_coord / (dim_y + 1);
+        int node2_y = node2_coord % (dim_y + 1);
         int cell_x, cell_y;
         uint cell_coord, local_line_idx;
         if (node1_x == node2_x) {   // Vertical line
