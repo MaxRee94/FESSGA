@@ -11,11 +11,12 @@ using namespace fessga;
 /* 
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
-void mesher::generate_2d_FE_mesh(
-    int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, vector<string>& nodes,
-    vector<vector<int>>& elements, map<uint, uint>* bounds
+void mesher::generate_FE_mesh(
+    int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds
 ) {
     // Create nodes and surfaces
+    vector<vector<double>> nodes;
+    vector<Element> surfaces;
     int node_idx = 1;
     std::map<int, int> node_coords;
     for (int x = 0; x < dim_x; x++) {
@@ -40,10 +41,14 @@ void mesher::generate_2d_FE_mesh(
                 int no_tags = 2;
 
                 // Create the surface element
-                vector<int> surface = {
-                    surface_idx, type, no_tags, physical_entity, tag, node1_idx, node2_idx, node3_idx, node4_idx
-                };
-                elements.push_back(surface);
+                Element surface;
+                surface.idx = surface_idx;
+                surface.type = type;
+                surface.no_tags = no_tags;
+                surface.body = physical_entity;
+                surface.tag = tag;
+                surface.nodes = { node1_idx, node2_idx, node3_idx, node4_idx };
+                surfaces.push_back(surface);
             }
         }
     }
@@ -77,13 +82,13 @@ void mesher::generate_2d_FE_mesh(
             if (empty) break;
         }
     }
-    cout << "unordered boundary node coords: \n";
+    //cout << "unordered boundary node coords: \n";
     for (auto [coord, idx] : boundary_node_coords) {
         int x = coord / (dim_y + 1);
         int y = coord % (dim_y + 1);
-        cout << "(" << x << ", " << y << "), ";
+        //cout << "(" << x << ", " << y << "), ";
     }
-    cout << endl;
+    //cout << endl;
 
     //cout << "node coord of node 6: " << fessga::help::get_key(&boundary_node_coords, 6) << endl;
 
@@ -120,7 +125,7 @@ void mesher::generate_2d_FE_mesh(
             }
             else {
                 no_components++;
-                cout << "no of components: " << no_components << endl;
+                //cout << "no of components: " << no_components << endl;
             }
             int node_idx = boundary_node_coords[node_coord];
             ordered_boundary_node_coords.push_back(node_coord);
@@ -128,7 +133,7 @@ void mesher::generate_2d_FE_mesh(
             y = node_coord % (dim_y + 1);
             start_x = x;
             start_y = y;
-            cout << "starting perimeter walk on new component. New Idx: " << node_idx << ", New start x, y: " << x << ", " << y << endl;
+            //cout << "starting perimeter walk on new component. New Idx: " << node_idx << ", New start x, y: " << x << ", " << y << endl;
 
             // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
             previous_x = x;
@@ -206,7 +211,7 @@ void mesher::generate_2d_FE_mesh(
                 //cout << "invalid neighbor coords: " << _neighbor_x << ", " << _neighbor_y << endl;
             }
         }
-        cout << "current coords: " << x << ", " << y << ". no of valid neighbors: " << valid_neighbors.size() << endl;
+        //cout << "current coords: " << x << ", " << y << ". no of valid neighbors: " << valid_neighbors.size() << endl;
         // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
         if (valid_neighbors.size() > 1) {
             int j = 0;
@@ -220,7 +225,7 @@ void mesher::generate_2d_FE_mesh(
             }
             if (j == valid_neighbors.size()) {
                 // No unvisited neighbor was found. 
-                cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
+                //cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
                 j = 0;
             }
 
@@ -256,6 +261,8 @@ void mesher::generate_2d_FE_mesh(
 
     // ---- Generate boundary lines ---- //
     int tag = 1;
+    int no_lines = 0;
+    vector<Element> lines;
     for (int i = 1; i < ordered_boundary_node_coords.size(); i++) {
         // Get the 2 nodes that define the line
         int node1_coord = ordered_boundary_node_coords[i - 1];
@@ -302,7 +309,20 @@ void mesher::generate_2d_FE_mesh(
         int physical_entity = 0;
 
         // Create the line element
-        vector<int> line = { (int)line_idx + 1, type, no_tags, physical_entity, _tag, node1_coord + 1, node2_coord + 1 };
-        elements.push_back(line);
+        Element line;
+        line.idx = line_idx + 1;
+        line.type = type;
+        line.no_tags = no_tags;
+        line.body = physical_entity;
+        line.tag = _tag;
+        line.nodes = { node1_coord + 1, node2_coord + 1 };
+        lines.push_back(line);
+
+        no_lines++;
     }
+
+    // Populate FE mesh member variables with generated data
+    fe_mesh.lines = lines;
+    fe_mesh.surfaces = surfaces;
+    fe_mesh.nodes = nodes;
 }

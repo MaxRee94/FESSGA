@@ -126,34 +126,37 @@ double fessga::help::fisqrt(float n)
 }
 
 
-void fessga::help::increment_key(std::map<std::string, int>* map, std::string key) {
-    if (map->find(key) == map->end()) {
-        (*map)[key] = 1;
+void fessga::help::increment_key(std::map<std::string, int>* _map, std::string key) {
+    if (_map->find(key) == _map->end()) {
+        (*_map)[key] = 1;
     }
     else {
-        (*map)[key]++;
+        (*_map)[key]++;
     }
 }
 
-float fessga::help::get_value(std::map<std::string, float>* map, std::string key) {
-    if (map->find(key) == map->end()) {
+float fessga::help::get_value(std::map<std::string, float>* _map, std::string key) {
+    if (_map == 0) return 0;
+    if (_map->find(key) == _map->end()) {
         return 0;
     }
     else {
-        return map->at(key);
+        return _map->at(key);
     }
 }
 
-int fessga::help::get_value(std::map<std::string, int>* map, std::string key) {
-    if (map->find(key) == map->end()) {
+int fessga::help::get_value(std::map<std::string, int>* _map, std::string key) {
+    if (_map == 0) return 0;
+    if (_map->find(key) == _map->end()) {
         return 0;
     }
     else {
-        return map->at(key);
+        return _map->at(key);
     }
 }
 
 int fessga::help::get_value(std::map<int, int>* _map, int key) {
+    if (_map == 0) return -1;
     map<int, int>::iterator it = _map->find(key);
     if (it == _map->end()) {
         return -1;
@@ -164,6 +167,7 @@ int fessga::help::get_value(std::map<int, int>* _map, int key) {
 }
 
 int fessga::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
+    if (_map == 0) return -1;
     std::map<uint32_t, uint32_t>::iterator it = _map->find(key);
     if (it == _map->end()) {
         return -1;
@@ -174,6 +178,7 @@ int fessga::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
 }
 
 int fessga::help::get_key(std::map<int, int>* _map, int value) {
+    if (_map == 0) return -1;
     for (auto const& [key, val] : (*_map))
     {
         if (val == value) {

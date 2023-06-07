@@ -13,10 +13,12 @@ using namespace fessga;
 
 int main(int argc, char* argv[])
 {
-    int dim_x = 100;
-    int dim_y = 100;
-    int dim_z = 100;
+    // Grid parameters
+    int dim_x = 40;
+    int dim_y = 40;
+    int dim_z = 40;
     float domain_size = 2.0;
+
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -57,16 +59,23 @@ int main(int argc, char* argv[])
 
     // Obtain a grid-based FE representation based on the chosen mesh
     mesher::FEMesh2D fe_mesh;
-    mesher::convert_to_FE_mesh(dim_x, dim_y, dim_z, cell_size, offset, slice_2d, fe_mesh);
+    mesher::generate_FE_mesh(dim_x, dim_y, offset, cell_size, slice_2d, fe_mesh);
 
     // Encode the FE mesh in a .msh format
-    string msh_name = "test";
-    string msh_output_path = output_folder + "/" + msh_name + ".msh";
+    string msh_output_path = output_folder + "/mesh.msh";
     string msh_description;
-    mesher::generate_msh_description(fe_mesh, msh_description);
+    mesher::generate_msh_description(&fe_mesh, msh_description);
+
+    // Export the .msh description to a .msh file
     IO::write_text_to_file(msh_description, msh_output_path);
 
-    gui.show();
+    // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
+    map<string, string> elmer_descriptions;
+    mesher::export_as_elmer_files(&fe_mesh, output_folder);
+
+    cout << "Finished." << endl;
+
+    //gui.show();
 #elif 0
     float domain_size = 2.0;
     float cell_size = domain_size / (float)dim_x;

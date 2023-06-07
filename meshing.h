@@ -37,11 +37,23 @@ namespace fessga {
             MatrixXi* F = 0;
         };
 
+
+        // Define the struct for an element
+        struct Element {
+            int idx = 0;
+            int type = 0;
+            int no_tags = 0;
+            int body = 0;
+            int tag = 0;
+            vector<int> nodes = {};
+        };
+
         // Define the struct for a 2D Finite Element mesh
         struct FEMesh2D {
             map<uint32_t, uint32_t> line_boundaries;
-            vector<vector<int>> elements;
-            vector<string> nodes;
+            vector<vector<double>> nodes;
+            vector<Element> lines;
+            vector<Element> surfaces;
         };
 
         // Define the struct for a cell in the grid
@@ -268,16 +280,14 @@ namespace fessga {
 
         static int add_node_if_not_exists(
             int x, int y, Vector3d offset, int dim_x, std::map<int, int>& node_coords, float cell_size,
-            vector<string>& nodes, int& _node_idx)
+            vector<vector<double>>& nodes, int& _node_idx)
         {
             dim_x += 1; // Number of nodes along an axis = number of cells + 1
             int node_idx = _node_idx;
             if (!node_exists(&node_coords, x * dim_x + y)) {
                 uint node_coord = x * dim_x + y;
                 node_coords[node_coord] = _node_idx;
-                string node =
-                    to_string(node_coord + 1) + " " + to_string(cell_size * x + offset(0)) + " "
-                    + to_string(cell_size * y + offset(1)) + "\n";
+                vector<double> node = { (double)(node_coord + 1), cell_size * x + offset(0), cell_size * y + offset(1), 0.0};
                 nodes.push_back(node);
                 _node_idx++;
                 //cout << "node for (" << x << ", " << y << " ) does not exist.Created new node " << _node_idx-1 << endl;
@@ -318,15 +328,34 @@ namespace fessga {
             return -1; // Return -1 if no unvisited node was found
         }
 
-        /* Generate a 2d Finite Element mesh from the given binary density distribution
+        /* Generate a grid-based description of a FE mesh that can be output as a .msh file
+        Input:
+            dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
+            csize (float): Size of a single cell (size=width=height=depth)
+            V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
+            F (MatrixXi*): Pointer to the matrix of faces for the given mesh
+            msh (string): The generated description string in .msh-format
         */
-        static void generate_2d_FE_mesh(
-            int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, vector<string>& nodes,
-            vector<vector<int>>& elements, map<uint, uint>* bounds
+        static void generate_FE_mesh(
+            int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds = 0
         );
 
-        static void generate_msh_description(FEMesh2D fe_mesh, string& msh) {
-            // Encode mesh data into .msh-description
+        static string get_msh_element_description(Element element) {
+            string description = "";
+            description += {
+                to_string(element.idx) + " " + to_string(element.type) + " " + to_string(element.no_tags) + " "
+                + to_string(element.body) + " " + to_string(element.tag)
+            };
+            for (int i = 0; i < element.nodes.size(); i++) {
+                description += " " + to_string(element.nodes[i]);
+            }
+            description += "\n";
+
+            return description;
+        }
+
+        // Encode FE mesh data into .msh-description
+        static void generate_msh_description(FEMesh2D* fe_mesh, string& msh) {
             // -- Format section
             msh = {
                 "$MeshFormat\n"
@@ -336,15 +365,20 @@ namespace fessga {
 
             // -- Nodes section
             msh += "$Nodes\n";
-            msh += to_string(fe_mesh.nodes.size()) + "\n";          // Number of nodes
-            for (int i = 0; i < fe_mesh.nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
-                msh += fe_mesh.nodes.at(i);
+            msh += to_string(fe_mesh->nodes.size()) + "\n";          // Number of nodes
+            for (int i = 0; i < fe_mesh->nodes.size(); i++) {        // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
+                vector<double> node = fe_mesh->nodes[i];
+                for (int j = 0; j < node.size(); j++) {
+                    if (j == 0) msh += to_string((int)node[j]) + " ";
+                    else msh += to_string(node[j]) + " ";
+                }
+                msh += "\n";
             }
             msh += "$EndNodes\n";
 
             // -- Elements section
             msh += "$Elements\n";
-            int no_elements = fe_mesh.elements.size();
+            int no_elements = fe_mesh->lines.size() + fe_mesh->surfaces.size();
             msh += to_string(no_elements) + "\n";
 
             // Iterate over all elements and add to description string
@@ -357,37 +391,69 @@ namespace fessga {
             //      5 : 8-node hexahedron (a cube is a regular hexahedron)
             //      15: 1-node point
             // For example: 3 1 2 0 1 1 4 encodes a line from node 1 to node 4 with boundary tag 1
-            for (int i = 0; i < fe_mesh.elements.size(); i++) {
-                vector<int> element = fe_mesh.elements[i];
-                for (int j = 0; j < element.size(); j++) {
-                    msh += to_string(element[j]) + " ";
-                }
-                msh += "\n";
+            for (int i = 0; i < fe_mesh->surfaces.size(); i++) {
+                Element surface = fe_mesh->surfaces[i];
+                msh += get_msh_element_description(surface);
+            }
+            for (int i = 0; i < fe_mesh->lines.size(); i++) {
+                Element line = fe_mesh->lines[i];
+                msh += get_msh_element_description(line);
             }
 
             // End elements section
             msh += "$EndElements\n";
         }
 
-        /* Generate a grid-based description of a FE mesh that can be output as a .msh file
-        Input:
-            dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
-            csize (float): Size of a single cell (size=width=height=depth)
-            V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
-            F (MatrixXi*): Pointer to the matrix of faces for the given mesh
-            msh (string): The generated description string in .msh-format
-        */
-        static void convert_to_FE_mesh(
-            const int dim_x, const int dim_y, const int dim_z, const float cell_size, Vector3d offset, uint32_t* densities, FEMesh2D& fe_mesh)
-        {
-            map<uint32_t, uint32_t> line_bounds;
-            vector<vector<int>> elements;
-            vector<string> nodes;
-            generate_2d_FE_mesh(dim_x, dim_y, offset, cell_size, densities, nodes, elements, &line_bounds);
-            
-            fe_mesh.elements = elements;
-            fe_mesh.line_boundaries = line_bounds;
-            fe_mesh.nodes = nodes;
+        // Generate a file description for an Elmer header file, based on the given FE mesh
+        static void export_elmer_header(FEMesh2D* fe_mesh, string output_folder) {
+            string header_description = {
+                to_string(fe_mesh->nodes.size()) + " " + to_string(fe_mesh->surfaces.size()) + " " + to_string(fe_mesh->lines.size()) + "\n"
+                + "2\n"
+                + "404 " + to_string(fe_mesh->surfaces.size()) + "\n" // Number of surfaces
+                + "202 " + to_string(fe_mesh->lines.size()) + "\n" // Number of lines
+            };
+            IO::write_text_to_file(header_description, output_folder + "/mesh.header");
+        }
+
+        // Generate a file description for an Elmer nodes file, based on the given FE mesh
+        static void export_elmer_nodes(FEMesh2D* fe_mesh, string output_folder) {
+            string nodes_description = "";
+            for (int i = 0; i < fe_mesh->nodes.size(); i++) { // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
+                vector<double> node = fe_mesh->nodes[i];
+                int idx = (int)node[0];
+                string _node = to_string(idx) + " -1";
+                for (int j = 0; j < 3; j++) {
+                    _node += " " + to_string(node[j + 1]);
+                }
+                nodes_description += _node + "\n";
+            }
+            IO::write_text_to_file(nodes_description, output_folder + "/mesh.nodes");
+        }
+
+        // Generate a file description for an Elmer (quad) elements file, based on the given FE mesh
+        static void export_elmer_quad_elements(FEMesh2D* fe_mesh, string output_folder) {
+            string elements_description = "";
+            for (int i = 0; i < fe_mesh->surfaces.size(); i++) { // List of surface elements, with each node encoded as <surface_idx> <nodeidx_1> <nodeidx_2> <nodeidx_3> <nodeidx_4>
+                Element surface = fe_mesh->surfaces[i];
+                
+                // Encode surface idx, body, and type
+                string _surface = to_string(surface.idx) + " " + to_string(surface.body) + " " + to_string(surface.type);
+                
+                // Encode member node ids
+                for (int j = 0; j < surface.nodes.size(); j++) {
+                    _surface += " " + to_string(surface.nodes[j]);
+                }
+
+                elements_description += _surface + "\n";
+            }
+            IO::write_text_to_file(elements_description, output_folder + "/mesh.nodes");
+        }
+
+        // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
+        static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
+            export_elmer_header(fe_mesh, output_folder);
+            export_elmer_nodes(fe_mesh, output_folder);
+            export_elmer_quad_elements(fe_mesh, output_folder);
         }
     };
 }
