@@ -30,21 +30,11 @@ void FESS::run() {
 
 	double min_stress = 1.0;
 	string msh = msh_file;
-	string cur_iteration_name = "iteration_0001";
-	string cur_output_folder = output_folder + "/" + cur_iteration_name;
+	string cur_iteration_name = "";
+	string cur_output_folder = output_folder;
 	int i = 0;
 	while (min_stress > min_stress_threshold) {
-		cout << "--- Starting iteration " << i << ". Previous lowest stress value: " << min_stress << " N/m^2" << endl;
-
-		// Call Elmer to run FEA on .msh file in cur_output_folder, using .sif file
-		physics::call_elmer(output_folder + "/" + cur_iteration_name);
-
-		// Wait for Elmer's analysis to complete. This is the case when a new .vtk file has appeared
-
-		// Obtain stress distribution from the .vtk file
-		min_stress = 0.0;
-
-		// Set all cells that have corresponding stress values lower than <min_stress_threshold> to density=0.
+		cout << "\n--- Starting FESS iteration " << i << ".\n";
 
 		// Create new subfolder for output of current iteration
 		string cur_iteration_name = fessga::help::add_padding("iteration_", i + 1) + to_string(i + 1);
@@ -64,11 +54,20 @@ void FESS::run() {
 		cout << "FE mesh generation done.\n";
 
 		// Export newly generated FE mesh
-		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
+		string bat_file = mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
 		if (IO::FileExists(cur_output_folder + "/mesh.header")) cout << "Exported new FE mesh to subfolder.\n";
 		else cout << "ERROR: Failed to export new FE mesh to subfolder.\n";
 
-		cout << endl;
+		// Call Elmer to run FEA on new FE mesh
+		cout << "Calling Elmer .bat file...\n";
+		physics::call_elmer(bat_file);
+
+		// Wait for Elmer's analysis to complete. This is the case when a new .vtk file has appeared
+
+		// Obtain stress distribution from the .vtk file
+		min_stress = 0.0;
+
+		// Set all cells that have corresponding stress values lower than <min_stress_threshold> to density=0.
 
 		i++;
 	}

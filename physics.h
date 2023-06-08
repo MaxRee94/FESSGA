@@ -1,3 +1,6 @@
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
 #include <vtkActor.h>
 #include <vtkDataSetMapper.h>
 #include <vtkNamedColors.h>
@@ -24,8 +27,14 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 namespace fessga {
     class physics {
     public:
-        static void call_elmer(string folder) {
-
+        static void call_elmer(string bat_file) {
+            std::string command = bat_file;
+            std::array<char, 80> buffer;
+            FILE* pipe = _popen(command.c_str(), "r");
+            while (fgets(buffer.data(), 80, pipe) != NULL) {
+                std::cout << buffer.data();
+            }
+            _pclose(pipe);
         }
 
         static void load_2d_physics_data(

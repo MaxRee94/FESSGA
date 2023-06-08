@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     string output_folder = "E:/Development/FESSGA/data/msh_output/test";
 
 #if 0:
-#elif 1:
+#elif 0:
 
     // Generate grid-based binary density distribution based on the given (unstructured) mesh file
     uint32_t* densities = new uint32_t[grid.x * grid.y * grid.z];
@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     // Do crossover test
     Tester tester = Tester();
     tester.test_2d_crossover();
-#elif 0
+#elif 1
     // Do FESS test
     Tester tester = Tester();
     tester.test_fess();
