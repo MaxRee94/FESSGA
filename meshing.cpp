@@ -255,9 +255,10 @@ void mesher::generate_FE_mesh(
 
         i++;
     }
+    cout << "no of components: " << no_components << endl;
     cout << "no of unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
-    cout << "ordered bound nodes: "; fessga::help::print_vector(&ordered_boundary_node_coords);
+    //cout << "ordered bound nodes: "; fessga::help::print_vector(&ordered_boundary_node_coords);
 
     // ---- Generate boundary lines ---- //
     int tag = 1;

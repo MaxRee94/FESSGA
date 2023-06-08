@@ -35,7 +35,9 @@ void fessga::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi
 }
 
 void fessga::IO::create_folder_if_not_exists(std::string folder_path) {
-    if (!fessga::IO::FileExists) {
+    std::filesystem::path dir_path = std::filesystem::path(folder_path);
+    if (!std::filesystem::is_directory(dir_path)) {
+        cout << "Creating directory " << folder_path << endl;
         std::filesystem::create_directories(folder_path);
     }
 }

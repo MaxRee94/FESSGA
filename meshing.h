@@ -77,20 +77,10 @@ namespace fessga {
             return surface_mesh;
         }
 
-        static void print_density_distrib(uint* densities, int grid_size, int z = -1) {
-            if (z == -1) z = grid_size / 2;
-            for (int x = 0; x < grid_size; x++) {
-                for (int y = 0; y < grid_size; y++) {
-                    cout << densities[z * grid_size * grid_size + x * grid_size + y];
-                }
-                cout << endl;
-            }
-        }
-
-        static void print_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
+        static void print_density_distrib(uint* densities, int dim_x, int dim_y) {
             for (int y = dim_y -1; y > -1; y--) {
                 for (int x = 0; x < dim_x; x++) {
-                    cout << densities[x * dim_x + y];
+                    cout << densities[x * dim_y + y];
                 }
                 cout << endl;
             }
@@ -106,6 +96,17 @@ namespace fessga {
             Vector3d v1 = Vector3d(0.0, 0.0, 0.0);
             Vector3d v2 = Vector3d(0.0, 0.0, 0.0);
         };
+
+        static Grid3D create_grid3d(int dim_x, int dim_y, int dim_z, Vector3d diagonal) {
+            mesher::Grid3D grid;
+            grid.x = dim_x;
+            grid.y = dim_y;
+            grid.z = dim_z;
+            grid.cell_size = diagonal.cwiseProduct(
+                Vector3d(1.0 / (double)grid.x, 1.0 / (double)grid.y, 1.0 / (double)grid.z)
+            );
+            return grid;
+        }
 
         static bool trace_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
             double closestDist = INFINITY;
@@ -495,6 +496,7 @@ namespace fessga {
             export_elmer_elements(fe_mesh, output_folder);
             export_elmer_boundary(fe_mesh, output_folder);
             IO::write_text_to_file("case.sif\n1", output_folder + "/ELMERSOLVER_STARTINFO");
+            //IO::write_text_to_file("ElmerSolver", output_folder + "/run_elmer.bat");
         }
     };
 }

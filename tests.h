@@ -21,13 +21,6 @@ public:
         // Initialize RNG
         srand(time(0));
 
-        // Grid parameters
-        mesher::Grid3D grid3d;
-        grid3d.x = 5;
-        grid3d.y = 5;
-        grid3d.z = 5;
-        float domain_size = 2.0; // TODO: replace
-
         // Initialize mesh lists
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
@@ -42,19 +35,24 @@ public:
         gui.load_example(&V, &F);
         mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
-        // -- Normalize mesh --
-        // Align barycenter to world origin
-        // Get bounding box (min and max for x,y,z)
-        // Get cell size along each dimension
-        double cell_size = domain_size / (double)grid3d.x;
-        // Get offset along each dimension
-        Vector3d offset = -cell_size * 0.5 * Vector3d((double)grid3d.x, (double)grid3d.y, (double)grid3d.z);
+        // Create 3d Grid
+        grid = mesher::create_grid3d(20, 20, 20, surface_mesh.diagonal);
 
-        string output_folder = "E:/Development/FESSGA/data/msh_output/test/7_element_project";
+        // Set output folder
+        string output_folder = "E:/Development/FESSGA/data/msh_output/test";
         
-        // Change domain to 2d
-        dim_z = 0;
+        // Compute no of cells
         no_cells = dim_x * dim_y;
+
+        // Generate grid-based binary density distribution based on the given (unstructured) mesh file
+        uint32_t* densities3d = new uint32_t[grid.x * grid.y * grid.z];
+        mesher::generate_3d_density_distribution(grid, surface_mesh, &gui.V_list[0], &gui.F_list[0], densities3d);
+
+        // Create slice from 3d binary density distribution for 2d test
+        int z = grid.x / 2;
+        densities = new uint[grid.x * grid.y];
+        mesher::create_2d_slice(densities3d, densities, grid, z);
+        mesher::filter_2d_density_distrib(densities, grid.x, grid.y);
     };
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
@@ -63,6 +61,8 @@ public:
 private:
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
+    mesher::SurfaceMesh mesh;
+    mesher::Grid3D grid;
     GUI gui;
     map<uint, uint> line_bounds;
     string mesh_description = "";
@@ -101,9 +101,9 @@ bool Tester::test_2d_crossover() {
 
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
-    mesher::print_2d_density_distrib(parent1, dim_x, dim_y);
+    mesher::print_density_distrib(parent1, dim_x, dim_y);
     cout << "\nParent 2: \n";
-    mesher::print_2d_density_distrib(parent2, dim_x, dim_y);
+    mesher::print_density_distrib(parent2, dim_x, dim_y);
 
     string msh_file = "../data/msh_output/test.msh";
     string case_file = "../data/msh_output/case.sif";
@@ -113,13 +113,14 @@ bool Tester::test_2d_crossover() {
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
     Evolver evolver = Evolver(
-        msh_file, case_file, output_folder, 4, (float)0.01, &variation_minimum_passed, 2, max_stress, parent1, dim_x, dim_y);
+        msh_file, case_file, mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2, max_stress, parent1, grid
+    );
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
-    mesher::print_2d_density_distrib(child1, dim_x, dim_y);
+    mesher::print_density_distrib(child1, dim_x, dim_y);
     cout << "\Child 2: \n";
-    mesher::print_2d_density_distrib(child2, dim_x, dim_y);
+    mesher::print_density_distrib(child2, dim_x, dim_y);
 
     return true;
 }
@@ -139,7 +140,7 @@ bool Tester::test_fess() {
     string output_folder = "../data/msh_output/FESSGA_test_output";
     
     // Run optimization
-    FESS fess = FESS(msh_file, case_file, output_folder, min_stress, max_stress, densities, dim_x, dim_y);
+    FESS fess = FESS(msh_file, case_file, mesh, output_folder, min_stress, max_stress, densities, grid);
     fess.run();
 
     return true;

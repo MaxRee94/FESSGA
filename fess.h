@@ -14,9 +14,9 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		string _msh_file, string _case_file, string _output_folder, double _min_stress_threshold, double _max_stress_threshold, 
-		uint* _starting_densities, int _dim_x, int _dim_y, int _dim_z = 0
-	) : OptimizerBase(_msh_file, _case_file, _output_folder, _max_stress_threshold, _starting_densities, _dim_x, _dim_y, _dim_z)
+		string _msh_file, string _case_file, mesher::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
+		double _max_stress_threshold, uint* _starting_densities, mesher::Grid3D _grid
+	) : OptimizerBase(_msh_file, _case_file, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid)
 	{
 		min_stress_threshold = _min_stress_threshold;
 	}
@@ -37,7 +37,7 @@ void FESS::run() {
 		cout << "--- Starting iteration " << i << ". Previous lowest stress value: " << min_stress << " N/m^2" << endl;
 
 		// Call Elmer to run FEA on .msh file in cur_output_folder, using .sif file
-		//call_elmer(output_folder + "/" + cur_iteration_name);
+		physics::call_elmer(output_folder + "/" + cur_iteration_name);
 
 		// Wait for Elmer's analysis to complete. This is the case when a new .vtk file has appeared
 
@@ -46,16 +46,32 @@ void FESS::run() {
 
 		// Set all cells that have corresponding stress values lower than <min_stress_threshold> to density=0.
 
-		// Update current output folder and copy Elmer's project files to it
+		// Create new subfolder for output of current iteration
 		string cur_iteration_name = fessga::help::add_padding("iteration_", i + 1) + to_string(i + 1);
 		string cur_output_folder = output_folder + "/" + cur_iteration_name;
+		cout << "Created output folder " << cur_output_folder << " for current iteration.\n";
+		IO::create_folder_if_not_exists(cur_output_folder);
+
+		// Copy the case.sif file to the newly created subfolder
+		IO::copy_file(case_file, cur_output_folder + "/case.sif");
+		if (IO::FileExists(cur_output_folder + "/case.sif")) cout << "Copied case file to subfolder.\n";
+		else cout << "ERROR: Failed to copy case file to subfolder.\n";
 		
 		// Generate new FE mesh using modified density distribution
-		//mesher::FEMesh2D fe_mesh;
-		//mesher::generate_FE_mesh(dim_x, dim_y, offset, cell_size, densities, fe_mesh);
+		cout << "Generating new FE mesh...\n";
+		mesher::FEMesh2D fe_mesh;
+		mesher::generate_FE_mesh(grid, mesh, densities, fe_mesh);
+		cout << "FE mesh generation done.\n";
+
+		// Export newly generated FE mesh
+		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
+		if (IO::FileExists(cur_output_folder + "/mesh.header")) cout << "Exported new FE mesh to subfolder.\n";
+		else cout << "ERROR: Failed to export new FE mesh to subfolder.\n";
+
+		cout << endl;
 
 		i++;
 	}
 
-	cout << "Finished FESS run. Results were saved to " << output_folder << endl;
+	cout << "\nFinished FESS run. Results were saved to " << output_folder << endl;
 }

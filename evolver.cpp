@@ -34,9 +34,9 @@ void Evolver::do_2d_crossover(uint* parent1, uint* parent2, uint* child1, uint* 
 	uint crosspoint_2 = max(crosspoints[0], crosspoints[1]);
 	cout << "cross 2: " << crosspoint_2 << endl;
 	//cout << "crosspoint 1: " << crosspoint_1 << ", crosspoint 2: " << crosspoint_2 << endl;
-	for (int x = 0; x < dim_x; x++) {
-		for (int y = 0; y < dim_y; y++) {
-			int coord = x * dim_x + y;
+	for (int x = 0; x < grid.x; x++) {
+		for (int y = 0; y < grid.y; y++) {
+			int coord = x * grid.y + y;
 			if (coord > crosspoint_1 && coord < crosspoint_2) {
 				child1[coord] = parent1[coord];
 				child2[coord] = parent2[coord];
