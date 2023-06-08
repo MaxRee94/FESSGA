@@ -21,21 +21,36 @@ public:
         // Initialize RNG
         srand(time(0));
 
+        // Grid parameters
+        mesher::Grid3D grid3d;
+        grid3d.x = 5;
+        grid3d.y = 5;
+        grid3d.z = 5;
+        float domain_size = 2.0; // TODO: replace
+
+        // Initialize mesh lists
+        vector<MatrixXd> V_list;
+        vector<MatrixXi> F_list;
+
         // Initialize gui
-        gui = fessga::GUI(V_list, F_list);
+        GUI gui = GUI(V_list, F_list);
 
         // Load example object
-        gui.load_example();
+        MatrixXd V;
+        MatrixXi F;
+        fessga::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
+        gui.load_example(&V, &F);
+        mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
-        // Generate a 3d grid-based binary density distribution of the chosen mesh
-        domain_size = 2.0;
-        dim_x = 6;
-        dim_y = 6;
-        dim_z = 1;
-        cell_size = domain_size / (float)dim_x;
-        Vector3d offset = -cell_size * 0.5 * Vector3d((double)dim_x, (double)dim_y, (double)dim_z);
-        densities = new uint[dim_x * dim_y * dim_z];
-        mesher::generate_3d_density_distribution(dim_x, dim_y, dim_z, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
+        // -- Normalize mesh --
+        // Align barycenter to world origin
+        // Get bounding box (min and max for x,y,z)
+        // Get cell size along each dimension
+        double cell_size = domain_size / (double)grid3d.x;
+        // Get offset along each dimension
+        Vector3d offset = -cell_size * 0.5 * Vector3d((double)grid3d.x, (double)grid3d.y, (double)grid3d.z);
+
+        string output_folder = "E:/Development/FESSGA/data/msh_output/test/7_element_project";
         
         // Change domain to 2d
         dim_z = 0;

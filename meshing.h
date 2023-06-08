@@ -19,38 +19,40 @@ namespace fessga {
     class mesher
     {
     public:
-        // Define the struct for a 3d Grid
-        struct Grid3D {
-            int dim_x, dim_y, dim_z;
-        };
-
+        
         // Define the struct for a 2d Grid
         struct Grid2D {
-            int dim_x, dim_y;
+            int x, y;
+            Vector2d cell_size;
+        };
+
+        // Define the struct for a 3d Grid
+        struct Grid3D {
+            int x, y, z;
         };
 
         // Define the struct for a Surface mesh
         struct SurfaceMesh {
             Vector3d offset;
+            Vector3d diagonal;
             MatrixXd bounding_box = MatrixXd(2, 3);
             MatrixXd* V = 0;
             MatrixXi* F = 0;
         };
 
-
         // Define the struct for an element
         struct Element {
-            int idx = 0;
+            int id = 0;
             int type = 0;
             int no_tags = 0;
             int body = 0;
             int tag = 0;
+            int boundary_id = -1; // Default -1 indicates the element is not part of the boundary
             vector<int> nodes = {};
         };
 
         // Define the struct for a 2D Finite Element mesh
         struct FEMesh2D {
-            map<uint32_t, uint32_t> line_boundaries;
             vector<vector<double>> nodes;
             vector<Element> lines;
             vector<Element> surfaces;
@@ -61,6 +63,18 @@ namespace fessga {
             Vector3d position;
             int density;
         };
+
+        static SurfaceMesh create_surface_mesh(MatrixXd* V, MatrixXi* F) {
+            mesher::SurfaceMesh surface_mesh;
+            surface_mesh.V = V;
+            surface_mesh.F = F;
+            surface_mesh.bounding_box.row(0) = V->colwise().minCoeff();
+            surface_mesh.bounding_box.row(1) = V->colwise().maxCoeff();
+            surface_mesh.diagonal = surface_mesh.bounding_box.row(1) - surface_mesh.bounding_box.row(0);
+            surface_mesh.offset = -0.5 * surface_mesh.diagonal;
+
+            return surface_mesh;
+        }
 
         static void print_density_distrib(uint* densities, int grid_size, int z = -1) {
             if (z == -1) z = grid_size / 2;
@@ -141,16 +155,13 @@ namespace fessga {
             densities (uint*): Array which contains a binary density value (0 or 1) for each cell in the grid
         */
         static void generate_3d_density_distribution(
-            int dim_x, int dim_y, int dim_z, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
+            Grid3D grid, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
             uint* densities
         ) {
             cout << "Generating 3d grid-based density distribution..." << endl;
 
             // Compute the barycenter of the mesh
             Vector3d mesh_barycent = V->colwise().mean();
-
-            // Compute the size of each cell in the grid
-            Vector3d grid_size = Vector3d(dim_x, dim_y, dim_z);
 
             // Compute vector to center of a grid cell from its corner
             Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5) * cell_size;
@@ -172,11 +183,9 @@ namespace fessga {
             // Assign density values to cells in the grid
             int slices_done = 0;
 #pragma omp parallel for
-            for (int x = 0; x < dim_x; x++) {
-                cout << "slices_done: " << slices_done << " / " << dim_x << endl;
-                slices_done++;
-                for (int y = 0; y < dim_y; y++) {
-                    for (int z = 0; z < dim_z; z++) {
+            for (int x = 0; x < grid.x; x++) {
+                for (int y = 0; y < grid.y; y++) {
+                    for (int z = 0; z < grid.z; z++) {
                         Cell cell;
                         Vector3d indices; indices << x, y, z;
                         cell.position = offset + indices * cell_size + to_cell_center;
@@ -205,26 +214,28 @@ namespace fessga {
                                 break;
                             }
                         }
-                        densities[x * dim_x * dim_y + y * dim_y + z] = cell.density;
+                        densities[x * grid.x * grid.y + y * grid.y + z] = cell.density;
                     }
                 }
+                cout << "slices_done: " << slices_done + 1 << " / " << grid.x << endl;
+                slices_done++;
             }
             cout << "Finished generating density distribution. Filtering out floating cells..." << endl;
 
             // Filter out floating cells that have no direct neighbors
 #pragma omp parallel for
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    for (int z = 0; z < dim_z; z++) {
-                        int filled = densities[x * dim_x * dim_y + y * dim_y + z];
+            for (int x = 0; x < grid.x; x++) {
+                for (int y = 0; y < grid.y; y++) {
+                    for (int z = 0; z < grid.z; z++) {
+                        int filled = densities[x * grid.x * grid.y + y * grid.y + z];
                         if (!filled) continue;
                         int neighbor = 0;
                         for (int _x = -1; _x <= 1; _x++) {
                             for (int _y = -1; _y <= 1; _y++) {
                                 for (int _z = -1; _z <= 1; _z++) {
-                                    if (x+_x == dim_x || y + _y == dim_y || z+_z == dim_z) continue;
+                                    if (x+_x == grid.x || y + _y == grid.y || z+_z == grid.z) continue;
                                     if (x+_x == 0 || y+_y == 0 || z+_z == 0) continue;
-                                    neighbor = densities[(x+_x) * dim_x * dim_y + (y+_y) * dim_y + (z+_z)];
+                                    neighbor = densities[(x+_x) * grid.x * grid.y + (y+_y) * grid.y + (z+_z)];
                                     if (neighbor) break;
                                 }
                                 if (neighbor) break;
@@ -233,7 +244,7 @@ namespace fessga {
                         }
                         if (!neighbor) {
                             cout << "floating cell detected. Setting to 0" << endl;
-                            densities[x * dim_x * dim_y + y * dim_y + z] = 0; // Set density to 0 if the cell has no neighbors
+                            densities[x * grid.x * grid.y + y * grid.y + z] = 0; // Set density to 0 if the cell has no neighbors
                         }
                     }
                 }
@@ -267,6 +278,14 @@ namespace fessga {
                 }
             }
             cout << "Finished filtering floating cells." << endl;
+        }
+
+        static void create_2d_slice(uint* densities3d, uint* slice2d, Grid3D grid, int z) {
+            for (int x = 0; x < grid.x; x++) {
+                for (int y = 0; y < grid.y; y++) {
+                    slice2d[x * grid.y + y] = densities3d[z * grid.x * grid.y + x * grid.y + y];
+                }
+            }
         }
 
         static bool node_exists(std::map<int, int>* node_coords, int coords) {
@@ -343,7 +362,7 @@ namespace fessga {
         static string get_msh_element_description(Element element) {
             string description = "";
             description += {
-                to_string(element.idx) + " " + to_string(element.type) + " " + to_string(element.no_tags) + " "
+                to_string(element.id) + " " + to_string(element.type) + " " + to_string(element.no_tags) + " "
                 + to_string(element.body) + " " + to_string(element.tag)
             };
             for (int i = 0; i < element.nodes.size(); i++) {
@@ -430,14 +449,14 @@ namespace fessga {
             IO::write_text_to_file(nodes_description, output_folder + "/mesh.nodes");
         }
 
-        // Generate a file description for an Elmer (quad) elements file, based on the given FE mesh
-        static void export_elmer_quad_elements(FEMesh2D* fe_mesh, string output_folder) {
+        // Generate a file description for an Elmer elements file, based on the given FE mesh
+        static void export_elmer_elements(FEMesh2D* fe_mesh, string output_folder) {
             string elements_description = "";
-            for (int i = 0; i < fe_mesh->surfaces.size(); i++) { // List of surface elements, with each node encoded as <surface_idx> <nodeidx_1> <nodeidx_2> <nodeidx_3> <nodeidx_4>
+            for (int i = 0; i < fe_mesh->surfaces.size(); i++) {
                 Element surface = fe_mesh->surfaces[i];
                 
                 // Encode surface idx, body, and type
-                string _surface = to_string(surface.idx) + " " + to_string(surface.body) + " " + to_string(surface.type);
+                string _surface = to_string(surface.id) + " " + to_string(surface.body + 1) + " 404";
                 
                 // Encode member node ids
                 for (int j = 0; j < surface.nodes.size(); j++) {
@@ -446,14 +465,36 @@ namespace fessga {
 
                 elements_description += _surface + "\n";
             }
-            IO::write_text_to_file(elements_description, output_folder + "/mesh.nodes");
+            IO::write_text_to_file(elements_description, output_folder + "/mesh.elements");
+        }
+
+        // Generate a file description for an Elmer boundary elements file, based on the given FE mesh
+        static void export_elmer_boundary(FEMesh2D* fe_mesh, string output_folder) {
+            string elements_description = "";
+            for (int i = 0; i < fe_mesh->lines.size(); i++) {
+                Element line = fe_mesh->lines[i];
+
+                // Encode line idx, boundary id, p1, p2, and type
+                int parent_id = line.id >> 2;
+                string _line = to_string(line.id) + " " + to_string(line.boundary_id) + " " + to_string(parent_id) + " 0 202";
+
+                // Encode member node ids
+                for (int j = 0; j < line.nodes.size(); j++) {
+                    _line += " " + to_string(line.nodes[j]);
+                }
+
+                elements_description += _line + "\n";
+            }
+            IO::write_text_to_file(elements_description, output_folder + "/mesh.boundary");
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
         static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
             export_elmer_header(fe_mesh, output_folder);
             export_elmer_nodes(fe_mesh, output_folder);
-            export_elmer_quad_elements(fe_mesh, output_folder);
+            export_elmer_elements(fe_mesh, output_folder);
+            export_elmer_boundary(fe_mesh, output_folder);
+            IO::write_text_to_file("case.sif\n1", output_folder + "/ELMERSOLVER_STARTINFO");
         }
     };
 }

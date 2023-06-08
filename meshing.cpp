@@ -42,7 +42,7 @@ void mesher::generate_FE_mesh(
 
                 // Create the surface element
                 Element surface;
-                surface.idx = surface_idx;
+                surface.id = surface_idx;
                 surface.type = type;
                 surface.no_tags = no_tags;
                 surface.body = physical_entity;
@@ -107,7 +107,7 @@ void mesher::generate_FE_mesh(
     int previous_y = y - 1;
     if (previous_y < 0) previous_y = y + 1;
 
-    // Trace perimeter by stepping from one boundary node to the direct neighbor that
+    // Trace perimeter by stepping from one boundary node to a direct neighbor that
     // was not visited in the previous iteration
     int i = 1;
     bool neighbor_found = false;
@@ -310,12 +310,13 @@ void mesher::generate_FE_mesh(
 
         // Create the line element
         Element line;
-        line.idx = line_idx + 1;
+        line.id = line_idx + 1;
         line.type = type;
         line.no_tags = no_tags;
         line.body = physical_entity;
         line.tag = _tag;
         line.nodes = { node1_coord + 1, node2_coord + 1 };
+        line.boundary_id = i; // Add i to boundary id, creating a continuous path around the perimeter(s) for Elmer's boundary element parser to walk
         lines.push_back(line);
 
         no_lines++;

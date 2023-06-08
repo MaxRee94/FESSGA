@@ -12,9 +12,9 @@
 class OptimizerBase {
 public:
 	OptimizerBase() = default;
-	OptimizerBase(string _msh_file, string _case_file, string _output_folder, double _max_stress_threshold, uint* _starting_densities, int _dim_x, int _dim_y, int _dim_z = 0) {
+	OptimizerBase(string _msh_file, string _case_file, string _output_folder, double _max_stress_threshold, uint* _densities, int _dim_x, int _dim_y, int _dim_z = 0) {
 		msh_file = _msh_file; case_file = _case_file; output_folder = _output_folder;
-		starting_densities = _starting_densities;
+		densities = _densities;
 		max_stress_threshold = _max_stress_threshold;
 		dim_x = _dim_x;
 		dim_y = _dim_y;
@@ -35,7 +35,7 @@ public:
 	bool domain_2d = false;
 	int no_cells = 1;
 	double max_stress_threshold = 0.0;
-	uint* starting_densities = 0;
+	uint* densities = 0;
 	string msh_file, case_file, output_folder;
 };
 

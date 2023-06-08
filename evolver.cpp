@@ -74,7 +74,7 @@ void Evolver::init_population() {
 	// Fill the buffer with (mutated) copies of the base densities
 	for (int indiv = 0; indiv < pop_size; indiv++) {
 		for (int cell = 0; cell < no_cells; cell++) {
-			population[indiv * no_cells + cell] = starting_densities[cell];
+			population[indiv * no_cells + cell] = densities[cell];
 		}
 
 		// Perturb each individual's density distribution through mutation. This is done to add variation to the population.

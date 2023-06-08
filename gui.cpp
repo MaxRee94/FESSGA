@@ -18,14 +18,11 @@ bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier
     return false;
 }
 
-void fessga::GUI::load_example() {
-    MatrixXd V;
-    MatrixXi F;
-    fessga::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
+void fessga::GUI::load_example(MatrixXd* V, MatrixXi* F) {
     V_list.clear();
     F_list.clear();
-    V_list.push_back(V);
-    F_list.push_back(F);
+    V_list.push_back(*V);
+    F_list.push_back(*F);
 }
 
 void fessga::GUI::transform(

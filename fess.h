@@ -50,7 +50,9 @@ void FESS::run() {
 		string cur_iteration_name = fessga::help::add_padding("iteration_", i + 1) + to_string(i + 1);
 		string cur_output_folder = output_folder + "/" + cur_iteration_name;
 		
-		// Generate new .msh file using modified density distribution
+		// Generate new FE mesh using modified density distribution
+		//mesher::FEMesh2D fe_mesh;
+		//mesher::generate_FE_mesh(dim_x, dim_y, offset, cell_size, densities, fe_mesh);
 
 		i++;
 	}

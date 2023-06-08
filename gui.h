@@ -13,7 +13,7 @@ namespace fessga {
 		GUI(vector<MatrixXd> _V_list, vector<MatrixXi> _F_list);
 		void transform(igl::opengl::glfw::Viewer& viewer, MatrixXd& Vhom_orig, MatrixXd& Vhom, Matrix4d& T,
 			MatrixXd& V, MatrixXi F, Vector3d pos_offset, float rot_y_offset);
-		void load_example();
+		void load_example(MatrixXd* V, MatrixXi* F);
 		void show();
 		igl::opengl::glfw::Viewer viewer;
 		vector<MatrixXd> V_list;
