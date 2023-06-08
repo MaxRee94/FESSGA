@@ -29,6 +29,7 @@ namespace fessga {
         // Define the struct for a 3d Grid
         struct Grid3D {
             int x, y, z;
+            Vector3d cell_size;
         };
 
         // Define the struct for a Surface mesh
@@ -58,8 +59,8 @@ namespace fessga {
             vector<Element> surfaces;
         };
 
-        // Define the struct for a cell in the grid
-        struct Cell {
+        // Define the struct for a 3d cell in the grid
+        struct Cell3D {
             Vector3d position;
             int density;
         };
@@ -155,8 +156,7 @@ namespace fessga {
             densities (uint*): Array which contains a binary density value (0 or 1) for each cell in the grid
         */
         static void generate_3d_density_distribution(
-            Grid3D grid, Vector3d offset, double cell_size, MatrixXd* V, MatrixXi* F,
-            uint* densities
+            Grid3D grid, mesher::SurfaceMesh mesh, MatrixXd* V, MatrixXi* F, uint* densities
         ) {
             cout << "Generating 3d grid-based density distribution..." << endl;
 
@@ -164,7 +164,7 @@ namespace fessga {
             Vector3d mesh_barycent = V->colwise().mean();
 
             // Compute vector to center of a grid cell from its corner
-            Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5) * cell_size;
+            Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5).cwiseProduct(grid.cell_size);
 
             // Initialize different ray directions, (this is a temporary fix for a bug whereby some cells
             // are not properly assigned a density of 1)
@@ -186,9 +186,9 @@ namespace fessga {
             for (int x = 0; x < grid.x; x++) {
                 for (int y = 0; y < grid.y; y++) {
                     for (int z = 0; z < grid.z; z++) {
-                        Cell cell;
+                        Cell3D cell;
                         Vector3d indices; indices << x, y, z;
-                        cell.position = offset + indices * cell_size + to_cell_center;
+                        cell.position = mesh.offset + indices.cwiseProduct(grid.cell_size) + to_cell_center;
                         cell.density = 0;
                         // Try three ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
                         for (int i = 0; i < 3; i++) {
@@ -214,7 +214,7 @@ namespace fessga {
                                 break;
                             }
                         }
-                        densities[x * grid.x * grid.y + y * grid.y + z] = cell.density;
+                        densities[x * grid.z * grid.y + y * grid.z + z] = cell.density;
                     }
                 }
                 cout << "slices_done: " << slices_done + 1 << " / " << grid.x << endl;
@@ -227,7 +227,7 @@ namespace fessga {
             for (int x = 0; x < grid.x; x++) {
                 for (int y = 0; y < grid.y; y++) {
                     for (int z = 0; z < grid.z; z++) {
-                        int filled = densities[x * grid.x * grid.y + y * grid.y + z];
+                        int filled = densities[x * grid.z * grid.y + y * grid.z + z];
                         if (!filled) continue;
                         int neighbor = 0;
                         for (int _x = -1; _x <= 1; _x++) {
@@ -235,7 +235,7 @@ namespace fessga {
                                 for (int _z = -1; _z <= 1; _z++) {
                                     if (x+_x == grid.x || y + _y == grid.y || z+_z == grid.z) continue;
                                     if (x+_x == 0 || y+_y == 0 || z+_z == 0) continue;
-                                    neighbor = densities[(x+_x) * grid.x * grid.y + (y+_y) * grid.y + (z+_z)];
+                                    neighbor = densities[(x+_x) * grid.z * grid.y + (y+_y) * grid.z + (z+_z)];
                                     if (neighbor) break;
                                 }
                                 if (neighbor) break;
@@ -244,7 +244,7 @@ namespace fessga {
                         }
                         if (!neighbor) {
                             cout << "floating cell detected. Setting to 0" << endl;
-                            densities[x * grid.x * grid.y + y * grid.y + z] = 0; // Set density to 0 if the cell has no neighbors
+                            densities[x * grid.z * grid.y + y * grid.z + z] = 0; // Set density to 0 if the cell has no neighbors
                         }
                     }
                 }
@@ -298,25 +298,25 @@ namespace fessga {
         }
 
         static int add_node_if_not_exists(
-            int x, int y, Vector3d offset, int dim_x, std::map<int, int>& node_coords, float cell_size,
+            int x, int y, Vector3d offset, int dim_y, std::map<int, int>& node_coords, Vector3d cell_size,
             vector<vector<double>>& nodes, int& _node_idx)
         {
-            dim_x += 1; // Number of nodes along an axis = number of cells + 1
+            dim_y += 1; // Number of nodes along an axis = number of cells + 1
             int node_idx = _node_idx;
-            if (!node_exists(&node_coords, x * dim_x + y)) {
-                uint node_coord = x * dim_x + y;
+            if (!node_exists(&node_coords, x * dim_y + y)) {
+                uint node_coord = x * dim_y + y;
                 node_coords[node_coord] = _node_idx;
-                vector<double> node = { (double)(node_coord + 1), cell_size * x + offset(0), cell_size * y + offset(1), 0.0};
+                vector<double> node = { (double)(node_coord + 1), cell_size(0) * x + offset(0), cell_size(1) * y + offset(1), 0.0};
                 nodes.push_back(node);
                 _node_idx++;
                 //cout << "node for (" << x << ", " << y << " ) does not exist.Created new node " << _node_idx-1 << endl;
             }
             else {
-                node_idx = node_coords[x * dim_x + y];
+                node_idx = node_coords[x * dim_y + y];
                 //cout << "node for (" << x << ", " << y << " ) already existed" << endl;
             }
 
-            return x * dim_x + y + 1;
+            return x * dim_y + y + 1;
         }
 
         /* Return the tag that corresponds to the given element index
@@ -356,7 +356,7 @@ namespace fessga {
             msh (string): The generated description string in .msh-format
         */
         static void generate_FE_mesh(
-            int dim_x, int dim_y, Vector3d offset, double cell_size, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds = 0
+            Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds = 0
         );
 
         static string get_msh_element_description(Element element) {

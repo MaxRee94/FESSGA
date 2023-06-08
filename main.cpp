@@ -13,13 +13,6 @@ using namespace fessga;
 
 int main(int argc, char* argv[])
 {
-    // Grid parameters
-    mesher::Grid3D grid3d;
-    grid3d.x = 5;
-    grid3d.y = 5;
-    grid3d.z = 5;
-    float domain_size = 2.0; // TODO: replace
-
     // Initialize mesh lists
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -34,33 +27,33 @@ int main(int argc, char* argv[])
     gui.load_example(&V, &F);
     mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
-    // -- Normalize mesh --
-    // Align barycenter to world origin
-    // Get bounding box (min and max for x,y,z)
-    // Get cell size along each dimension
-    double cell_size = domain_size / (double)grid3d.x;
-    // Get offset along each dimension
-    Vector3d offset = -cell_size * 0.5 * Vector3d((double)grid3d.x, (double)grid3d.y, (double)grid3d.z);
+    // Create 3d Grid
+    mesher::Grid3D grid;
+    grid.x = 20;
+    grid.y = 20;
+    grid.z = 20;
+    grid.cell_size = surface_mesh.diagonal.cwiseProduct(Vector3d(1.0 / (double)grid.x, 1.0 / (double)grid.y, 1.0 / (double)grid.z));
 
+    // Set output folder
     string output_folder = "E:/Development/FESSGA/data/msh_output/test/7_element_project";
 
 #if 0:
 #elif 1:
 
     // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-    uint32_t* densities = new uint32_t[grid3d.x * grid3d.y * grid3d.z];
-    mesher::generate_3d_density_distribution(grid3d, offset, cell_size, &gui.V_list[0], &gui.F_list[0], densities);
+    uint32_t* densities = new uint32_t[grid.x * grid.y * grid.z];
+    mesher::generate_3d_density_distribution(grid, surface_mesh, &gui.V_list[0], &gui.F_list[0], densities);
 
     // Create slice from 3d binary density distribution for 2d test
-    int z = grid3d.x / 2;
-    uint* slice_2d = new uint[grid3d.x * grid3d.y];
-    mesher::create_2d_slice(densities, slice_2d, grid3d, z);
-    mesher::filter_2d_density_distrib(slice_2d, grid3d.x, grid3d.y);
-    mesher::print_2d_density_distrib(slice_2d, grid3d.x, grid3d.y);
+    int z = grid.x / 2;
+    uint* slice_2d = new uint[grid.x * grid.y];
+    mesher::create_2d_slice(densities, slice_2d, grid, z);
+    mesher::filter_2d_density_distrib(slice_2d, grid.x, grid.y);
+    mesher::print_2d_density_distrib(slice_2d, grid.x, grid.y);
 
     // Obtain a grid-based FE representation based on the chosen mesh
     mesher::FEMesh2D fe_mesh;
-    mesher::generate_FE_mesh(grid3d.x, grid3d.y, offset, cell_size, slice_2d, fe_mesh);
+    mesher::generate_FE_mesh(grid, surface_mesh, slice_2d, fe_mesh);
 
     // Encode the FE mesh in a .msh format
     string msh_output_path = output_folder + "/mesh.msh";
