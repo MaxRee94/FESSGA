@@ -15,6 +15,8 @@ namespace fessga {
 	public:
 		static int get_key(std::map<int, int>* _map, int value);
 
+		static void populate_with_zeroes(double* _array, int dim_x, int dim_y);
+
 		/*
 		Return whether the given vector <vec> contains the integer <item>
 		 */

@@ -492,18 +492,21 @@ namespace fessga {
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
-        static string export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
             export_elmer_header(fe_mesh, output_folder);
             export_elmer_nodes(fe_mesh, output_folder);
             export_elmer_elements(fe_mesh, output_folder);
             export_elmer_boundary(fe_mesh, output_folder);
             IO::write_text_to_file("case.sif\n1", output_folder + "/ELMERSOLVER_STARTINFO");
-            string bat_file = IO::get_fullpath(output_folder);
-            bat_file += "/run_elmer.bat";
-            cout << "bat file fullpath: " << bat_file << endl;
-            IO::write_text_to_file("cd \"" + output_folder + "\"\nElmerSolver", bat_file);
-            
-            return bat_file;
+        }
+
+        // Create batch file for running elmer and return its absolute path
+        static string create_batch_file(string output_folder) {
+            string batch_file = IO::get_fullpath(output_folder);
+            batch_file += "/run_elmer.bat";
+            IO::write_text_to_file("cd \"" + output_folder + "\"\nElmerSolver", batch_file);
+
+            return batch_file;
         }
     };
 }

@@ -187,3 +187,11 @@ int fessga::help::get_key(std::map<int, int>* _map, int value) {
     }
     return -1;
 }
+
+void fessga::help::populate_with_zeroes(double* _array, int dim_x, int dim_y) {
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            _array[x * dim_y + y] = 0.0;
+        }
+    }
+}

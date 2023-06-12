@@ -17,15 +17,16 @@ public:
 	OptimizerBase() = default;
 	OptimizerBase(
 		string _msh_file, string _case_file, mesher::SurfaceMesh _mesh, string _output_folder,
-		double _max_stress_threshold, uint* _densities, mesher::Grid3D _grid
+		double _max_stress_threshold, uint* _densities, mesher::Grid3D _grid, int _max_iterations
 	) {
 		mesh = _mesh;
-		msh_file = _msh_file; case_file = _case_file; output_folder = _output_folder;
+		msh_file = _msh_file; case_file = _case_file; output_folder = IO::get_fullpath(_output_folder);
 		densities = _densities;
 		max_stress_threshold = _max_stress_threshold;
 		grid = _grid;
 		domain_2d = true;
 		no_cells = grid.x * grid.y * grid.z;
+		max_iterations = _max_iterations;
 		IO::create_folder_if_not_exists(output_folder);
 
 		// Check if output folder is empty
@@ -38,5 +39,6 @@ public:
 	int no_cells = 1;
 	double max_stress_threshold = 0.0;
 	uint* densities = 0;
+	int max_iterations = 0;
 	string msh_file, case_file, output_folder;
 };
