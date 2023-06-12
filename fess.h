@@ -55,27 +55,27 @@ void FESS::run() {
 		cout << "FESS: FE mesh generation done.\n";
 
 		// Export newly generated FE mesh
-		string bat_file = mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
+		string batch_file = mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
 		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to export new FE mesh to subfolder.\n";
 
 		// Call Elmer to run FEA on new FE mesh
-		cout << "FESS: Calling Elmer .bat file (" << bat_file << ")\n";
-		physics::call_elmer(bat_file);
+		cout << "FESS: Calling Elmer .bat file (" << batch_file << ")\n";
+		physics::call_elmer(batch_file);
 
-		// Obtain stress distribution from the .vtk file
-		Vector2d inv_cell_size = Vector2d(1.0 / grid.cell_size(0), 1.0 / grid.cell_size(1));
+		// Obtain vonmises stress distribution from the .vtk file
 		Vector2d offset = Vector2d(mesh.offset(0), mesh.offset(1));
-		double* vonmises = new double[(grid.x + 1) * (grid.y + 1)]; // Nodes grid has +1 width along each dimension
+		double* vonmises = new double[(grid.x) * (grid.y)]; // Nodes grid has +1 width along each dimension
 		string filename = cur_output_folder + "/case0001.vtk";
-		physics::load_2d_physics_data(filename, vonmises, grid.x + 1, grid.y + 1, offset, inv_cell_size);
+		physics::load_2d_physics_data(filename, vonmises, grid, offset, "Vonmises");
 		cout << "FESS: Finished reading physics data." << endl;
 
 		// Set all cells that have corresponding stress values lower than <min_stress_threshold> to density=0.
+
 		max_stress = 1e10; // Temporary value that will make FESS terminate after one iteration. TODO: remove
 
 		i++;
 	}
 
-	cout << "FESS: Algorithm converged. Results were saved to " << output_folder << endl;
+	cout << "\nFESS: Algorithm converged. Results were saved to " << output_folder << endl;
 }
