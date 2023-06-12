@@ -28,7 +28,7 @@ namespace fessga {
 
 		static vector<size_t> FindAll(string basestring, string target);
 
-		static std::string ReplaceOccurrences(string basestring, string toReplace, string replaceWith);
+		static std::string replace_occurrences(string basestring, string toReplace, string replaceWith);
 
 		static double fisqrt(float n);
 

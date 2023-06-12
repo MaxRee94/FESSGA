@@ -30,5 +30,7 @@ namespace fessga {
 		static void create_folder_if_not_exists(std::string folder_path);
 
 		static bool is_empty(std::string folder);
+
+		static std::string get_fullpath(std::string relative_path);
 	};
 };

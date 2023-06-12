@@ -125,7 +125,7 @@ string fessga::IO::get_unique_path(string fpath) {
 }
 
 string fessga::IO::get_latest_path(string templ) {
-    std::string path = help::ReplaceOccurrences(templ, "#", "_v002");
+    std::string path = help::replace_occurrences(templ, "#", "_v002");
     std::string _path = path;
     int vcount = 2;
     int padding = 2;
@@ -146,7 +146,7 @@ string fessga::IO::get_latest_path(string templ) {
         }
         suffix += pad;
         suffix += to_string(vcount);
-        _path = help::ReplaceOccurrences(templ, "#", suffix);
+        _path = help::replace_occurrences(templ, "#", suffix);
         vcount++;
     }
 
@@ -158,4 +158,14 @@ bool fessga::IO::is_empty(string folder) {
         return true;
     }
     return false;
+}
+
+std::string fessga::IO::get_fullpath(string relative_path) {
+    char* _relative_path = (char*)relative_path.c_str();
+    char* buffer = 0;
+    char* _absolute_path = _fullpath(buffer, _relative_path, 1024);
+    string absolute_path(_absolute_path);
+    absolute_path = help::replace_occurrences(absolute_path, "\\", "/");
+
+    return absolute_path;
 }

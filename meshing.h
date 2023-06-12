@@ -28,7 +28,7 @@ namespace fessga {
 
         // Define the struct for a 3d Grid
         struct Grid3D {
-            int x, y, z;
+            int x, y, z, size2d, size3d;
             Vector3d cell_size;
         };
 
@@ -105,6 +105,8 @@ namespace fessga {
             grid.cell_size = diagonal.cwiseProduct(
                 Vector3d(1.0 / (double)grid.x, 1.0 / (double)grid.y, 1.0 / (double)grid.z)
             );
+            grid.size3d = dim_x * dim_y * dim_z;
+            grid.size2d = dim_x * dim_y;
             return grid;
         }
 
@@ -496,10 +498,7 @@ namespace fessga {
             export_elmer_elements(fe_mesh, output_folder);
             export_elmer_boundary(fe_mesh, output_folder);
             IO::write_text_to_file("case.sif\n1", output_folder + "/ELMERSOLVER_STARTINFO");
-            char* output_folder_relative = (char*)output_folder.c_str();
-            char* output_folder_absolute;
-            _fullpath(output_folder_absolute, output_folder_relative, 1024);
-            string bat_file(output_folder_absolute);
+            string bat_file = IO::get_fullpath(output_folder);
             bat_file += "/run_elmer.bat";
             cout << "bat file fullpath: " << bat_file << endl;
             IO::write_text_to_file("cd \"" + output_folder + "\"\nElmerSolver", bat_file);

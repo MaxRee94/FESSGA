@@ -84,7 +84,7 @@ void fessga::help::NormalizeElementWise(Matrix3d* M) {
     };
 }
 
-string fessga::help::ReplaceOccurrences(string basestring, string toReplace, string replaceWith) {
+string fessga::help::replace_occurrences(string basestring, string toReplace, string replaceWith) {
     int pos = 0;
     string newstring = basestring;
     while (basestring.find(toReplace, pos) != string::npos) {
