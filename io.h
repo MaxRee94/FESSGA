@@ -11,19 +11,19 @@
 namespace fessga {
 	class IO {
 	public:
-		static void ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
+		static void read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
 
-		static bool FileExists(std::string fpath);
+		static bool file_exists(std::string fpath);
 
 		static void copy_file(std::string _source, std::string _target, bool verbose = false);
 
-		static void RenameFile(std::string source_path, std::string target_path, bool verbose = false);
+		static void rename_file(std::string source_path, std::string target_path, bool verbose = false);
 
-		static void WriteToCSV(std::string csv_path, std::vector<std::string> data, std::string headers);
+		static void write_to_csv(std::string csv_path, std::vector<std::string> data, std::string headers);
 
-		static std::string GetUniquePath(std::string fpath);
+		static std::string get_unique_path(std::string fpath);
 
-		static std::string GetLatestPath(std::string templ);
+		static std::string get_latest_path(std::string templ);
 
 		static void write_text_to_file(std::string text, std::string path);
 

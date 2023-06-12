@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
     // Load example object
     MatrixXd V;
     MatrixXi F;
-    fessga::IO::ReadMesh("../data/test_objects/teapot.obj", V, F);
+    fessga::IO::read_mesh("../data/test_objects/teapot.obj", V, F);
     gui.load_example(&V, &F);
     mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 

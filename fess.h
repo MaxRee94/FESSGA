@@ -45,7 +45,7 @@ void FESS::run() {
 
 		// Copy the case.sif file to the newly created subfolder
 		IO::copy_file(case_file, cur_output_folder + "/case.sif");
-		if (IO::FileExists(cur_output_folder + "/case.sif")) cout << "FESS: Copied case file to subfolder.\n";
+		if (IO::file_exists(cur_output_folder + "/case.sif")) cout << "FESS: Copied case file to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to copy case file to subfolder.\n";
 		
 		// Generate new FE mesh using modified density distribution
@@ -56,7 +56,7 @@ void FESS::run() {
 
 		// Export newly generated FE mesh
 		string bat_file = mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
-		if (IO::FileExists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh to subfolder.\n";
+		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to export new FE mesh to subfolder.\n";
 
 		// Call Elmer to run FEA on new FE mesh

@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void fessga::IO::ReadMesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
+void fessga::IO::read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output)
 {
     if (!suppress_output) cout << "Reading mesh " << fpath << endl;
 
@@ -42,7 +42,7 @@ void fessga::IO::create_folder_if_not_exists(std::string folder_path) {
     }
 }
 
-bool fessga::IO::FileExists(std::string fpath) {
+bool fessga::IO::file_exists(std::string fpath) {
     struct stat buffer;
     return (stat(fpath.c_str(), &buffer) == 0);
 }
@@ -59,7 +59,7 @@ void fessga::IO::copy_file(std::string _source, std::string _target, bool verbos
     src.close();
 }
 
-void fessga::IO::RenameFile(string _source, string _target, bool verbose) {
+void fessga::IO::rename_file(string _source, string _target, bool verbose) {
     if (verbose) { cout << "Renaming file " << _source << " to " << _target << "..." << endl; }
 
     std::ifstream  src(_source, std::ios::binary);
@@ -77,7 +77,7 @@ void fessga::IO::RenameFile(string _source, string _target, bool verbose) {
         if (verbose) { puts("File successfully deleted"); }
 }
 
-void fessga::IO::WriteToCSV(string csv_path, vector<string> data, string headers) {
+void fessga::IO::write_to_csv(string csv_path, vector<string> data, string headers) {
     std::ofstream fileStream;
     fileStream.open(csv_path, std::fstream::out);
     fileStream << headers << "\n";
@@ -97,10 +97,10 @@ void fessga::IO::write_text_to_file(string text, string path) {
     fileStream.close();
 }
 
-string fessga::IO::GetUniquePath(string fpath) {
+string fessga::IO::get_unique_path(string fpath) {
     int vcount = 2;
     int padding = 2;
-    while (IO::FileExists(fpath)) {
+    while (IO::file_exists(fpath)) {
         if (vcount > 9) {
             if (vcount > 99) {
                 padding = 0;
@@ -124,12 +124,12 @@ string fessga::IO::GetUniquePath(string fpath) {
     return fpath;
 }
 
-string fessga::IO::GetLatestPath(string templ) {
+string fessga::IO::get_latest_path(string templ) {
     std::string path = help::ReplaceOccurrences(templ, "#", "_v002");
     std::string _path = path;
     int vcount = 2;
     int padding = 2;
-    while (IO::FileExists(_path)) {
+    while (IO::file_exists(_path)) {
         path = _path;
         if (vcount > 9) {
             if (vcount > 99) {
