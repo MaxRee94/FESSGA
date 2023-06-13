@@ -195,3 +195,11 @@ void fessga::help::populate_with_zeroes(double* _array, int dim_x, int dim_y) {
         }
     }
 }
+
+void fessga::help::populate_with_zeroes(uint* _array, int dim_x, int dim_y) {
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            _array[x * dim_y + y] = 0.0;
+        }
+    }
+}

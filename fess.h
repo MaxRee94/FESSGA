@@ -80,11 +80,11 @@ void FESS::run() {
 		// Check termination conditions
 		bool terminate = false;
 		if (max_stress > max_stress_threshold) {
-			cout << "\nFESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress << ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << endl;
+			cout << "\nFESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress << ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
 			terminate = true;
 		}
 		if (min_stress > min_stress_threshold) {
-			cout << "\nFESS: lowest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress << ") EXCEEDS MINIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << endl;
+			cout << "\nFESS: lowest stress in FE result (" << std::setprecision(3) << std::scientific << min_stress << ") EXCEEDS MINIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << min_stress_threshold << ")\n";
 			terminate = true;
 		}
 		if (terminate) {
@@ -94,7 +94,8 @@ void FESS::run() {
 
 		// If termination conditions were not reached, prepare density distribution for next iteration by removing 
 		// elements below minimum stress threshold
-		physics::remove_low_stress_cells(fe_results.values, densities, min_stress_threshold, grid.x, grid.y);
+		int no_cells_removed = physics::remove_low_stress_cells(fe_results.values, densities, min_stress_threshold, grid.x, grid.y);
+		cout << "FESS: Removed low-stress cells. Relative volume decreased by " << (float)no_cells_removed / (float)grid.size2d << "\n";
 
 		i++;
 	}

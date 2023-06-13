@@ -47,12 +47,17 @@ namespace fessga {
             _pclose(pipe);
         }
 
-        static void remove_low_stress_cells(double* stresses, uint* densities, double min_stress_threshold, int dim_x, int dim_y) {
+        static int remove_low_stress_cells(double* stresses, uint* densities, double min_stress_threshold, int dim_x, int dim_y) {
+            int count = 0;
             for (int x = 0; x < dim_x; x++) {
                 for (int y = 0; y < dim_y; y++) {
-                    if (stresses[x * dim_y + y] < min_stress_threshold) densities[x * dim_y + y] = 0;
+                    if (stresses[x * dim_y + y] < min_stress_threshold) {
+                        densities[x * dim_y + y] = 0;
+                        count++;
+                    }
                 }
             }
+            return count;
         }
 
         static void load_2d_physics_data(
@@ -83,35 +88,53 @@ namespace fessga {
             vector<int> coords = {};
             Vector2d inv_cell_size = Vector2d(1.0 / grid.cell_size(0), 1.0 / grid.cell_size(1));
             Vector2d offset = Vector2d(_offset(0), _offset(1));
+            //cout << "inv cell size: " << inv_cell_size.transpose() << endl;
+            //cout << "offset: " << offset.transpose() << endl;
             for (int i = 0; i < points->GetNumberOfPoints(); i++) {
                 point = points->GetData()->GetTuple(i);
+                //cout << "\nvtk coord: " << point[0] << ", " << point[1] << endl;
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
+                //cout << "origin aligned coord: " << origin_aligned_coord.transpose() << endl;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
-                int coord = (int)(gridscale_coord[0] * grid.y + gridscale_coord[1]);
-                int x = coord / grid.y;
-                int y = coord % grid.y;
+                //cout << "gridscale coord: " << gridscale_coord.transpose() << endl;
+                int coord = (round(gridscale_coord[0]) * (grid.y + 1) + round(gridscale_coord[1]));
+                int x = coord / (grid.y + 1);
+                int y = coord % (grid.y + 1);
+                //cout << "final coord: " << x << ", " << y << endl;
                 coords.push_back(coord);
                 results_nodewise[coord] = (double)results_array->GetValue(i);
             }
+
+            // Create density distribution indicating which cells have nonzero physics values (FOR DEBUGGING PURPOSES ONLY)
+            uint* nonzero_physics = new uint[(grid.x) * (grid.y)];
+            help::populate_with_zeroes(nonzero_physics, grid.x, grid.y);
 
             // Create cellwise results distribution by averaging all groups of 4 corners of a cell
             double min_stress = 1e30;
             double max_stress = 0;
             for (int i = 0; i < coords.size(); i++) {
                 int coord = coords[i];
-                int x = coord / grid.y;
-                int y = coord % grid.y;
-                double neighbors_sum = (
-                    results_nodewise[coord] + results_nodewise[(x + 1) * grid.x + y] + results_nodewise[(x + 1) * grid.x + (y + 1)]
-                    + results_nodewise[x * grid.x + y + 1]
-                );
-                double cell_stress = neighbors_sum / 4.0;
+                int x = coord / (grid.y + 1);
+                int y = coord % (grid.y + 1);
+                if (x == grid.x || y == grid.y) continue; // Skip coordinates outside cell domain
+                Vector4d neighbors;
+                neighbors[0] = results_nodewise[coord];
+                neighbors[1] = results_nodewise[(x + 1) * (grid.y + 1) + y];
+                neighbors[2] = results_nodewise[(x + 1) * (grid.y + 1) + (y + 1)];
+                neighbors[3] = results_nodewise[x * (grid.y + 1) + (y + 1)];
+                if (neighbors.minCoeff() == 0) continue; // Skip cells with corners that have stress value 0
+                double cell_stress = neighbors.sum() / 4.0;
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
-                results.values[coord] = neighbors_sum / 4.0;
+                int cell_coord = x * grid.y + y;
+                results.values[cell_coord] = cell_stress;
+                nonzero_physics[cell_coord] = 1;
             }
             results.min = min_stress;
             results.max = max_stress;
+
+            //cout << "\nNonzero physics values: " << endl;
+            //mesher::print_density_distrib(nonzero_physics, grid.x, grid.y);
         }
     };
 }

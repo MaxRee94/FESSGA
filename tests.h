@@ -36,7 +36,7 @@ public:
         mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(20, 20, 20, surface_mesh.diagonal);
+        grid = mesher::create_grid3d(30, 30, 30, surface_mesh.diagonal);
 
         // Set output folder
         string output_folder = "E:/Development/FESSGA/data/msh_output/test";
@@ -53,6 +53,7 @@ public:
         densities = new uint[grid.x * grid.y];
         mesher::create_2d_slice(densities3d, densities, grid, z);
         mesher::filter_2d_density_distrib(densities, grid.x, grid.y);
+        mesher::print_density_distrib(densities, grid.x, grid.y);
     };
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
@@ -135,7 +136,7 @@ bool Tester::test_full_evolution() {
 bool Tester::test_fess() {
     // Parameters
     double max_stress = 1e10;
-    double min_stress = 1;
+    double min_stress = 7e3;
     string msh_file = "../data/msh_output/test.msh";
     string case_file = "../data/msh_output/case.sif";
     string output_folder = "../data/msh_output/FESSGA_test_output";
