@@ -6,6 +6,7 @@
 #include <filesystem.>
 #include <time.h>
 
+
 using namespace Eigen;
 using namespace std;
 
@@ -202,4 +203,20 @@ void fessga::help::populate_with_zeroes(uint* _array, int dim_x, int dim_y) {
             _array[x * dim_y + y] = 0.0;
         }
     }
+}
+
+// Function to sort the map according
+// to value in a (key-value) pairs
+void fessga::help::sort(std::map<int, double>& _map, PairSet& _set)
+{
+    // Declare set of pairs and insert
+    // pairs according to the comparator
+    // function comp()
+    auto beginning = _map.end();
+    _set = PairSet(_map.begin(), _map.end());
+}
+
+double fessga::help::max(double val1, double val2) {
+    if (val1 > val2) return val1;
+    else return val2;
 }

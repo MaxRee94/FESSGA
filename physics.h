@@ -30,8 +30,8 @@ namespace fessga {
     class physics {
     public:
         struct FEResults2D {
-            FEResults2D(mesher::Grid3D grid) { x = grid.x; y = grid.y; values = new double[x * y]; }
-            double* values = 0;
+            FEResults2D(mesher::Grid3D grid) { x = grid.x; y = grid.y; }
+            PairSet data;
             int x, y;
             string type;
             double min, max;
@@ -42,22 +42,20 @@ namespace fessga {
             std::array<char, 80> buffer;
             FILE* pipe = _popen(command.c_str(), "r");
             while (fgets(buffer.data(), 80, pipe) != NULL) {
-                std::cout << buffer.data();
+                //std::cout << buffer.data();
             }
             _pclose(pipe);
         }
 
-        static int remove_low_stress_cells(double* stresses, uint* densities, double min_stress_threshold, int dim_x, int dim_y) {
+        static void remove_low_stress_cells(
+            PairSet* fe_data, uint* densities, double min_stress_threshold, int no_cells_to_remove
+        ) {
             int count = 0;
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    if (stresses[x * dim_y + y] < min_stress_threshold) {
-                        densities[x * dim_y + y] = 0;
-                        count++;
-                    }
-                }
+            for (auto& item : (*fe_data)) {
+                densities[item.first] = 0;
+                count++;
+                if (count > no_cells_to_remove) break;
             }
-            return count;
         }
 
         static void load_2d_physics_data(
@@ -74,7 +72,6 @@ namespace fessga {
             // corresponding values in the results array overwritten later)
             double* results_nodewise = new double[(grid.x + 1) * (grid.y + 1)]; // Nodes grid has +1 width along each dimension
             help::populate_with_zeroes(results_nodewise, grid.x + 1, grid.y + 1);
-            help::populate_with_zeroes(results.values, grid.x, grid.y);
 
             // Get point data (this object contains the physics data)
             vtkPointData* point_data = output->GetPointData();
@@ -106,12 +103,13 @@ namespace fessga {
             }
 
             // Create density distribution indicating which cells have nonzero physics values (FOR DEBUGGING PURPOSES ONLY)
-            uint* nonzero_physics = new uint[(grid.x) * (grid.y)];
-            help::populate_with_zeroes(nonzero_physics, grid.x, grid.y);
+            /*uint* nonzero_physics = new uint[(grid.x) * (grid.y)];
+            help::populate_with_zeroes(nonzero_physics, grid.x, grid.y);*/
 
             // Create cellwise results distribution by averaging all groups of 4 corners of a cell
             double min_stress = 1e30;
             double max_stress = 0;
+            map<int, double> _data;
             for (int i = 0; i < coords.size(); i++) {
                 int coord = coords[i];
                 int x = coord / (grid.y + 1);
@@ -127,9 +125,9 @@ namespace fessga {
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
                 int cell_coord = x * grid.y + y;
-                results.values[cell_coord] = cell_stress;
-                nonzero_physics[cell_coord] = 1;
+                _data[cell_coord] = cell_stress;
             }
+            help::sort(_data, results.data);
             results.min = min_stress;
             results.max = max_stress;
 
