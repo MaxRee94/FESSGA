@@ -14,9 +14,9 @@
 
 using namespace fessga;
 
-class Tester {
+class Controller {
 public:
-    Tester()
+    Controller()
     {
         // Initialize RNG
         srand(time(0));
@@ -36,7 +36,7 @@ public:
         mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(30, 30, 30, surface_mesh.diagonal);
+        grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
 
         // Set output folder
         string output_folder = "E:/Development/FESSGA/data/msh_output/test";
@@ -58,7 +58,7 @@ public:
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();
     bool test_full_evolution();
-    bool test_fess();
+    bool run_fess();
 private:
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -80,7 +80,7 @@ private:
 /*
 Create 2 parent slices from the 3d binary density distribution for 2d test
 */
-void Tester::create_parents(uint* parent1, uint* parent2) {
+void Controller::create_parents(uint* parent1, uint* parent2) {
     
     int z1 = dim_x / 2;
     int z2 = dim_x / 2 + (dim_x / 5);
@@ -95,7 +95,7 @@ void Tester::create_parents(uint* parent1, uint* parent2) {
 /*
 Test 2-point crossover of two 2d parent solutions. Print parents and children to console
 */
-bool Tester::test_2d_crossover() {
+bool Controller::test_2d_crossover() {
     uint* parent1 = new uint[dim_x * dim_y];
     uint* parent2 = new uint[dim_x * dim_y];
     double max_stress = 1e9; // arbitrary maximum stress
@@ -127,23 +127,24 @@ bool Tester::test_2d_crossover() {
     return true;
 }
 
-bool Tester::test_full_evolution() {
+bool Controller::test_full_evolution() {
     Evolver evolver = Evolver();
     
     return true;
 }
 
-bool Tester::test_fess() {
+bool Controller::run_fess() {
     // Parameters
     double max_stress = 1e10;
     double min_stress = 7e3;
     string msh_file = "../data/msh_output/test.msh";
-    string case_file = "../data/msh_output/case.sif";
-    string output_folder = "../data/msh_output/FESSGA_test_output";
+    string output_folder = "../data/msh_output/FESSGA_test_output_40elements";
+    string case_file = output_folder + "/case.sif";
     int max_iterations = 100;
+    float greediness = 0.02;
     
     // Run optimization
-    FESS fess = FESS(msh_file, case_file, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations);
+    FESS fess = FESS(msh_file, case_file, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness);
     fess.run();
 
     return true;

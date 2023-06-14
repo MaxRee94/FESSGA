@@ -3,7 +3,7 @@
 #include "gui.h"
 #include "meshing.h"
 #include "physics.h"
-#include "tests.h"
+#include "controller.h"
 #include "fess.h"
 
 using namespace Eigen;
@@ -76,11 +76,11 @@ int main(int argc, char* argv[])
     cout << "finished reading physics data." << endl;
 #elif 0
     // Do crossover test
-    Tester tester = Tester();
-    tester.test_2d_crossover();
+    Controller controller = Controller();
+    controller.test_2d_crossover();
 #elif 1
-    // Do FESS test
-    Tester tester = Tester();
-    tester.test_fess();
+    // Do FESS
+    Controller controller = Controller();
+    controller.run_fess();
 #endif
 }
