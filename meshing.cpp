@@ -6,6 +6,7 @@
 
 using namespace Eigen;
 using namespace fessga;
+using namespace std;
 
 
 /* 
@@ -115,17 +116,28 @@ void mesher::generate_FE_mesh(
     int _neighbor_idx, _neighbor_coord, _neighbor_x, _neighbor_y;
     vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
     int no_components = 1;
-    while (i < (no_boundary_nodes + no_components)) {
-        // If current node is the same as the starting node of the perimeter walk, re-start walk on a
-        // node that has not yet been visited (such a node must be part of another component, for example a hole)
-        if (i > 1 && x == start_x && y == start_y) {
+    bool force_new_component_search = false;
+    while (true) {
+        if (i > (no_boundary_nodes + no_components)) {
             node_coord = mesher::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
             if (node_coord == -1) {
-                break;
+                break; // If there's no unvisited nodes, break the while-loop since we're done.
+            }
+            else {
+                force_new_component_search = true;
+            }
+        }
+
+        // If current node is the same as the starting node of the perimeter walk, re-start walk on a
+        // node that has not yet been visited (such a node must be part of another component, for example a hole)
+        if (force_new_component_search || (i > 1 && x == start_x && y == start_y)) {
+            force_new_component_search = false;
+            node_coord = mesher::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+            if (node_coord == -1) {
+                break; // If there's no unvisited nodes, break the while-loop since we're done.
             }
             else {
                 no_components++;
-                //cout << "no of components: " << no_components << endl;
             }
             int node_idx = boundary_node_coords[node_coord];
             ordered_boundary_node_coords.push_back(node_coord);
@@ -161,39 +173,27 @@ void mesher::generate_FE_mesh(
 
             // Check whether line connecting current node to neighbor is blocked by two adjacent filled cells
             bool blocked = false;
+            bool _blocked = false;
+            bool infeasible = false;
             if (x == _neighbor_x && x != 0 && x != grid.x) // Vertical line
             {
                 int y_diff = min(0, _neighbor_y - y);
                 int left_cell = densities[(x - 1) * grid.y + y + y_diff];
                 int right_cell = densities[x * grid.y + y + y_diff];
-                blocked = right_cell && left_cell;
-                if (blocked) {
-                    //cout << "Vertical line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
-                    //cout << ". cells checked: left cell (" << x - 1 << ", " << y + y_diff << "), right cell (" << x << ", " << y + y_diff << ")" << endl;
-                }
-                else {
-                    //cout << "Vertical line FREE. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
-                    //cout << ". cells checked: left cell (" << x - 1 << ", " << y + y_diff << "), right cell (" << x << ", " << y + y_diff << ")" << endl;
-                }
+                _blocked = right_cell && left_cell;
+                infeasible = !right_cell && !left_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
+                blocked = _blocked || infeasible;
             }
             else if (y == _neighbor_y && y != 0 && y != grid.y) // Horizontal line
             {
                 int x_diff = min(0, _neighbor_x - x);
                 int up_cell = densities[(x + x_diff) * grid.y + y];
                 int down_cell = densities[(x + x_diff) * grid.y + y - 1];
-                blocked = up_cell && down_cell;
-                if (blocked) {
-                    //cout << "Horizontal line blocked. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
-                    //cout << ". cells checked: up cell (" << x + x_diff << ", " << y << "), down cell (" << x + x_diff << ", " << y - 1 << ")" << endl;
-                }
-                else {
-                    //cout << "Horizontal line FREE. x,y: " << x << ", " << y << "  and  neighbor x,y: " << _neighbor_x << ", " << _neighbor_y;
-                    //cout << ". cells checked: up cell (" << x + x_diff << ", " << y << "), down cell (" << x + x_diff << ", " << y - 1 << ")" << endl;
-                }
+                _blocked = up_cell && down_cell;
+                infeasible = !up_cell && !down_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
+                blocked = _blocked || infeasible;
             }
             if (blocked) continue; // Skip neighbor if line is blocked by adjacent filled cells
-
-            //cout << "not blocked " << endl;
 
             // Check whether the neighbor coordinates contain a boundary node
             _neighbor_coord = _neighbor_x * (grid.y + 1) + _neighbor_y;
@@ -255,7 +255,7 @@ void mesher::generate_FE_mesh(
 
         i++;
     }
-    cout << "   no of components: " << no_components << endl;
+    cout << "   no of perimeter components: " << no_components << endl;
     cout << "   no of unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "   no of ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
     //cout << "ordered bound nodes: "; fessga::help::print_vector(&ordered_boundary_node_coords);

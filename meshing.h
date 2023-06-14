@@ -212,7 +212,6 @@ namespace fessga {
 
                             // If the cell is inside the mesh, assign density 1
                             if (inside) {
-                                //cout << "density 1" << endl;
                                 cell.density = 1;
                                 break;
                             }
@@ -220,7 +219,7 @@ namespace fessga {
                         densities[x * grid.z * grid.y + y * grid.z + z] = cell.density;
                     }
                 }
-                cout << "slices_done: " << slices_done + 1 << " / " << grid.x << endl;
+                cout << "    Processing slice " << slices_done + 1 << " / " << grid.x << endl;
                 slices_done++;
             }
             cout << "Finished generating density distribution. Filtering out floating cells..." << endl;
@@ -237,8 +236,8 @@ namespace fessga {
                             for (int _y = -1; _y <= 1; _y++) {
                                 for (int _z = -1; _z <= 1; _z++) {
                                     if (x+_x == grid.x || y + _y == grid.y || z+_z == grid.z) continue;
-                                    if (x+_x == 0 || y+_y == 0 || z+_z == 0) continue;
-                                    neighbor = densities[(x+_x) * grid.z * grid.y + (y+_y) * grid.z + (z+_z)];
+                                    if (x + _x <= 0 || y + _y <= 0 || z + _z <= 0) continue;
+                                    neighbor = densities[(x + _x) * grid.z * grid.y + (y + _y) * grid.z + (z + _z)];
                                     if (neighbor) break;
                                 }
                                 if (neighbor) break;
@@ -246,7 +245,6 @@ namespace fessga {
                             if (neighbor) break;
                         }
                         if (!neighbor) {
-                            cout << "floating cell detected. Setting to 0" << endl;
                             densities[x * grid.z * grid.y + y * grid.z + z] = 0; // Set density to 0 if the cell has no neighbors
                         }
                     }
@@ -268,7 +266,7 @@ namespace fessga {
                         for (int _y = -1; _y <= 1; _y++) {
                             if (_y == 0 && _x == 0) continue;
                             if (x + _x == dim_x || y + _y == dim_y) continue;
-                            if (x + _x == 0 || y + _y == 0) continue;
+                            if (x + _x <= 0 || y + _y <= 0) continue;
                             neighbor = densities[(x + _x) * dim_y + (y + _y)];
                             if (neighbor) break;
                         }
@@ -489,6 +487,39 @@ namespace fessga {
                 elements_description += _line + "\n";
             }
             IO::write_text_to_file(elements_description, output_folder + "/mesh.boundary");
+        }
+
+        /*
+        * Export 3d density distribution to file
+        */
+        static void export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y, int dim_z) {
+            string content = "3\n";
+            content += to_string(dim_x) + " " + to_string(dim_y) + " " + to_string(dim_z) + "\n";
+            for (int x = 0; x < dim_x; x++) {
+                for (int y = 0; y < dim_y; y++) {
+                    for (int z = 0; z < dim_z; z++) {
+                        content += to_string(distrib[x * dim_y * dim_z + y * dim_z + z]);
+                    }
+                }
+            }
+            content += "\n";
+            IO::write_text_to_file(content, output_folder + "/distribution.dens");
+        }
+
+        /*
+        * Export 2d density distribution to file
+        */
+        static string export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y) {
+            string content = "2\n";
+            content += to_string(dim_x) + " " + to_string(dim_y) + "\n";
+            for (int x = 0; x < dim_x; x++) {
+                for (int y = 0; y < dim_y; y++) {
+                    content += to_string(distrib[x * dim_y + y]);
+                }
+            }
+            content += "\n";
+            IO::write_text_to_file(content, output_folder + "/distribution.dens");
+            return output_folder + "/distribution.dens";
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)

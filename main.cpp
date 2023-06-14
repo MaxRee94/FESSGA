@@ -28,10 +28,11 @@ int main(int argc, char* argv[])
     mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
     // Create 3d Grid
-    mesher::Grid3D grid = mesher::create_grid3d(20, 20, 20, surface_mesh.diagonal);
+    mesher::Grid3D grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
 
     // Set output folder
-    string output_folder = "E:/Development/FESSGA/data/msh_output/test";
+    string output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
+    IO::create_folder_if_not_exists(output_folder);
 
 #if 0:
 #elif 0:
@@ -40,7 +41,7 @@ int main(int argc, char* argv[])
     uint32_t* densities = new uint32_t[grid.x * grid.y * grid.z];
     mesher::generate_3d_density_distribution(grid, surface_mesh, &gui.V_list[0], &gui.F_list[0], densities);
 
-    // Create slice from 3d binary density distribution for 2d test
+    // Create slice from 3d binary density distribution for 2d surface generation
     int z = grid.x / 2;
     uint* slice_2d = new uint[grid.x * grid.y];
     mesher::create_2d_slice(densities, slice_2d, grid, z);
