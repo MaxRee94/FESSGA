@@ -39,21 +39,25 @@ public:
         grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
 
         // Set output folder
-        string output_folder = "E:/Development/FESSGA/data/msh_output/test";
+        string output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
         
         // Compute no of cells
-        no_cells = dim_x * dim_y;
-
+        no_cells = grid.x * grid.y;
+        densities = new uint[no_cells];
+#if 0:
         // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-        uint32_t* densities3d = new uint32_t[grid.x * grid.y * grid.z];
+        uint* densities3d = new uint[grid.x * grid.y * grid.z];
         mesher::generate_3d_density_distribution(grid, surface_mesh, &gui.V_list[0], &gui.F_list[0], densities3d);
 
         // Create slice from 3d binary density distribution for 2d test
         int z = grid.x / 2;
-        densities = new uint[grid.x * grid.y];
         mesher::create_2d_slice(densities3d, densities, grid, z);
         mesher::filter_2d_density_distrib(densities, grid.x, grid.y);
         mesher::print_density_distrib(densities, grid.x, grid.y);
+#else
+        string densities_path = output_folder + "/distribution.dens";
+        mesher::import_densities(densities_path, densities);
+#endif
     };
     void create_parents(uint* parent1, uint* parent2);
     bool test_2d_crossover();

@@ -511,7 +511,7 @@ namespace fessga {
         */
         static string export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y) {
             string content = "2\n";
-            content += to_string(dim_x) + " " + to_string(dim_y) + "\n";
+            content += to_string(dim_x) + "\n" + to_string(dim_y) + "\n";
             for (int x = 0; x < dim_x; x++) {
                 for (int y = 0; y < dim_y; y++) {
                     content += to_string(distrib[x * dim_y + y]);
@@ -520,6 +520,29 @@ namespace fessga {
             content += "\n";
             IO::write_text_to_file(content, output_folder + "/distribution.dens");
             return output_folder + "/distribution.dens";
+        }
+
+        // Import binary density distribution from file
+        static void import_densities(string densities_path, uint* densities) {
+            // Get a vector of strings representing the lines in the file
+            vector<string> lines;
+            IO::read_file_content(densities_path, lines);
+
+            // Get the number of dimensions of the distribution
+            int no_dimensions = stoi(lines[0]);
+            
+            // Get the sizes of the grid along each axis
+            int dim_x = stoi(lines[1]), dim_y = stoi(lines[2]), dim_z = 1;
+            if (no_dimensions == 3) dim_z = stoi(lines[3]);
+            
+            // Get the number of cells in the grid
+            int grid_size = dim_x * dim_y * dim_z;
+            
+            // Fill the densities array with the binary values stored in the last line of the file
+            string densities_line = lines[no_dimensions + 1];
+            for (int i = 0; i < grid_size; i++) {
+                densities[i] = densities_line[i] - '0';
+            }
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)

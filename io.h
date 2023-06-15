@@ -13,6 +13,8 @@ namespace fessga {
 	public:
 		static void read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
 
+		static void read_file_content(std::string fpath, std::vector<std::string>& content);
+
 		static bool file_exists(std::string fpath);
 
 		static void copy_file(std::string _source, std::string _target, bool verbose = false);

@@ -30,6 +30,10 @@ public:
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
 
+	// From the fe mesh, get a map<int, int> containing:
+	//		* The names of each bound condition as the keys
+	//		* Values which are themselves maps, containing [coord : bound_number] key-value pairs
+
 	double min_stress, max_stress;
 	string msh = msh_file;
 	string cur_iteration_name = "";
@@ -48,12 +52,18 @@ void FESS::run() {
 		IO::copy_file(case_file, cur_output_folder + "/case.sif");
 		if (IO::file_exists(cur_output_folder + "/case.sif")) cout << "FESS: Copied case file to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to copy case file to subfolder.\n";
-		
+
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
 		mesher::FEMesh2D fe_mesh;
 		mesher::generate_FE_mesh(grid, mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
+		
+		// Update the boundary numbers in the case.sif file
+		// -- From the fe mesh, get a map<string, map<int, int>> containing:
+		//			* The name of each bound condition as the (string) keys
+		//			* Values which are themselves maps, containing [coord : bound_number] key-value pairs
+
 
 		// Export newly generated FE mesh
 		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
@@ -72,6 +82,11 @@ void FESS::run() {
 		// Obtain vonmises stress distribution from the .vtk file
 		double* vonmises = new double[(grid.x) * (grid.y)]; // Nodes grid has +1 width along each dimension
 		string elmer_output_file = cur_output_folder + "/case0001.vtk";
+		if (!IO::file_exists(elmer_output_file)) {
+			cout << "\nFESS: ERROR: Elmer did not produce a .vtk file (expected path " << elmer_output_file << ")\n";
+			cout << "FESS: Terminating program." << endl;
+			exit(1);
+		}
 		physics::FEResults2D fe_results(grid);
 		physics::load_2d_physics_data(elmer_output_file, fe_results, grid, mesh.offset, "Vonmises");
 		cout << "FESS: Finished reading physics data." << endl;

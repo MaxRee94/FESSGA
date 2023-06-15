@@ -169,3 +169,22 @@ std::string fessga::IO::get_fullpath(string relative_path) {
 
     return absolute_path;
 }
+
+void fessga::IO::read_file_content(std::string fpath, std::vector<std::string>& content) {
+    // Check if file path exists
+    struct stat buffer;
+    if (stat(fpath.c_str(), &buffer) != 0) {
+        cout << "ERROR: File '" + fpath + "' does not exist." << endl;
+        throw std::runtime_error("File '" + fpath + "' does not exist.");
+    }
+
+    ifstream fstream;
+    string line;
+    fstream.open(fpath);
+    if (fstream.is_open()) {
+        while (getline(fstream, line)) {
+            help::replace_occurrences(line, "\n", "");
+            content.push_back(line);
+        }
+    }
+}
