@@ -29,6 +29,12 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 namespace fessga {
     class physics {
     public:
+
+        struct CaseFile {
+            string path;
+            vector<string> names, sections;
+        };
+
         struct FEResults2D {
             FEResults2D(mesher::Grid3D grid) { x = grid.x; y = grid.y; }
             PairSet data;

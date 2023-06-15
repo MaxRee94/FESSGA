@@ -115,6 +115,15 @@ vector<size_t> fessga::help::FindAll(string basestring, string target) {
     return occurrences;
 }
 
+bool fessga::help::is_in(string basestring, string target) {
+    size_t found = 0;
+    found = basestring.find(target, found);
+    if (found == string::npos) {
+        return false;
+    }
+    else return true;
+}
+
 
 double fessga::help::fisqrt(float n)
 {
@@ -219,4 +228,18 @@ void fessga::help::sort(std::map<int, double>& _map, PairSet& _set)
 double fessga::help::max(double val1, double val2) {
     if (val1 > val2) return val1;
     else return val2;
+}
+
+void fessga::help::split(string basestring, string separator, vector<string>& substrings) {
+    vector<size_t> occurrences = FindAll(basestring, separator);
+    if (occurrences.size() == 0) {
+        substrings = { basestring };
+    }
+    substrings.push_back(basestring.substr(0, occurrences[0]));
+    for (int i = 0; i < occurrences.size() - 1; i++) {
+        int name_length = occurrences[i + 1] - occurrences[i] - 1;
+        string name = basestring.substr(occurrences[i] + 1, name_length);
+        substrings.push_back(name);
+    }
+    substrings.push_back(basestring.substr(occurrences[occurrences.size() - 1] + 1, string::npos));
 }

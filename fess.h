@@ -14,9 +14,9 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		string _msh_file, string _case_file, mesher::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
+		string _msh_file, string _casefile, mesher::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
 		double _max_stress_threshold, uint* _starting_densities, mesher::Grid3D _grid, int _max_iterations, float _greediness
-	) : OptimizerBase(_msh_file, _case_file, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid, _max_iterations)
+	) : OptimizerBase(_msh_file, _casefile, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid, _max_iterations)
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
@@ -49,7 +49,7 @@ void FESS::run() {
 		IO::create_folder_if_not_exists(cur_output_folder);
 
 		// Copy the case.sif file to the newly created subfolder
-		IO::copy_file(case_file, cur_output_folder + "/case.sif");
+		IO::copy_file(casefile, cur_output_folder + "/case.sif");
 		if (IO::file_exists(cur_output_folder + "/case.sif")) cout << "FESS: Copied case file to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to copy case file to subfolder.\n";
 

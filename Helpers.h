@@ -44,6 +44,8 @@ namespace fessga {
 		
 		static void populate_with_zeroes(uint* _array, int dim_x, int dim_y);
 
+		static void split(string basestring, string separator, vector<string>& substrings);
+
 		/*
 		Return whether the given vector <vec> contains the integer <item>
 		 */
@@ -56,6 +58,8 @@ namespace fessga {
 		static void NormalizeElementWise(Eigen::Matrix3d* M);
 
 		static vector<size_t> FindAll(string basestring, string target);
+
+		static bool is_in(string basestring, string target);
 
 		static std::string replace_occurrences(string basestring, string toReplace, string replaceWith);
 

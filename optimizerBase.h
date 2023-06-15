@@ -15,12 +15,15 @@ using namespace fessga;
 class OptimizerBase {
 public:
 	OptimizerBase() = default;
+
+	// Constructor for 2d optimization
 	OptimizerBase(
-		string _msh_file, string _case_file, mesher::SurfaceMesh _mesh, string _output_folder,
+		string _msh_file, string _casefile, mesher::SurfaceMesh _mesh, string _output_folder,
 		double _max_stress_threshold, uint* _densities, mesher::Grid3D _grid, int _max_iterations
 	) {
 		mesh = _mesh;
-		msh_file = _msh_file; case_file = _case_file; output_folder = IO::get_fullpath(_output_folder);
+		msh_file = _msh_file; output_folder = IO::get_fullpath(_output_folder);
+		casefile.path = _casefile;
 		densities = _densities;
 		max_stress_threshold = _max_stress_threshold;
 		grid = _grid;
@@ -28,11 +31,8 @@ public:
 		no_cells = grid.x * grid.y * grid.z;
 		max_iterations = _max_iterations;
 		IO::create_folder_if_not_exists(output_folder);
-
-		// Check if output folder is empty
-		//if (fessga::IO::is_empty(output_folder)) cout << "--- WARNING: The output folder " << output_folder << " is not empty. The existing files may be overwritten." << endl;
-	}
-	//void call_elmer(string folder);
+		mesher::derive_boundary_conditions(densities, bound_conds, grid, mesh, casefile);
+	};
 	mesher::Grid3D grid;
 	mesher::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -40,5 +40,7 @@ public:
 	double max_stress_threshold = 0.0;
 	uint* densities = 0;
 	int max_iterations = 0;
-	string msh_file, case_file, output_folder;
+	map<string, vector<pair<int, int>>> bound_conds;
+	physics::CaseFile casefile;
+	string msh_file, output_folder;
 };
