@@ -13,7 +13,7 @@ using namespace std;
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void mesher::generate_FE_mesh(
-    Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds
+    Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh
 ) {
     // Create nodes and surfaces
     vector<vector<double>> nodes;
@@ -301,8 +301,8 @@ void mesher::generate_FE_mesh(
         cell_coord = cell_x * grid.y + cell_y;
         uint line_idx = (cell_coord << 2) + local_line_idx;
 
-        // Get the tag belonging to the surface element (if it has any)
-        int _tag = mesher::get_tag(bounds, line_idx, 1, tag);
+        // Increment the tag
+        tag++;
 
         // Unchanging indices
         int type = 1;
@@ -315,7 +315,7 @@ void mesher::generate_FE_mesh(
         line.type = type;
         line.no_tags = no_tags;
         line.body = physical_entity;
-        line.tag = _tag;
+        line.tag = tag;
         line.nodes = { node1_coord + 1, node2_coord + 1 };
         line.boundary_id = i; // Add i to boundary id, creating a continuous path around the perimeter(s) for Elmer's boundary element parser to walk
         lines.push_back(line);

@@ -325,19 +325,6 @@ namespace fessga {
             return x * dim_y + y + 1;
         }
 
-        /* Return the tag that corresponds to the given element index
-        */
-        static int get_tag(map<uint, uint>* bounds, uint element_idx, int type, int& tag) {
-            int _tag = fessga::help::get_value(bounds, element_idx);
-            if (_tag == -1) {
-                tag++; // If no tag was specified simply give each element a unique tag by incrementing it
-                return tag;
-            }
-            else {
-                return _tag; // Use the found tag
-            }
-        }
-
         /* Find a node that has not yet been visited
         */
         static int find_unvisited_node(
@@ -362,7 +349,7 @@ namespace fessga {
             msh (string): The generated description string in .msh-format
         */
         static void generate_FE_mesh(
-            Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh, map<uint, uint>* bounds = 0
+            Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh
         );
 
         static string get_msh_element_description(Element element) {
@@ -657,6 +644,25 @@ namespace fessga {
                     bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
                 }
                 bound_conds[bound_name] = bound_lines;
+            }
+        }
+
+        static void create_bound_id_lookup(
+            map<string, vector<pair<int, int>>>* bound_conds, FEMesh2D* fe_mesh, map<string, vector<int>>& bound_id_lookup
+        ) {
+            map<pair<int, int>, int> _bound_id_lookup;
+            for (int i = 1; i < fe_mesh->lines.size(); i++) {
+                Element line = fe_mesh->lines[i];
+                _bound_id_lookup[pair(line.nodes[i - 1], line.nodes[i])] = line.boundary_id;
+            }
+            for (auto& [bound_name, lines] : (*bound_conds)) {
+                vector<int> bound_ids;
+                for (int i = 0; i < lines.size(); i++) {
+                    pair<int, int> line = lines[i];
+                    int boundary_id = _bound_id_lookup[line];
+                    bound_ids.push_back(boundary_id);
+                }
+                bound_id_lookup[bound_name] = bound_ids;
             }
         }
     };
