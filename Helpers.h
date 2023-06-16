@@ -81,5 +81,7 @@ namespace fessga {
 
 		static std::string add_padding(std::string basestring, int version);
 
+		static string join_as_string(vector<int> numbers, string separator);
+
 	};
 };

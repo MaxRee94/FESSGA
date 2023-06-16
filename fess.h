@@ -65,6 +65,8 @@ void FESS::run() {
 		//			* Values which are themselves maps, containing [coord : bound_number] key-value pairs
 		map<string, vector<int>> bound_id_lookup;
 		mesher::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
+		// -- Re-assemble the case.sif file contents by concatenating the sections and updated target boundaries
+		mesher::assemble_casefile(&casefile, bound_id_lookup);
 
 		// Export newly generated FE mesh
 		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);

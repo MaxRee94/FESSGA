@@ -67,6 +67,14 @@ void fessga::help::print_map(std::map<int, int>* map) {
     }
 }
 
+string fessga::help::join_as_string(vector<int> numbers, string separator) {
+    string result = "";
+    for (auto number : numbers) {
+        result += to_string(number) + separator;
+    }
+    return result;
+}
+
 void fessga::help::print_vector(std::vector<int>* vec) {
     for (int i = 0; i < vec->size(); i++) {
         if (i > 0) cout << ", ";

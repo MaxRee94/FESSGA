@@ -23,6 +23,7 @@ namespace fessga {
         struct CaseFile {
             string path;
             vector<string> names, sections;
+            string content;
         };
         
         // Define the struct for a 2d Grid
@@ -647,6 +648,7 @@ namespace fessga {
             }
         }
 
+        // Create map containing a vector of boundary ids corresponding to the given fe mesh for each boundary condition name
         static void create_bound_id_lookup(
             map<string, vector<pair<int, int>>>* bound_conds, FEMesh2D* fe_mesh, map<string, vector<int>>& bound_id_lookup
         ) {
@@ -664,6 +666,17 @@ namespace fessga {
                 }
                 bound_id_lookup[bound_name] = bound_ids;
             }
+        }
+
+        // Re-assemble the case file's content by concatenating the sections and updated target boundaries
+        static void assemble_casefile(CaseFile* casefile, map<string, vector<int>>* bound_id_lookup) {
+            for (int i = 0; i < casefile->names.size(); i++) {
+                string name = casefile->names[i];
+                vector<int> bound_ids = bound_id_lookup->at(name);
+                string bound_ids_string = help::join_as_string(bound_ids, " ");
+                casefile->content += casefile->sections[i] + bound_ids_string;
+            }
+            casefile->content += casefile->sections[casefile->names.size()];
         }
     };
 }
