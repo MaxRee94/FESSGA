@@ -49,7 +49,7 @@ void FESS::run() {
 		IO::create_folder_if_not_exists(cur_output_folder);
 
 		// Copy the case.sif file to the newly created subfolder
-		IO::copy_file(casefile, cur_output_folder + "/case.sif");
+		IO::copy_file(casefile.path, cur_output_folder + "/case.sif");
 		if (IO::file_exists(cur_output_folder + "/case.sif")) cout << "FESS: Copied case file to subfolder.\n";
 		else cout << "FESS: ERROR: Failed to copy case file to subfolder.\n";
 

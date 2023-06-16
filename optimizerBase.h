@@ -41,6 +41,6 @@ public:
 	uint* densities = 0;
 	int max_iterations = 0;
 	map<string, vector<pair<int, int>>> bound_conds;
-	physics::CaseFile casefile;
+	mesher::CaseFile casefile;
 	string msh_file, output_folder;
 };

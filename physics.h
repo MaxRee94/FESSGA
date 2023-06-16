@@ -26,14 +26,10 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #define VTK_DEBUG_LEAKS true
 
 
+
 namespace fessga {
     class physics {
     public:
-
-        struct CaseFile {
-            string path;
-            vector<string> names, sections;
-        };
 
         struct FEResults2D {
             FEResults2D(mesher::Grid3D grid) { x = grid.x; y = grid.y; }

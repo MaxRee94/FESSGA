@@ -8,6 +8,9 @@
 #include <functional>
 #include "helpers.h"
 #include "optimizerBase.h"
+#include "meshing.h"
+
+using namespace fessga;
 
 
 bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold);

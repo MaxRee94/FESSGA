@@ -19,6 +19,11 @@ namespace fessga {
     class mesher
     {
     public:
+
+        struct CaseFile {
+            string path;
+            vector<string> names, sections;
+        };
         
         // Define the struct for a 2d Grid
         struct Grid2D {
@@ -571,19 +576,21 @@ namespace fessga {
             prefix = split_line[0] + " = ";
 
             // Split the numbers-part of the line
+            cout << "sec part of line: " << split_line[1] << endl;
             string numbers = split_line[1];
             vector<string> number_strings;
             help::split(numbers, " ", number_strings);
 
             // Convert each substring to an integer and add it to the boundary ids vector
             for (int i = 0; i < number_strings.size(); i++) {
+                cout << "num string: " << number_strings[i] << endl;
                 bound_ids.push_back(stoi(number_strings[i]));
             }
         }
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
         static void read_boundary_condtions(
-            map<string, vector<int>>& boundary_id_lookup, physics::CaseFile casefile
+            map<string, vector<int>>& boundary_id_lookup, CaseFile casefile
         ) {
             // Read content
             vector<string> case_content;
@@ -612,8 +619,15 @@ namespace fessga {
                 else if (bound_name) {
                     bound_name = false;
                     vector<string> split_line;
-                    help::split(line, to_string('"'), split_line);
-                    string name = split_line[1];
+                    help::split(line, " = ", split_line);
+                    string name = "";
+                    int last_idx = -1;
+                    for (string::iterator it = split_line[1].begin(); it != split_line[1].end(); it++) {
+                        last_idx++;
+                    }
+                    for (int j = 1; j < last_idx; j++) {
+                        name += split_line[1][j];
+                    }
                     casefile.names.push_back(name);
                     boundary_id_lookup[name] = bound_ids;
                     bound_ids.clear();
@@ -625,7 +639,7 @@ namespace fessga {
         // Create a map from strings that encode the name of a boundary condition (e.g. "Force") to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            uint* densities, map<string, vector<pair<int, int>>>& bound_conds, Grid3D grid, SurfaceMesh mesh, physics::CaseFile& casefile
+            uint* densities, map<string, vector<pair<int, int>>>& bound_conds, Grid3D grid, SurfaceMesh mesh, CaseFile& casefile
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
@@ -635,12 +649,12 @@ namespace fessga {
             FEMesh2D fe_mesh;
             generate_FE_mesh(grid, mesh, densities, fe_mesh);
             
-            // 
+            // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_conds map
             for (auto& [bound_name, bound_ids] : boundary_id_lookup) {
                 vector<pair<int, int>> bound_lines;
                 for (int i = 0; i < bound_ids.size(); i++) {
                     Element line = fe_mesh.lines[bound_ids[i]];
-                    bound_lines.push_back(pair(line.nodes[0], line.nodes[1]));
+                    bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
                 }
                 bound_conds[bound_name] = bound_lines;
             }

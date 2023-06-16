@@ -234,12 +234,16 @@ void fessga::help::split(string basestring, string separator, vector<string>& su
     vector<size_t> occurrences = FindAll(basestring, separator);
     if (occurrences.size() == 0) {
         substrings = { basestring };
+        return;
     }
     substrings.push_back(basestring.substr(0, occurrences[0]));
     for (int i = 0; i < occurrences.size() - 1; i++) {
-        int name_length = occurrences[i + 1] - occurrences[i] - 1;
-        string name = basestring.substr(occurrences[i] + 1, name_length);
+        int name_length = occurrences[i + 1] - (occurrences[i] + separator.size());
+        string name = basestring.substr(occurrences[i] + separator.size(), name_length);
         substrings.push_back(name);
     }
-    substrings.push_back(basestring.substr(occurrences[occurrences.size() - 1] + 1, string::npos));
+    string end = basestring.substr(occurrences[occurrences.size() - 1] + separator.size(), string::npos);
+    if (end != "") {
+        substrings.push_back(end);
+    }
 }
