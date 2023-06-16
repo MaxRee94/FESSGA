@@ -576,14 +576,14 @@ namespace fessga {
             prefix = split_line[0] + " = ";
 
             // Split the numbers-part of the line
-            cout << "sec part of line: " << split_line[1] << endl;
+            //cout << "sec part of line: " << split_line[1] << endl;
             string numbers = split_line[1];
             vector<string> number_strings;
             help::split(numbers, " ", number_strings);
 
             // Convert each substring to an integer and add it to the boundary ids vector
             for (int i = 0; i < number_strings.size(); i++) {
-                cout << "num string: " << number_strings[i] << endl;
+                //cout << "num string: " << number_strings[i] << endl;
                 bound_ids.push_back(stoi(number_strings[i]));
             }
         }
