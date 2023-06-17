@@ -32,6 +32,11 @@ public:
 		max_iterations = _max_iterations;
 		IO::create_folder_if_not_exists(output_folder);
 		mesher::derive_boundary_conditions(densities, bound_conds, grid, mesh, casefile);
+
+		for (auto& [bound_name, pairs] : bound_conds) {
+			cout << "bound name: " << bound_name << endl;
+			cout << "pairs: " << help::join_as_string(pairs, " ") << endl;
+		}
 	};
 	mesher::Grid3D grid;
 	mesher::SurfaceMesh mesh;

@@ -75,6 +75,14 @@ string fessga::help::join_as_string(vector<int> numbers, string separator) {
     return result;
 }
 
+string fessga::help::join_as_string(vector<pair<int, int>> numbers, string separator) {
+    string result = "";
+    for (auto pair : numbers) {
+        result += "(" + to_string(pair.first) + ", " + to_string(pair.second) + ")" + separator;
+    }
+    return result;
+}
+
 void fessga::help::print_vector(std::vector<int>* vec) {
     for (int i = 0; i < vec->size(); i++) {
         if (i > 0) cout << ", ";

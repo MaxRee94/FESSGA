@@ -83,5 +83,7 @@ namespace fessga {
 
 		static string join_as_string(vector<int> numbers, string separator);
 
+		static string join_as_string(vector<pair<int, int>> numbers, string separator);
+
 	};
 };
