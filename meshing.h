@@ -577,7 +577,7 @@ namespace fessga {
         }
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
-        static void read_boundary_condtions(
+        static void read_boundary_conditions(
             map<string, vector<int>>& boundary_id_lookup, CaseFile& casefile
         ) {
             // Read content
@@ -632,7 +632,7 @@ namespace fessga {
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_condtions(boundary_id_lookup, casefile);
+            read_boundary_conditions(boundary_id_lookup, casefile);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
@@ -642,7 +642,7 @@ namespace fessga {
             for (auto& [bound_name, bound_ids] : boundary_id_lookup) {
                 vector<pair<int, int>> bound_lines;
                 for (int i = 0; i < bound_ids.size(); i++) {
-                    Element line = fe_mesh.lines[bound_ids[i]];
+                    Element line = fe_mesh.lines[bound_ids[i] - 1];
                     bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
                 }
                 bound_conds[bound_name] = bound_lines;
@@ -653,33 +653,24 @@ namespace fessga {
         static void create_bound_id_lookup(
             map<string, vector<pair<int, int>>>* bound_conds, FEMesh2D* fe_mesh, map<string, vector<int>>& bound_id_lookup
         ) {
-            //map<pair<int, int>, int> _bound_id_lookup;
-            //for (int i = 1; i < fe_mesh->lines.size(); i++) {
-            //    Element line = fe_mesh->lines[i];
-            //    _bound_id_lookup[pair(line.nodes[0], line.nodes[1])] = line.boundary_id;/*
-            //    cout << "\npair " << line.nodes[0] << ", " << line.nodes[1] << " for bound id: " << line.boundary_id << endl;
-            //    cout << "from map: " << _bound_id_lookup[pair(line.nodes[0], line.nodes[1])] << endl;*/
-            //}
-            map<long int, int> _bound_id_lookup;
-            for (int i = 1; i < fe_mesh->lines.size(); i++) {
-                Element line = fe_mesh->lines[i];
-                long int node0 = line.nodes[0];
-                long int node1 = line.nodes[1];
-                long int line_flattened = node0 << 30 + node1;
-                _bound_id_lookup[line_flattened] = line.boundary_id;/*
-                cout << "\npair " << line.nodes[0] << ", " << line.nodes[1] << " for bound id: " << line.boundary_id << endl;
-                cout << "from map: " << _bound_id_lookup[pair(line.nodes[0], line.nodes[1])] << endl;*/
-            }
-
             for (auto& [bound_name, lines] : (*bound_conds)) {
+                // Get the boundary ids of all node coordinate pairs stored in the bound_conds-map for the current boundary condition.
                 vector<int> bound_ids;
                 for (int i = 0; i < lines.size(); i++) {
                     pair<int, int> line = lines[i];
-                    cout << "line: " << line.first << ", " << line.second << endl;
-                    long int line_flattened = line.first << 30 + line.second;
-                    int boundary_id = _bound_id_lookup[line_flattened];
-                    cout << "bound id: " << boundary_id << endl;
-                    bound_ids.push_back(boundary_id);
+                    for (int j = 0; j < fe_mesh->lines.size(); j++) {
+
+                        // Compare fe line node coordinates to the line coordinates stored in the boundary conditions map.
+                        // Check both possible permutations of coordinates ({node1, node2} and {node2, node1}), because order does not matter.
+                        int fe_line_node1 = fe_mesh->lines[j].nodes[0] - 1;
+                        int fe_line_node2 = fe_mesh->lines[j].nodes[1] - 1;
+                        if (
+                            (line.first == fe_line_node1 && line.second == fe_line_node2) ||
+                            (line.first == fe_line_node2 && line.second == fe_line_node1))
+                        {
+                            bound_ids.push_back(fe_mesh->lines[j].boundary_id);
+                        }
+                    }
                 }
                 bound_id_lookup[bound_name] = bound_ids;
             }
