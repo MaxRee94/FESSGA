@@ -20,9 +20,10 @@ namespace fessga {
     {
     public:
 
-        struct CaseFile {
+        struct Case {
             string path;
             vector<string> names, sections;
+            vector<int> boundary_cells;
             string content;
         };
         
@@ -417,6 +418,17 @@ namespace fessga {
             msh += "$EndElements\n";
         }
 
+        // Encode the given FE mesh in a Gmesh .msh format and export it to the given output folder
+        static void export_as_msh_file(FEMesh2D* fe_mesh, string output_folder) {
+            // Encode the FE mesh in a .msh format
+            string msh_description;
+            mesher::generate_msh_description(fe_mesh, msh_description);
+
+            // Export the .msh description to a .msh file
+            string msh_output_path = output_folder + "/mesh.msh";
+            IO::write_text_to_file(msh_description, msh_output_path);
+        }
+
         // Generate a file description for an Elmer header file, based on the given FE mesh
         static void export_elmer_header(FEMesh2D* fe_mesh, string output_folder) {
             string header_description = {
@@ -578,11 +590,11 @@ namespace fessga {
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
         static void read_boundary_conditions(
-            map<string, vector<int>>& boundary_id_lookup, CaseFile& casefile
+            map<string, vector<int>>& boundary_id_lookup, Case& fe_case
         ) {
             // Read content
             vector<string> case_content;
-            IO::read_file_content(casefile.path, case_content);
+            IO::read_file_content(fe_case.path, case_content);
 
             // Get target boundaries and in-between sections
             bool target_boundaries = false;
@@ -600,7 +612,7 @@ namespace fessga {
                     string prefix;
                     parse_target_boundaries(line, prefix, bound_ids);
                     section += prefix;
-                    casefile.sections.push_back(section);
+                    fe_case.sections.push_back(section);
                     section = "\n";
                     continue;
                 }
@@ -616,37 +628,45 @@ namespace fessga {
                     for (int j = 1; j < last_idx; j++) {
                         name += split_line[1][j];
                     }
-                    casefile.names.push_back(name);
+                    fe_case.names.push_back(name);
                     boundary_id_lookup[name] = bound_ids;
                     bound_ids.clear();
                 }
                 section += line + "\n";
             }
-            casefile.sections.push_back(section);
+            fe_case.sections.push_back(section);
         }
 
         // Create a map from strings that encode the name of a boundary condition (e.g. "Force") to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            uint* densities, map<string, vector<pair<int, int>>>& bound_conds, Grid3D grid, SurfaceMesh mesh, CaseFile& casefile
+            uint* densities, map<string, vector<pair<int, int>>>& bound_conds, Grid3D grid, SurfaceMesh mesh, Case& fe_case
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_conditions(boundary_id_lookup, casefile);
+            read_boundary_conditions(boundary_id_lookup, fe_case);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
             generate_FE_mesh(grid, mesh, densities, fe_mesh);
             
             // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_conds map
+            int q = 0;
             for (auto& [bound_name, bound_ids] : boundary_id_lookup) {
                 vector<pair<int, int>> bound_lines;
                 for (int i = 0; i < bound_ids.size(); i++) {
                     Element line = fe_mesh.lines[bound_ids[i] - 1];
                     bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
+
+                    // Store the parent cell coordinates; this cell should not be removed during optimization
+                    int cell_coord = (line.id - 1) >> 2;
+                    fe_case.boundary_cells.push_back(cell_coord);
+                    q++;
                 }
                 bound_conds[bound_name] = bound_lines;
             }
+            cout << "no boundary cells: " << fe_case.boundary_cells.size() << endl;
+            cout << "no boundary lines: " << q << endl;
         }
 
         // Create map containing a vector of boundary ids corresponding to the given fe mesh for each boundary condition name
@@ -658,6 +678,7 @@ namespace fessga {
                 vector<int> bound_ids;
                 for (int i = 0; i < lines.size(); i++) {
                     pair<int, int> line = lines[i];
+                    bool found = 0;
                     for (int j = 0; j < fe_mesh->lines.size(); j++) {
 
                         // Compare fe line node coordinates to the line coordinates stored in the boundary conditions map.
@@ -669,22 +690,26 @@ namespace fessga {
                             (line.first == fe_line_node2 && line.second == fe_line_node1))
                         {
                             bound_ids.push_back(fe_mesh->lines[j].boundary_id);
+                            found = true;
+                            break;
                         }
                     }
+                    if (!found) cout << "ERROR: Failed to find boundary id for line " << line.first << ", " << line.second << endl;
                 }
                 bound_id_lookup[bound_name] = bound_ids;
             }
         }
 
         // Re-assemble the case file's content by concatenating the sections and updated target boundaries
-        static void assemble_casefile(CaseFile* casefile, map<string, vector<int>>* bound_id_lookup) {
-            for (int i = 0; i < casefile->names.size(); i++) {
-                string name = casefile->names[i];
+        static void assemble_fe_case(Case* fe_case, map<string, vector<int>>* bound_id_lookup) {
+            for (int i = 0; i < fe_case->names.size(); i++) {
+                string name = fe_case->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
+                cout << "no bound ids: " << bound_ids.size() << endl;
                 string bound_ids_string = help::join_as_string(bound_ids, " ");
-                casefile->content += casefile->sections[i] + bound_ids_string;
+                fe_case->content += fe_case->sections[i] + bound_ids_string;
             }
-            casefile->content += casefile->sections[casefile->names.size()];
+            fe_case->content += fe_case->sections[fe_case->names.size()];
         }
     };
 }

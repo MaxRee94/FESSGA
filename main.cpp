@@ -31,34 +31,37 @@ int main(int argc, char* argv[])
     mesher::Grid3D grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
 
     // Set output folder
-    string output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
+    string output_folder = "E:/Development/FESSGA/data/msh_output/FESS_lowres_test";
     IO::create_folder_if_not_exists(output_folder);
 
+    uint* slice_2d = new uint[grid.x * grid.y];
 #if 0:
-#elif 0:
-
     // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-    uint32_t* densities = new uint32_t[grid.x * grid.y * grid.z];
+    uint* densities = new uint[grid.x * grid.y * grid.z];
     mesher::generate_3d_density_distribution(grid, surface_mesh, &gui.V_list[0], &gui.F_list[0], densities);
-
+    
     // Create slice from 3d binary density distribution for 2d surface generation
     int z = grid.x / 2;
-    uint* slice_2d = new uint[grid.x * grid.y];
     mesher::create_2d_slice(densities, slice_2d, grid, z);
     mesher::filter_2d_density_distrib(slice_2d, grid.x, grid.y);
+
+    // Export density distribution
+    string densities_file = mesher::export_density_distrib(output_folder, slice_2d, grid.x, grid.y);
+    cout << "FESS: Exported current density distribution to file: " << densities_file << endl;
+#elif 0
+    string densities_path = output_folder + "/distribution.dens";
+    mesher::import_densities(densities_path, slice_2d);
+#endif
+
+#if 0:
     mesher::print_density_distrib(slice_2d, grid.x, grid.y);
 
     // Obtain a grid-based FE representation based on the chosen mesh
     mesher::FEMesh2D fe_mesh;
     mesher::generate_FE_mesh(grid, surface_mesh, slice_2d, fe_mesh);
 
-    // Encode the FE mesh in a .msh format
-    string msh_output_path = output_folder + "/mesh.msh";
-    string msh_description;
-    mesher::generate_msh_description(&fe_mesh, msh_description);
-
-    // Export the .msh description to a .msh file
-    IO::write_text_to_file(msh_description, msh_output_path);
+    // Export the FE mesh in .msh format
+    mesher::export_as_msh_file(&fe_mesh, output_folder);
 
     // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
     mesher::export_as_elmer_files(&fe_mesh, output_folder);

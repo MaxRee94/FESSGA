@@ -104,6 +104,7 @@ bool Controller::test_2d_crossover() {
     uint* parent2 = new uint[dim_x * dim_y];
     double max_stress = 1e9; // arbitrary maximum stress
     int max_iterations = 100;
+    bool export_msh = false;
 
     create_parents(parent1, parent2);
     cout << "\nParent 1: \n";
@@ -112,14 +113,14 @@ bool Controller::test_2d_crossover() {
     mesher::print_density_distrib(parent2, dim_x, dim_y);
 
     string msh_file = "../data/msh_output/test.msh";
-    string casefile = "../data/msh_output/case.sif";
+    string fe_case = "../data/msh_output/case.sif";
     string output_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
     uint* child1 = new uint[dim_x * dim_y];
     uint* child2 = new uint[dim_x * dim_y];
     Evolver evolver = Evolver(
-        msh_file, casefile, mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2, max_stress, parent1, grid, max_iterations
+        msh_file, fe_case, mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2, max_stress, parent1, grid, max_iterations
     );
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 
@@ -142,13 +143,14 @@ bool Controller::run_fess() {
     double max_stress = 1e10;
     double min_stress = 7e3;
     string msh_file = "../data/msh_output/test.msh";
-    string output_folder = "../data/msh_output/FESSGA_test_output_40elements";
-    string casefile = output_folder + "/case.sif";
+    string output_folder = "../data/msh_output/FESS_lowres_test";
+    string fe_case = output_folder + "/case.sif";
     int max_iterations = 100;
+    bool export_msh = true;
     float greediness = 0.02;
     
     // Run optimization
-    FESS fess = FESS(msh_file, casefile, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness);
+    FESS fess = FESS(msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness, export_msh);
     fess.run();
 
     return true;

@@ -138,6 +138,7 @@ void mesher::generate_FE_mesh(
             }
             else {
                 no_components++;
+                ordered_boundary_node_coords.push_back(-1); // Add a separator between components, to avoid the generation of lines between them
             }
             int node_idx = boundary_node_coords[node_coord];
             ordered_boundary_node_coords.push_back(node_coord);
@@ -145,12 +146,14 @@ void mesher::generate_FE_mesh(
             y = node_coord % (grid.y + 1);
             start_x = x;
             start_y = y;
-            //cout << "starting perimeter walk on new component. New Idx: " << node_idx << ", New start x, y: " << x << ", " << y << endl;
+            cout << "starting perimeter walk on new component. New start x, y: " << x << ", " << y << endl;
 
             // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
             previous_x = x;
             previous_y = y - 1;
             if (previous_y < 0) previous_y = y + 1;
+            
+            i++;
         }
 
         // Check which of the other three neighboring grid indices contains a boundary node
@@ -160,39 +163,54 @@ void mesher::generate_FE_mesh(
             _neighbor_x = (x + _offset.first);
             _neighbor_y = (y + _offset.second);
 
-            //cout << "checking node with coords: " << _neighbor_x << ", " << _neighbor_y << endl;
-
-            //cout << "checking neighbor coord: " << _neighbor_x << ", " << _neighbor_y << " of cur node " << x << ", " << y << endl;
+            if (x == 2 && y == 5) {
+                cout << "candidate neighbor coordinates: " << _neighbor_x << ", " << _neighbor_y << endl;
+            }
             // Check coordinate validity
             if (_neighbor_x < 0 || _neighbor_y < 0 || _neighbor_x > grid.x || _neighbor_y > grid.y)
                 continue; // coordinates outside design domain are invalid
             if (_neighbor_x == previous_x && _neighbor_y == previous_y)
                 continue; // skip the boundary node we found in the previous iteration
 
-            //cout << "passed validity checks" << endl;
-
             // Check whether line connecting current node to neighbor is blocked by two adjacent filled cells
             bool blocked = false;
             bool _blocked = false;
             bool infeasible = false;
-            if (x == _neighbor_x && x != 0 && x != grid.x) // Vertical line
+            if (x == _neighbor_x) // Vertical line
             {
                 int y_diff = min(0, _neighbor_y - y);
-                int left_cell = densities[(x - 1) * grid.y + y + y_diff];
-                int right_cell = densities[x * grid.y + y + y_diff];
-                _blocked = right_cell && left_cell;
-                infeasible = !right_cell && !left_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
-                blocked = _blocked || infeasible;
+                int right_cell, left_cell;
+                if (x < grid.x) right_cell = densities[x * grid.y + y + y_diff];
+                if (x > 0) left_cell = densities[(x - 1) * grid.y + y + y_diff];
+                if (x == 0) {
+                    infeasible = !right_cell; // Infeasible if the line is on the left x-limit and there's no cell to the right
+                }
+                else if (x == grid.x) {
+                    infeasible = !left_cell; // Infeasible if the line is on the right x-limit and there's no cell to the left
+                }
+                else {
+                    _blocked = right_cell && left_cell;
+                    infeasible = !right_cell && !left_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
+                }
             }
-            else if (y == _neighbor_y && y != 0 && y != grid.y) // Horizontal line
+            else if (y == _neighbor_y) // Horizontal line
             {
                 int x_diff = min(0, _neighbor_x - x);
-                int up_cell = densities[(x + x_diff) * grid.y + y];
-                int down_cell = densities[(x + x_diff) * grid.y + y - 1];
-                _blocked = up_cell && down_cell;
-                infeasible = !up_cell && !down_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
-                blocked = _blocked || infeasible;
+                int up_cell, down_cell;
+                if (y < grid.y) up_cell = densities[(x + x_diff) * grid.y + y];
+                if (y > 0) down_cell = densities[(x + x_diff) * grid.y + y - 1];
+                if (y == 0) {
+                    infeasible = !up_cell; // Infeasible if the line is on the lower y-limit and there's no cell above it
+                }
+                else if (y == grid.y) {
+                    infeasible = !down_cell; // Infeasible if the line is on the upper y-limit and there's no cell below it
+                }
+                else {
+                    _blocked = up_cell && down_cell;
+                    infeasible = !up_cell && !down_cell; // Infeasible if there's no cells at all (since then an edge would be drawn in thin air)
+                }
             }
+            blocked = _blocked || infeasible;
             if (blocked) continue; // Skip neighbor if line is blocked by adjacent filled cells
 
             // Check whether the neighbor coordinates contain a boundary node
@@ -205,13 +223,14 @@ void mesher::generate_FE_mesh(
                 neighbor_idx = _neighbor_idx;
                 neighbor_coord = _neighbor_coord;
                 valid_neighbors.push_back(pair(_neighbor_coord, _neighbor_idx));
-                //cout << "valid neighbor coords: " << neighbor_x << ", " << neighbor_y << endl;
             }
             else {
-                //cout << "invalid neighbor coords: " << _neighbor_x << ", " << _neighbor_y << endl;
             }
         }
-        //cout << "current coords: " << x << ", " << y << ". no of valid neighbors: " << valid_neighbors.size() << endl;
+        if (x == 2 && y == 5) {
+            cout << "valid neighbors: "; help::print_pairs(&valid_neighbors);
+        }
+
         // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
         if (valid_neighbors.size() > 1) {
             int j = 0;
@@ -225,7 +244,7 @@ void mesher::generate_FE_mesh(
             }
             if (j == valid_neighbors.size()) {
                 // No unvisited neighbor was found. 
-                //cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
+                cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
                 j = 0;
             }
 
@@ -244,6 +263,7 @@ void mesher::generate_FE_mesh(
 
         // Add neighboring boundary node to vector
         ordered_boundary_node_coords.push_back(neighbor_coord);
+        cout << "adding node " << neighbor_x << ", " << neighbor_y << endl;
 
         // Set previous x and y coordinates to current ones
         previous_x = x;
@@ -268,6 +288,10 @@ void mesher::generate_FE_mesh(
         // Get the 2 nodes that define the line
         int node1_coord = ordered_boundary_node_coords[i - 1];
         int node2_coord = ordered_boundary_node_coords[i];
+
+        // Skip node pairs containing a -1. These indicate a transition from one component to another. No lines should be generated here.
+        if (node1_coord == -1 || node2_coord == -1) continue;
+
         int node1_idx = boundary_node_coords[node1_coord];
         int node2_idx = boundary_node_coords[node2_coord];
 
@@ -283,7 +307,12 @@ void mesher::generate_FE_mesh(
             cell_x = node1_x;
             cell_y = min(node1_y, node2_y);
             local_line_idx = 0;
-            if (node1_x == grid.x) { // Choose cell that has the line as its left side unless line is on the upper x-limit
+            // Choose cell that has the line as its left side unless line is on the rightmost x-limit or the right cell is empty
+            if (node1_x == grid.x || !densities[cell_x * grid.y + cell_y]) {
+                if (node1_x == 0) {
+                    cout << "\nFESS: ERROR: Cell (" << cell_x << ", " << cell_y << ") with vertical boundary line is empty." << endl;
+                    //exit(-1);
+                }
                 cell_x = node1_x - 1;
                 local_line_idx = 2;
             }
@@ -292,7 +321,12 @@ void mesher::generate_FE_mesh(
             cell_y = node1_y;
             cell_x = min(node1_x, node2_x);
             local_line_idx = 3;
-            if (node1_y == grid.y) { // Choose cell that has the line as its bottom side unless line is on the upper y-limit
+            // Choose cell that has the line as its bottom side unless line is on the upper y-limit or the upper cell is empty
+            if (node1_y == grid.y || !densities[cell_x * grid.y + cell_y]) { 
+                if (node1_y == 0) {
+                    cout << "\nFESS: ERROR: Cell (" << cell_x << ", " << cell_y << ") with horizontal boundary line is empty." << endl;
+                    //exit(-1);
+                }
                 cell_y = node1_y - 1;
                 local_line_idx = 1;
             }

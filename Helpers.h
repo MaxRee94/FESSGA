@@ -55,6 +55,8 @@ namespace fessga {
 
 		static void print_vector(std::vector<int>* vec);
 
+		static void print_pairs(std::vector<pair<int, int>>* vec);
+
 		static void NormalizeElementWise(Eigen::Matrix3d* M);
 
 		static vector<size_t> FindAll(string basestring, string target);

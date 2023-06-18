@@ -91,6 +91,17 @@ void fessga::help::print_vector(std::vector<int>* vec) {
     cout << endl;
 }
 
+void fessga::help::print_pairs(std::vector<pair<int, int>>* pairs) {
+    for (int i = 0; i < pairs->size(); i++) {
+        if (i > 0) cout << " ";
+        cout << "(";
+        cout << to_string(pairs->at(i).first / 6) + ", " + to_string(pairs->at(i).first % 6);
+        //cout << to_string(pairs->at(i).first) + ", " + to_string(pairs->at(i).second);
+        cout << ")";
+    }
+    cout << endl;
+}
+
 void fessga::help::NormalizeElementWise(Matrix3d* M) {
     for (int i = 0; i < M->cols(); i++) {
         for (int j = 0; j < M->rows(); j++) {
