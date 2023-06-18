@@ -36,10 +36,10 @@ public:
         mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
+        grid = mesher::create_grid3d(5, 5, 5, surface_mesh.diagonal);
 
         // Set output folder
-        string output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
+        output_folder = "E:/Development/FESSGA/data/msh_output/FESS_lowres_test";
         
         // Compute no of cells
         no_cells = grid.x * grid.y;
@@ -77,6 +77,7 @@ private:
     int dim_y;
     int dim_z;
     float cell_size = 0;
+    string output_folder;
     Vector3d offset;
     uint* densities = 0;
 };
@@ -142,12 +143,11 @@ bool Controller::run_fess() {
     // Parameters
     double max_stress = 1e10;
     double min_stress = 7e3;
-    string msh_file = "../data/msh_output/test.msh";
-    string output_folder = "../data/msh_output/FESS_lowres_test";
+    string msh_file = output_folder + "/mesh.msh";
     string fe_case = output_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
-    float greediness = 0.02;
+    float greediness = 0.05;
     
     // Run optimization
     FESS fess = FESS(msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness, export_msh);

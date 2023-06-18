@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
     // Create 3d Grid
-    mesher::Grid3D grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
+    mesher::Grid3D grid = mesher::create_grid3d(5, 5, 5, surface_mesh.diagonal);
 
     // Set output folder
     string output_folder = "E:/Development/FESSGA/data/msh_output/FESS_lowres_test";

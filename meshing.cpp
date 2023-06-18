@@ -198,6 +198,7 @@ void mesher::generate_FE_mesh(
                 if (y > 0) down_cell = densities[(x + x_diff) * grid.y + y - 1];
                 if (y == 0) {
                     infeasible = !up_cell; // Infeasible if the line is on the lower y-limit and there's no cell above it
+                    //cout << "coming from (" << x << ", " << y << ") a path to " << grid.y + y << " is infeasible." << endl;
                 }
                 else if (y == grid.y) {
                     infeasible = !down_cell; // Infeasible if the line is on the upper y-limit and there's no cell below it
@@ -237,17 +238,21 @@ void mesher::generate_FE_mesh(
                 j++;
             }
             if (j == valid_neighbors.size()) {
-                // No unvisited neighbor was found. 
-                cout << "ERROR: No unvisited neighbor was found. This is a bug." << endl;
-                j = 0;
+                // No unvisited neighbor was found. This must mean that we have reached the last line of the current perimeter component.
+                help::print("adding node (" + to_string(start_x) + ", " + to_string(start_y) + ")\n");
+                ordered_boundary_node_coords.push_back(start_x * (grid.y + 1) + start_y);
+                force_new_component_search = true;
+                continue;
+            }
+            else {
+                // Set the neighbor data to the data of the unvisited neighbor
+                neighbor_coord = valid_neighbors[j].first;
+                neighbor_idx = valid_neighbors[j].second;
+                neighbor_x = neighbor_coord / (grid.y + 1);
+                neighbor_y = neighbor_coord % (grid.y + 1);
+                //cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
             }
 
-            // Set the neighbor data to the data of the unvisited neighbor
-            neighbor_coord = valid_neighbors[j].first;
-            neighbor_idx = valid_neighbors[j].second;
-            neighbor_x = neighbor_coord / (grid.y + 1);
-            neighbor_y = neighbor_coord % (grid.y + 1);
-            //cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
         }
 
         if (neighbor_idx == -1) {
@@ -256,6 +261,7 @@ void mesher::generate_FE_mesh(
         }
 
         // Add neighboring boundary node to vector
+        help::print("adding node (" + to_string(neighbor_x) + ", " + to_string(neighbor_y) + ")\n");
         ordered_boundary_node_coords.push_back(neighbor_coord);
 
         // Set previous x and y coordinates to current ones

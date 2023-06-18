@@ -108,7 +108,7 @@ void FESS::run() {
 		// If termination conditions were not reached, prepare density distribution for next iteration by removing 
 		// elements below minimum stress threshold. TODO: Prevent removal of elements to which boundary conditions were applied.
 		int no_cells_to_remove = max(1, (int)round(greediness * (float)fe_mesh.surfaces.size()));
-		int no_cells_removed = physics::remove_low_stress_cells(&fe_results.data, densities, &fe_case, min_stress_threshold, no_cells_to_remove);
+		int no_cells_removed = physics::remove_low_stress_cells(&fe_results.data, densities, &fe_case, grid, min_stress_threshold, no_cells_to_remove);
 		cout << "FESS: Removed " << no_cells_to_remove << " low - stress cells. Relative volume decreased by " << std::fixed
 			<< (float)no_cells_to_remove / (float)grid.size2d << ", to "
 			<< (float)(fe_mesh.surfaces.size() - no_cells_to_remove) / (float)(grid.size2d) << "\n";

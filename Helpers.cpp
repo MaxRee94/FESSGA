@@ -91,6 +91,12 @@ void fessga::help::print_vector(std::vector<int>* vec) {
     cout << endl;
 }
 
+void fessga::help::print(std::string str) {
+#if VERBOSE
+    cout << str;
+#endif
+}
+
 void fessga::help::print_pairs(std::vector<pair<int, int>>* pairs) {
     for (int i = 0; i < pairs->size(); i++) {
         if (i > 0) cout << " ";

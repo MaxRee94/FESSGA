@@ -702,6 +702,7 @@ namespace fessga {
 
         // Re-assemble the case file's content by concatenating the sections and updated target boundaries
         static void assemble_fe_case(Case* fe_case, map<string, vector<int>>* bound_id_lookup) {
+            fe_case->content = "";
             for (int i = 0; i < fe_case->names.size(); i++) {
                 string name = fe_case->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
@@ -710,6 +711,42 @@ namespace fessga {
                 fe_case->content += fe_case->sections[i] + bound_ids_string;
             }
             fe_case->content += fe_case->sections[fe_case->names.size()];
+        }
+
+        // Return the number of 'true neighbors' of the cell at the given coordinates.
+        // True neighbors are here defined as filled neighbor cells that share a line with the given cell
+        static vector<int> get_true_neighbors(int dim_x, int dim_y, int x, int y, uint* densities) {
+            vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
+            vector<int> true_neighbors;
+            for (auto& offset : offsets) {
+                int _x = x + offset.first;
+                int _y = y + offset.second;
+                if (_x == dim_x || _y == dim_y || _x == 0 || _y == 0) continue;
+                int neighbor_coord = _x * dim_y + _y;
+                if (densities[neighbor_coord]) true_neighbors.push_back(neighbor_coord);
+            }
+            return true_neighbors;
+        }
+
+        // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of deleting the given cell.
+        static bool cell_is_safe_to_delete(uint* densities, Grid3D grid, int cell_coord, int& no_deleted_neighbors, vector<int>* bound_cells) {
+            int x = cell_coord / grid.y;
+            int y = cell_coord % grid.y;
+            vector<int> neighbors = get_true_neighbors(grid.x, grid.y, x, y, densities);
+            for (auto& neighbor : neighbors) {
+                vector<int> sub_neighbors = get_true_neighbors(grid.x, grid.y, neighbor / grid.y, neighbor % grid.y, densities);
+
+                // If the neighboring cell has only one true neighbor itself, deleting the current cell would make it invalid.
+                // Therefore we either delete the neighboring cell too, or - in case the neighbor is a boundary condition cell - skip deletion alltogether
+                if (sub_neighbors.size() == 1) {
+                    // If the cell has a line on which a boundary condition was applied, skip deletion
+                    if (help::is_in(bound_cells, cell_coord)) {
+                        return false;
+                    }
+                    no_deleted_neighbors++;
+                    densities[neighbor] = 0; // Delete the neighboring cell, since deleting the cell at <cell_coord> would make it invalid.
+                }
+            }
         }
     };
 }

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <set>
 
+#define VERBOSE false
 
 using namespace std;
 
@@ -56,6 +57,8 @@ namespace fessga {
 		static void print_vector(std::vector<int>* vec);
 
 		static void print_pairs(std::vector<pair<int, int>>* vec);
+
+		static void print(std::string);
 
 		static void NormalizeElementWise(Eigen::Matrix3d* M);
 

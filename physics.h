@@ -50,18 +50,30 @@ namespace fessga {
         }
 
         static int remove_low_stress_cells(
-            PairSet* fe_data, uint* densities, mesher::Case* fe_case, double min_stress_threshold, int no_cells_to_remove
+            PairSet* fe_data, uint* densities, mesher::Case* fe_case, mesher::Grid3D grid, double min_stress_threshold, int no_cells_to_remove
         ) {
             int count = 0;
             //help::print_vector(&fe_case->boundary_cells);
             for (auto& item : (*fe_data)) {
                 int cell_coord = item.first;
+
+                // If the cell has a line on which a boundary condition was applied, skip deletion
                 if (help::is_in(&fe_case->boundary_cells, cell_coord)) {
-                    continue; // Skip boundary cells
+                    continue;
                 }
+
+                // If the cell was already empty, skip deletion (more importantly: don't count this as a deletion)
+                if (!densities[cell_coord]) continue; 
+
+                // If cell deletion leads to infeasibility, skip deletion
+                int no_deleted_neighbors = 0;
+                if (!mesher::cell_is_safe_to_delete(densities, grid, cell_coord, no_deleted_neighbors, &fe_case->boundary_cells)) continue; 
+                count += no_deleted_neighbors;
+
+                // Set cell to zero, making it empty
                 densities[cell_coord] = 0;
                 count++;
-                if (count > no_cells_to_remove) break;
+                if (count == no_cells_to_remove) break;
             }
             return count;
         }
