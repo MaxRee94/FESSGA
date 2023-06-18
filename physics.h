@@ -49,15 +49,21 @@ namespace fessga {
             _pclose(pipe);
         }
 
-        static void remove_low_stress_cells(
-            PairSet* fe_data, uint* densities, double min_stress_threshold, int no_cells_to_remove
+        static int remove_low_stress_cells(
+            PairSet* fe_data, uint* densities, mesher::Case* fe_case, double min_stress_threshold, int no_cells_to_remove
         ) {
             int count = 0;
+            //help::print_vector(&fe_case->boundary_cells);
             for (auto& item : (*fe_data)) {
-                densities[item.first] = 0;
+                int cell_coord = item.first;
+                if (help::is_in(&fe_case->boundary_cells, cell_coord)) {
+                    continue; // Skip boundary cells
+                }
+                densities[cell_coord] = 0;
                 count++;
                 if (count > no_cells_to_remove) break;
             }
+            return count;
         }
 
         static void load_2d_physics_data(

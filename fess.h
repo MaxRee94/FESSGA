@@ -39,6 +39,7 @@ void FESS::run() {
 	string cur_iteration_name = "";
 	string cur_output_folder = output_folder;
 	int i = 1;
+	bool terminate = false;
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
@@ -95,7 +96,6 @@ void FESS::run() {
 		cout << "FESS: Current minimum stress: " << std::setprecision(3) << std::scientific << min_stress << endl;
 
 		// Check termination conditions
-		bool terminate = false;
 		if (max_stress > max_stress_threshold) {
 			cout << "\nFESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress << ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
 			terminate = true;
@@ -107,11 +107,18 @@ void FESS::run() {
 
 		// If termination conditions were not reached, prepare density distribution for next iteration by removing 
 		// elements below minimum stress threshold. TODO: Prevent removal of elements to which boundary conditions were applied.
-		int no_cells_to_remove = max(3, (int)round(greediness * (float)fe_mesh.surfaces.size()));
-		physics::remove_low_stress_cells(&fe_results.data, densities, min_stress_threshold, no_cells_to_remove);
+		int no_cells_to_remove = max(1, (int)round(greediness * (float)fe_mesh.surfaces.size()));
+		int no_cells_removed = physics::remove_low_stress_cells(&fe_results.data, densities, &fe_case, min_stress_threshold, no_cells_to_remove);
 		cout << "FESS: Removed " << no_cells_to_remove << " low - stress cells. Relative volume decreased by " << std::fixed
 			<< (float)no_cells_to_remove / (float)grid.size2d << ", to "
 			<< (float)(fe_mesh.surfaces.size() - no_cells_to_remove) / (float)(grid.size2d) << "\n";
+
+		// Check if the intended number of cells was actually removed. If not, there must be insufficient cells left to continue optimization.
+		terminate = false;
+		if (no_cells_removed != no_cells_to_remove) {
+			cout << "FESS: Unable to remove intended number of cells (" << no_cells_to_remove << "). Actually removed " << no_cells_removed << endl;
+			terminate = true;
+		}
 
 		i++;
 	}
