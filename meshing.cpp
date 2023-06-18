@@ -146,7 +146,7 @@ void mesher::generate_FE_mesh(
             y = node_coord % (grid.y + 1);
             start_x = x;
             start_y = y;
-            cout << "starting perimeter walk on new component. New start x, y: " << x << ", " << y << endl;
+            //cout << "starting perimeter walk on new component. New start x, y: " << x << ", " << y << endl;
 
             // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
             previous_x = x;
@@ -163,9 +163,6 @@ void mesher::generate_FE_mesh(
             _neighbor_x = (x + _offset.first);
             _neighbor_y = (y + _offset.second);
 
-            if (x == 2 && y == 5) {
-                cout << "candidate neighbor coordinates: " << _neighbor_x << ", " << _neighbor_y << endl;
-            }
             // Check coordinate validity
             if (_neighbor_x < 0 || _neighbor_y < 0 || _neighbor_x > grid.x || _neighbor_y > grid.y)
                 continue; // coordinates outside design domain are invalid
@@ -227,9 +224,6 @@ void mesher::generate_FE_mesh(
             else {
             }
         }
-        if (x == 2 && y == 5) {
-            cout << "valid neighbors: "; help::print_pairs(&valid_neighbors);
-        }
 
         // Check whether more than one valid neighbor was found. If so, choose a neighbor that has not been visited yet
         if (valid_neighbors.size() > 1) {
@@ -263,7 +257,6 @@ void mesher::generate_FE_mesh(
 
         // Add neighboring boundary node to vector
         ordered_boundary_node_coords.push_back(neighbor_coord);
-        cout << "adding node " << neighbor_x << ", " << neighbor_y << endl;
 
         // Set previous x and y coordinates to current ones
         previous_x = x;
