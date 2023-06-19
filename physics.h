@@ -73,7 +73,7 @@ namespace fessga {
                 // Set cell to zero, making it empty
                 densities[cell_coord] = 0;
                 count++;
-                if (count == no_cells_to_remove) break;
+                if (count >= no_cells_to_remove) break;
             }
             return count;
         }
@@ -141,7 +141,8 @@ namespace fessga {
                 neighbors[2] = results_nodewise[(x + 1) * (grid.y + 1) + (y + 1)];
                 neighbors[3] = results_nodewise[x * (grid.y + 1) + (y + 1)];
                 if (neighbors.minCoeff() == 0) continue; // Skip cells with corners that have stress value 0
-                double cell_stress = neighbors.sum() / 4.0;
+                //double cell_stress = neighbors.sum() / 4.0;
+                double cell_stress = neighbors.maxCoeff();
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
                 int cell_coord = x * grid.y + y;

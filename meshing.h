@@ -721,7 +721,7 @@ namespace fessga {
             for (auto& offset : offsets) {
                 int _x = x + offset.first;
                 int _y = y + offset.second;
-                if (_x == dim_x || _y == dim_y || _x == 0 || _y == 0) continue;
+                if (_x == dim_x || _y == dim_y || _x < 0 || _y < 0) continue;
                 int neighbor_coord = _x * dim_y + _y;
                 if (densities[neighbor_coord]) true_neighbors.push_back(neighbor_coord);
             }
@@ -737,16 +737,44 @@ namespace fessga {
                 vector<int> sub_neighbors = get_true_neighbors(grid.x, grid.y, neighbor / grid.y, neighbor % grid.y, densities);
 
                 // If the neighboring cell has only one true neighbor itself, deleting the current cell would make it invalid.
-                // Therefore we either delete the neighboring cell too, or - in case the neighbor is a boundary condition cell - skip deletion alltogether
+                // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
                 if (sub_neighbors.size() == 1) {
                     // If the cell has a line on which a boundary condition was applied, skip deletion
-                    if (help::is_in(bound_cells, cell_coord)) {
+                    if (help::is_in(bound_cells, neighbor)) {
                         return false;
                     }
                     no_deleted_neighbors++;
                     densities[neighbor] = 0; // Delete the neighboring cell, since deleting the cell at <cell_coord> would make it invalid.
                 }
             }
+        }
+
+        // Get number of connected cells of the given cell using a version of floodfill
+        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord) {
+            vector<int> cells = { cell_coord };
+            int i = 0;
+            while (i < cells.size()) {
+                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, cells[i] / grid.y, cells[i] % grid.y, densities);
+                for (int j = 0; j < neighbors.size(); j++) {
+                    if (!help::is_in(&cells, neighbors[j])) {
+                        cells.push_back(neighbors[j]);
+                        cout << "cell added: " << neighbors[j] / grid.y << ", " << neighbors[j] % grid.y << endl;
+                    }
+                }
+                i++;
+            }
+            return cells.size();
+        }
+
+        // Return whether the density distribution consists of exactly 1 connected shape
+        static bool is_single_piece(uint* densities, Grid3D grid, Case* fe_case, int total_no_cells) {
+            cout << "boundary cells: ";
+            help::print_vector(&fe_case->boundary_cells);
+            int piece_size = get_no_connected_cells(densities, grid, fe_case->boundary_cells[0]);
+            cout << "piece size: " << piece_size << endl;
+            cout << "total no cells: " << total_no_cells << endl;
+            if (piece_size < total_no_cells) return false;
+            else return true;
         }
     };
 }

@@ -38,6 +38,8 @@ void FESS::run() {
 	string msh = msh_file;
 	string cur_iteration_name = "";
 	string cur_output_folder = output_folder;
+	string final_valid_iteration_folder = cur_output_folder;
+	int final_valid_iteration = 1;
 	int i = 1;
 	bool terminate = false;
 	while (i - 1 < max_iterations) {
@@ -54,7 +56,7 @@ void FESS::run() {
 		mesher::FEMesh2D fe_mesh;
 		mesher::generate_FE_mesh(grid, mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
-		
+
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
 		mesher::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
@@ -97,11 +99,12 @@ void FESS::run() {
 
 		// Check termination conditions
 		if (max_stress > max_stress_threshold) {
-			cout << "\nFESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress << ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
+			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
+				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
 			terminate = true;
 		}
 		if (terminate) {
-			cout << "Terminating FESS algorithm after " << i << " iterations. Results were saved to " << output_folder << endl;
+			cout << "\nTerminating FESS algorithm after " << i << " iterations. Final results were saved to " << final_valid_iteration_folder << endl;
 			break;
 		}
 
@@ -109,15 +112,29 @@ void FESS::run() {
 		// elements below minimum stress threshold. TODO: Prevent removal of elements to which boundary conditions were applied.
 		int no_cells_to_remove = max(1, (int)round(greediness * (float)fe_mesh.surfaces.size()));
 		int no_cells_removed = physics::remove_low_stress_cells(&fe_results.data, densities, &fe_case, grid, min_stress_threshold, no_cells_to_remove);
-		cout << "FESS: Removed " << no_cells_to_remove << " low - stress cells. Relative volume decreased by " << std::fixed
-			<< (float)no_cells_to_remove / (float)grid.size2d << ", to "
-			<< (float)(fe_mesh.surfaces.size() - no_cells_to_remove) / (float)(grid.size2d) << "\n";
 
 		// Check if the intended number of cells was actually removed. If not, there must be insufficient cells left to continue optimization.
 		terminate = false;
-		if (no_cells_removed != no_cells_to_remove) {
-			cout << "FESS: Unable to remove intended number of cells (" << no_cells_to_remove << "). Actually removed " << no_cells_removed << endl;
+		if (no_cells_removed == 0) {
+			cout << "FESS: Termination condition reached: Unable to remove any cells." << endl;
 			terminate = true;
+		}
+		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and thus optimization should be terminated.
+		else if (!mesher::is_single_piece(densities, grid, &fe_case, fe_mesh.surfaces.size() - no_cells_removed)) {
+			cout << "FESS: Termination condition reached: Element removal resulted in the splitting of the shape into multiple pieces.\n";
+			terminate = true;
+		}
+		else {
+			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by " << std::fixed
+				<< (float)no_cells_removed / (float)grid.size2d << ", to "
+				<< (float)(fe_mesh.surfaces.size() - no_cells_removed) / (float)(grid.size2d) << "\n";
+			final_valid_iteration_folder = cur_output_folder;
+		}
+
+		if (terminate) {
+			cout << "\nTerminating FESS algorithm after " << final_valid_iteration << " iterations. Final results were saved to "
+				<< final_valid_iteration_folder << endl;
+			break;
 		}
 
 		i++;
