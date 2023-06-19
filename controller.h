@@ -36,10 +36,10 @@ public:
         mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(5, 5, 5, surface_mesh.diagonal);
+        grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
 
         // Set output folder
-        output_folder = "E:/Development/FESSGA/data/msh_output/FESS_lowres_test";
+        output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
         
         // Compute no of cells
         no_cells = grid.x * grid.y;

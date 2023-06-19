@@ -750,15 +750,14 @@ namespace fessga {
         }
 
         // Get number of connected cells of the given cell using a version of floodfill
-        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord) {
-            vector<int> cells = { cell_coord };
+        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, vector<int>& cells) {
+            cells = { cell_coord };
             int i = 0;
             while (i < cells.size()) {
                 vector<int> neighbors = get_true_neighbors(grid.x, grid.y, cells[i] / grid.y, cells[i] % grid.y, densities);
                 for (int j = 0; j < neighbors.size(); j++) {
                     if (!help::is_in(&cells, neighbors[j])) {
                         cells.push_back(neighbors[j]);
-                        cout << "cell added: " << neighbors[j] / grid.y << ", " << neighbors[j] % grid.y << endl;
                     }
                 }
                 i++;
@@ -766,14 +765,54 @@ namespace fessga {
             return cells.size();
         }
 
+        static int get_cell_from_other_piece(uint* densities, Grid3D grid, vector<int>* current_piece, vector<int>* removed_cells) {
+            int cell_from_other_piece = -1;
+            for (auto& removed_cell : (*removed_cells)) {
+                // At least one of the neighbors of the last-removed cells must belong to the smaller piece
+                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, removed_cell / grid.y, removed_cell % grid.y, densities);
+                for (auto& neighbor : neighbors) {
+                    if (!help::is_in(current_piece, neighbor)) {
+                        cell_from_other_piece = neighbor;
+                    }
+                }
+            }
+            return cell_from_other_piece;
+        }
+
+        static int get_cell_from_smaller_piece(
+            int piece_size, int total_no_cells, uint* densities, Grid3D grid, vector<int>* removed_cells, vector<int>* cells
+        ) {
+            int cell_from_smaller_piece;
+            
+            // Check if the floodfill algorithm returned the largest piece
+            bool is_main_piece = true;
+            if (piece_size < total_no_cells / 2) is_main_piece = false;
+
+            // Get a cell coordinate that is not part of the main piece
+            if (is_main_piece) {
+                cell_from_smaller_piece = get_cell_from_other_piece(densities, grid, cells, removed_cells);
+            }
+            else cell_from_smaller_piece = cells->at(0); // If floodfill returned a smaller piece, simply return one of its cells
+
+            return cell_from_smaller_piece;
+        }
+
         // Return whether the density distribution consists of exactly 1 connected shape
-        static bool is_single_piece(uint* densities, Grid3D grid, Case* fe_case, int total_no_cells) {
-            cout << "boundary cells: ";
-            help::print_vector(&fe_case->boundary_cells);
-            int piece_size = get_no_connected_cells(densities, grid, fe_case->boundary_cells[0]);
-            cout << "piece size: " << piece_size << endl;
-            cout << "total no cells: " << total_no_cells << endl;
-            if (piece_size < total_no_cells) return false;
+        static bool is_single_piece(
+            uint* densities, Grid3D grid, Case* fe_case, int total_no_cells, vector<int>* removed_cells,
+            int& cell_from_smaller_piece, int _start_cell = -1
+        ) {
+            vector<int> cells;
+            int start_cell;
+            if (_start_cell > -1) start_cell = _start_cell;
+            else start_cell = fe_case->boundary_cells[0];
+            int piece_size = get_no_connected_cells(densities, grid, start_cell, cells);
+
+            // Check if the shape consists of one piece or multiple
+            if (piece_size < total_no_cells) {
+                cell_from_smaller_piece = get_cell_from_smaller_piece(piece_size, total_no_cells, densities, grid, removed_cells, &cells);
+                return false;
+            }
             else return true;
         }
     };

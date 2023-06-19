@@ -34,6 +34,7 @@ namespace fessga {
         struct FEResults2D {
             FEResults2D(mesher::Grid3D grid) { x = grid.x; y = grid.y; }
             PairSet data;
+            map<int, double> data_map;
             int x, y;
             string type;
             double min, max;
@@ -50,12 +51,17 @@ namespace fessga {
         }
 
         static int remove_low_stress_cells(
-            PairSet* fe_data, uint* densities, mesher::Case* fe_case, mesher::Grid3D grid, double min_stress_threshold, int no_cells_to_remove
+            PairSet* fe_results, uint* densities, mesher::Case* fe_case, mesher::Grid3D grid, int no_cells_to_remove,
+            vector<int>& removed_cells, double max_stress_threshold
         ) {
             int count = 0;
             //help::print_vector(&fe_case->boundary_cells);
-            for (auto& item : (*fe_data)) {
+            for (auto& item : (*fe_results)) {
                 int cell_coord = item.first;
+                double cell_stress = item.second;
+
+                // If the cell's stress exceeds the maximum, break the loop (all subsequent cells will also exceed the maximum since the list is ordered).
+                if (cell_stress > max_stress_threshold) continue;
 
                 // If the cell has a line on which a boundary condition was applied, skip deletion
                 if (help::is_in(&fe_case->boundary_cells, cell_coord)) {
@@ -73,9 +79,43 @@ namespace fessga {
                 // Set cell to zero, making it empty
                 densities[cell_coord] = 0;
                 count++;
+                removed_cells.push_back(cell_coord);
                 if (count >= no_cells_to_remove) break;
             }
             return count;
+        }
+
+        // Remove a floating piece (if possible)
+        static bool remove_floating_piece(
+            uint* densities, mesher::Grid3D grid, vector<int>* piece_cells, double max_stress_threshold, mesher::Case* fe_case, FEResults2D* fe_results
+        ) {
+            for (auto& cell : (*piece_cells)) {
+                if (fe_results->data_map[cell] > max_stress_threshold) return false; // If cell's stress exceeds maximum, skip piece deletion.
+                densities[cell] = 0;
+            }
+            return true;
+        }
+
+        // Remove all pieces smaller than the largest piece from the mesh, if possible
+        static vector<int> remove_smaller_pieces(
+            uint* densities, mesher::Grid3D grid, mesher::Case* fe_case, int total_no_cells, int cell_from_smaller_piece, vector<int>* removed_cells,
+            double max_stress_threshold, FEResults2D* fe_results
+        ) {
+            bool success = false;
+            int start_cell = cell_from_smaller_piece;
+            int no_cells_left = total_no_cells;
+            vector<int> visited_cells;
+            vector<int> cells_in_unremoved_pieces;
+            while (no_cells_left > 0) {
+                vector<int> piece_cells;
+                int no_cells = mesher::get_no_connected_cells(densities, grid, start_cell, piece_cells);
+                no_cells_left -= no_cells;
+                if (no_cells > total_no_cells / 2) continue; // skip largest piece
+                bool smaller_component_removed = remove_floating_piece(densities, grid, &piece_cells, max_stress_threshold, fe_case, fe_results);
+                if (!smaller_component_removed) cells_in_unremoved_pieces.push_back(start_cell);
+            }
+
+            return cells_in_unremoved_pieces;
         }
 
         static void load_2d_physics_data(
@@ -129,7 +169,6 @@ namespace fessga {
             // Create cellwise results distribution by averaging all groups of 4 corners of a cell
             double min_stress = 1e30;
             double max_stress = 0;
-            map<int, double> _data;
             for (int i = 0; i < coords.size(); i++) {
                 int coord = coords[i];
                 int x = coord / (grid.y + 1);
@@ -146,9 +185,9 @@ namespace fessga {
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
                 int cell_coord = x * grid.y + y;
-                _data[cell_coord] = cell_stress;
+                results.data_map[cell_coord] = cell_stress;
             }
-            help::sort(_data, results.data);
+            help::sort(results.data_map, results.data);
             results.min = min_stress;
             results.max = max_stress;
 

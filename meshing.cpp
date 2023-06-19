@@ -146,7 +146,6 @@ void mesher::generate_FE_mesh(
             y = node_coord % (grid.y + 1);
             start_x = x;
             start_y = y;
-            //cout << "starting perimeter walk on new component. New start x, y: " << x << ", " << y << endl;
 
             // Re-initialize 'previous' coordinates to an arbitrary neighboring location on the grid
             previous_x = x;
@@ -274,6 +273,11 @@ void mesher::generate_FE_mesh(
 
         i++;
     }
+
+    // Hotfix: In case the start node of the last-traced component was somehow not added to the ordered boundary node coords, add it.
+    if (ordered_boundary_node_coords.back() != (start_x * (grid.y + 1) + start_y))
+        ordered_boundary_node_coords.push_back((start_x * (grid.y + 1) + start_y));
+
     cout << "   no perimeter components: " << no_components << endl;
     cout << "   no unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "   no ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
@@ -308,10 +312,6 @@ void mesher::generate_FE_mesh(
             local_line_idx = 0;
             // Choose cell that has the line as its left side unless line is on the rightmost x-limit or the right cell is empty
             if (node1_x == grid.x || !densities[cell_x * grid.y + cell_y]) {
-                if (node1_x == 0) {
-                    cout << "\nFESS: ERROR: Cell (" << cell_x << ", " << cell_y << ") with vertical boundary line is empty." << endl;
-                    //exit(-1);
-                }
                 cell_x = node1_x - 1;
                 local_line_idx = 2;
             }
@@ -322,10 +322,6 @@ void mesher::generate_FE_mesh(
             local_line_idx = 3;
             // Choose cell that has the line as its bottom side unless line is on the upper y-limit or the upper cell is empty
             if (node1_y == grid.y || !densities[cell_x * grid.y + cell_y]) { 
-                if (node1_y == 0) {
-                    cout << "\nFESS: ERROR: Cell (" << cell_x << ", " << cell_y << ") with horizontal boundary line is empty." << endl;
-                    //exit(-1);
-                }
                 cell_y = node1_y - 1;
                 local_line_idx = 1;
             }
