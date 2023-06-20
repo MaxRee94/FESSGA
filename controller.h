@@ -33,10 +33,10 @@ public:
         MatrixXi F;
         fessga::IO::read_mesh("../data/test_objects/teapot.obj", V, F);
         gui.load_example(&V, &F);
-        mesher::SurfaceMesh surface_mesh = mesher::create_surface_mesh(&V, &F);
+        mesh = mesher::create_surface_mesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(40, 40, 40, surface_mesh.diagonal);
+        grid = mesher::create_grid3d(40, 40, 40, mesh.diagonal);
 
         // Set output folder
         output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";

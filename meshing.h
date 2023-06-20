@@ -20,10 +20,17 @@ namespace fessga {
     {
     public:
 
+        struct Piece {
+            vector<int> cells;
+            bool is_removable = true;
+
+        };
+
         struct Case {
             string path;
             vector<string> names, sections;
             vector<int> boundary_cells;
+            vector<int> whitelisted_cells;
             string content;
         };
         
@@ -79,7 +86,9 @@ namespace fessga {
             surface_mesh.bounding_box.row(0) = V->colwise().minCoeff();
             surface_mesh.bounding_box.row(1) = V->colwise().maxCoeff();
             surface_mesh.diagonal = surface_mesh.bounding_box.row(1) - surface_mesh.bounding_box.row(0);
+            cout << "diagonal: " << surface_mesh.diagonal.transpose() << endl;
             surface_mesh.offset = -0.5 * surface_mesh.diagonal;
+            cout << "offset: " << surface_mesh.offset.transpose() << endl;
 
             return surface_mesh;
         }
@@ -706,7 +715,6 @@ namespace fessga {
             for (int i = 0; i < fe_case->names.size(); i++) {
                 string name = fe_case->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
-                cout << "no bound ids: " << bound_ids.size() << endl;
                 string bound_ids_string = help::join_as_string(bound_ids, " ");
                 fe_case->content += fe_case->sections[i] + bound_ids_string;
             }
@@ -728,7 +736,8 @@ namespace fessga {
             return true_neighbors;
         }
 
-        // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of deleting the given cell.
+        // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of
+        // deleting the given cell.
         static bool cell_is_safe_to_delete(uint* densities, Grid3D grid, int cell_coord, int& no_deleted_neighbors, vector<int>* bound_cells) {
             int x = cell_coord / grid.y;
             int y = cell_coord % grid.y;
@@ -750,70 +759,117 @@ namespace fessga {
         }
 
         // Get number of connected cells of the given cell using a version of floodfill
-        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, vector<int>& cells) {
-            cells = { cell_coord };
+        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, Piece& piece, Case* fe_case = 0) {
+            piece.cells = { cell_coord };
             int i = 0;
-            while (i < cells.size()) {
-                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, cells[i] / grid.y, cells[i] % grid.y, densities);
+            while (i < piece.cells.size()) {
+                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, piece.cells[i] / grid.y, piece.cells[i] % grid.y, densities);
                 for (int j = 0; j < neighbors.size(); j++) {
-                    if (!help::is_in(&cells, neighbors[j])) {
-                        cells.push_back(neighbors[j]);
+                    if (!help::is_in(&piece.cells, neighbors[j])) {
+                        piece.cells.push_back(neighbors[j]);
+                        if (fe_case != 0 && piece.is_removable) {
+                            // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
+                            if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
+                                cout << " --- setting piece to be unremovable" << endl;
+                                piece.is_removable = false;
+                            }
+                        }
                     }
                 }
                 i++;
             }
-            return cells.size();
+            return piece.cells.size();
         }
 
-        static int get_cell_from_other_piece(uint* densities, Grid3D grid, vector<int>* current_piece, vector<int>* removed_cells) {
-            int cell_from_other_piece = -1;
+        // Return cell that was not yet visited
+        static int get_unvisited_cell(
+            uint* densities, Grid3D grid, vector<int>* visited_cells, vector<int>* removed_cells
+        ) {
+            int unvisited_cell = -1;
             for (auto& removed_cell : (*removed_cells)) {
-                // At least one of the neighbors of the last-removed cells must belong to the smaller piece
+                // At least one of the neighbors of the last-removed cells must belong to the other piece
                 vector<int> neighbors = get_true_neighbors(grid.x, grid.y, removed_cell / grid.y, removed_cell % grid.y, densities);
                 for (auto& neighbor : neighbors) {
-                    if (!help::is_in(current_piece, neighbor)) {
-                        cell_from_other_piece = neighbor;
+                    if (!help::is_in(visited_cells, neighbor)) {
+                        unvisited_cell = neighbor;
                     }
                 }
             }
-            return cell_from_other_piece;
+            return unvisited_cell;
         }
 
-        static int get_cell_from_smaller_piece(
-            int piece_size, int total_no_cells, uint* densities, Grid3D grid, vector<int>* removed_cells, vector<int>* cells
+        // Get the pieces inside the given shape
+        static void get_pieces(
+            uint* densities, Grid3D grid, Case* fe_case, vector<Piece>* pieces, vector<int>* visited_cells, int& cells_left,
+            vector<int>* removed_cells, int& no_pieces, int _start_cell = -1
         ) {
-            int cell_from_smaller_piece;
-            
-            // Check if the floodfill algorithm returned the largest piece
-            bool is_main_piece = true;
-            if (piece_size < total_no_cells / 2) is_main_piece = false;
-
-            // Get a cell coordinate that is not part of the main piece
-            if (is_main_piece) {
-                cell_from_smaller_piece = get_cell_from_other_piece(densities, grid, cells, removed_cells);
+            Piece piece;
+            int start_cell = -1;
+            if (_start_cell > -1) start_cell = _start_cell;
+            else {
+                // If no start cell was provided as an argument, pick one of the neighbors of one of the removed cells
+                for (int i = 0; i < removed_cells->size(); i++) {
+                    vector<int> neighbors = get_true_neighbors(grid.x, grid.y, removed_cells->at(i) / grid.y, removed_cells->at(i) % grid.y, densities);
+                    if (neighbors.size() > 0) { start_cell = neighbors[0]; break; }
+                }
             }
-            else cell_from_smaller_piece = cells->at(0); // If floodfill returned a smaller piece, simply return one of its cells
+            if (start_cell == -1) start_cell = fe_case->boundary_cells[0];
+            int piece_size = get_no_connected_cells(densities, grid, start_cell, piece, fe_case);
+            pieces->push_back(piece);
 
-            return cell_from_smaller_piece;
+            // Check if the shape consists of one piece or several
+            if (piece_size < cells_left) {
+                no_pieces++;
+                cells_left -= piece_size;
+                for (int i = 0; i < piece.cells.size(); i++) visited_cells->push_back(piece.cells[i]);
+
+                // Recurse if there are still unvisited cells left
+                if (cells_left > 0) {
+                    int unvisited_cell = get_unvisited_cell(densities, grid, visited_cells, removed_cells);
+                    get_pieces(densities, grid, fe_case, pieces, visited_cells, cells_left, removed_cells, no_pieces, unvisited_cell);
+                }
+            }
         }
 
-        // Return whether the density distribution consists of exactly 1 connected shape
+        // Restore all cells that were removed
+        static void restore_removed_cells(uint* densities, Grid3D grid, vector<int>* removed_cells) {
+            for (auto& cell : (*removed_cells)) {
+                densities[cell] = 1;
+            }
+        }
+
+        // Return whether or not the shape consists of a single piece
         static bool is_single_piece(
             uint* densities, Grid3D grid, Case* fe_case, int total_no_cells, vector<int>* removed_cells,
-            int& cell_from_smaller_piece, int _start_cell = -1
+            int _start_cell = -1
         ) {
-            vector<int> cells;
+            Piece piece;
             int start_cell;
             if (_start_cell > -1) start_cell = _start_cell;
             else start_cell = fe_case->boundary_cells[0];
-            int piece_size = get_no_connected_cells(densities, grid, start_cell, cells);
+            int piece_size = get_no_connected_cells(densities, grid, start_cell, piece);
+            //cout << "piece size: " << piece_size << endl;
+            //cout << "total no cells: " << total_no_cells << endl;
 
             // Check if the shape consists of one piece or multiple
             if (piece_size < total_no_cells) {
-                cell_from_smaller_piece = get_cell_from_smaller_piece(piece_size, total_no_cells, densities, grid, removed_cells, &cells);
                 return false;
             }
             else return true;
         }
+
+        // Remove the largest piece from the given pieces vector
+        static void remove_largest_piece(vector<mesher::Piece>* pieces, int& max_size) {
+            max_size = 0;
+            int largest_piece_idx = -1;
+            for (int i = 0; i < pieces->size(); i++) {
+                if (pieces->at(i).cells.size() > max_size) {
+                    max_size = pieces->at(i).cells.size();
+                    largest_piece_idx = i;
+                }
+            }
+            pieces->erase(pieces->begin() + largest_piece_idx);
+        }
+
     };
 }

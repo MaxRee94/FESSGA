@@ -52,10 +52,12 @@ namespace fessga {
 
         static int remove_low_stress_cells(
             PairSet* fe_results, uint* densities, mesher::Case* fe_case, mesher::Grid3D grid, int no_cells_to_remove,
-            vector<int>& removed_cells, double max_stress_threshold
+            vector<int>& removed_cells, double max_stress_threshold, mesher::Piece* smaller_piece = 0, int total_no_cells = -1
         ) {
+            cout << "total no cells (in physics): " << total_no_cells << endl;
+
             int count = 0;
-            //help::print_vector(&fe_case->boundary_cells);
+            int cell_from_smaller_piece;
             for (auto& item : (*fe_results)) {
                 int cell_coord = item.first;
                 double cell_stress = item.second;
@@ -68,17 +70,54 @@ namespace fessga {
                     continue;
                 }
 
+                // If the cell was previously whitelisted, skip deletion
+                if (help::is_in(&fe_case->whitelisted_cells, cell_coord)) {
+                    continue;
+                }
+
                 // If the cell was already empty, skip deletion (more importantly: don't count this as a deletion)
                 if (!densities[cell_coord]) continue; 
 
+                // If a 'smaller piece' vector was provided, perform cell removal in 'careful mode'. This means: check whether cell deletion results in 
+                // multiple pieces. If so, undo the deletion and whitelist the cell.
+                if (smaller_piece != 0) {
+                    vector<int> _removed_cell = { cell_coord };
+                    cout << "\n total no cells: " << total_no_cells - count << endl;
+                    cout << "is single piece before element removal: " << mesher::is_single_piece(
+                        densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+                    densities[cell_coord] = 0;
+                    cell_from_smaller_piece = smaller_piece->cells[0];
+                    bool is_single_piece = mesher::is_single_piece(densities, grid, fe_case, total_no_cells - count, &_removed_cell, cell_from_smaller_piece);
+                    cout << "is single piece? " << is_single_piece << endl;
+                    if (!is_single_piece) {
+                        // Cell removal resulted in multiple pieces. Restore cell and whitelist it.
+                        densities[cell_coord] = 1;
+                        cout << "restored cell." << endl;
+                        fe_case->whitelisted_cells.push_back(cell_coord);
+                        continue;
+                    }
+                    count++;
+                }
+
                 // If cell deletion leads to infeasibility, skip deletion
                 int no_deleted_neighbors = 0;
-                if (!mesher::cell_is_safe_to_delete(densities, grid, cell_coord, no_deleted_neighbors, &fe_case->boundary_cells)) continue; 
+                if (!mesher::cell_is_safe_to_delete(densities, grid, cell_coord, no_deleted_neighbors, &fe_case->boundary_cells)) {
+                    densities[cell_coord] = 1;
+                    cout << "cell is not safe to delete" << endl;
+                    continue;
+                }
                 count += no_deleted_neighbors;
+
+                if (smaller_piece != 0) {
+                    vector<int> _removed_cell = { cell_coord };
+                    cout << "total no cells: " << total_no_cells - count << endl;
+                    cout << "is single piece after neighbor checking / deletion: " << mesher::is_single_piece(
+                        densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+                }
 
                 // Set cell to zero, making it empty
                 densities[cell_coord] = 0;
-                count++;
+                if (!smaller_piece) count++;
                 removed_cells.push_back(cell_coord);
                 if (count >= no_cells_to_remove) break;
             }
@@ -87,10 +126,17 @@ namespace fessga {
 
         // Remove a floating piece (if possible)
         static bool remove_floating_piece(
-            uint* densities, mesher::Grid3D grid, vector<int>* piece_cells, double max_stress_threshold, mesher::Case* fe_case, FEResults2D* fe_results
+            uint* densities, mesher::Grid3D grid, mesher::Piece* piece, double max_stress_threshold, mesher::Case* fe_case, FEResults2D* fe_results
         ) {
-            for (auto& cell : (*piece_cells)) {
-                if (fe_results->data_map[cell] > max_stress_threshold) return false; // If cell's stress exceeds maximum, skip piece deletion.
+            vector<int> removed_cells;
+            for (auto& cell : piece->cells) {
+                if (fe_results->data_map[cell] > max_stress_threshold) {
+                    // If cell's stress exceeds maximum, restore the already deleted cells and exit this function.
+                    mesher::restore_removed_cells(densities, grid, &removed_cells);
+                    piece->is_removable = false;
+                    return false;
+                }
+                removed_cells.push_back(cell);
                 densities[cell] = 0;
             }
             return true;
@@ -98,27 +144,23 @@ namespace fessga {
 
         // Remove all pieces smaller than the largest piece from the mesh, if possible
         static vector<int> remove_smaller_pieces(
-            uint* densities, mesher::Grid3D grid, mesher::Case* fe_case, int total_no_cells, int cell_from_smaller_piece, vector<int>* removed_cells,
+            uint* densities, mesher::Grid3D grid, mesher::Case* fe_case, int total_no_cells, vector<mesher::Piece>* pieces, vector<int>* removed_cells,
             double max_stress_threshold, FEResults2D* fe_results
         ) {
-            bool success = false;
-            int start_cell = cell_from_smaller_piece;
-            int no_cells_left = total_no_cells;
-            vector<int> visited_cells;
-            vector<int> cells_in_unremoved_pieces;
-            while (no_cells_left > 0) {
-                vector<int> piece_cells;
-                int no_cells = mesher::get_no_connected_cells(densities, grid, start_cell, piece_cells);
-                no_cells_left -= no_cells;
-                if (no_cells > total_no_cells / 2) continue; // skip largest piece
-                bool smaller_component_removed = remove_floating_piece(densities, grid, &piece_cells, max_stress_threshold, fe_case, fe_results);
-                if (!smaller_component_removed) cells_in_unremoved_pieces.push_back(start_cell);
+            vector<int> unremoved_piece_indices;
+            int size_largest_piece;
+            mesher::remove_largest_piece(pieces, size_largest_piece);
+            for (int i = 0; i < pieces->size(); i++) {
+                mesher::Piece piece = pieces->at(i);
+                if (!piece.is_removable) { unremoved_piece_indices.push_back(i); continue; }
+                bool piece_removed = remove_floating_piece(densities, grid, &piece, max_stress_threshold, fe_case, fe_results);
+                if (!piece_removed) unremoved_piece_indices.push_back(i);
             }
 
-            return cells_in_unremoved_pieces;
+            return unremoved_piece_indices;
         }
 
-        static void load_2d_physics_data(
+        static bool load_2d_physics_data(
             string filename, FEResults2D& results, mesher::Grid3D grid, Vector3d _offset, char* data_type)
         {
             // Read data from file
@@ -138,6 +180,7 @@ namespace fessga {
 
             // Obtain Von Mises stress array
             vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
+            if (results_array->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within the FE mesh)
             vtkPoints* points = output->GetPoints();
@@ -157,7 +200,6 @@ namespace fessga {
                 int coord = (round(gridscale_coord[0]) * (grid.y + 1) + round(gridscale_coord[1]));
                 int x = coord / (grid.y + 1);
                 int y = coord % (grid.y + 1);
-                //cout << "final coord: " << x << ", " << y << endl;
                 coords.push_back(coord);
                 results_nodewise[coord] = (double)results_array->GetValue(i);
             }
@@ -193,6 +235,8 @@ namespace fessga {
 
             //cout << "\nNonzero physics values: " << endl;
             //mesher::print_density_distrib(nonzero_physics, grid.x, grid.y);
+
+            return true;
         }
     };
 }

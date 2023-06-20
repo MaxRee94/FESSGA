@@ -67,17 +67,19 @@ void FESS::run() {
 		// Export newly generated FE mesh
 		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
 		if (export_msh) mesher::export_as_msh_file(&fe_mesh, cur_output_folder);
-		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh to subfolder.\n";
-		else cout << "FESS: ERROR: Failed to export new FE mesh to subfolder.\n";
+		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh.\n";
+		else cout << "FESS: ERROR: Failed to export new FE mesh.\n";
 
 		// Export density distribution
 		string densities_file = mesher::export_density_distrib(cur_output_folder, densities, grid.x, grid.y);
-		cout << "FESS: Exported current density distribution to file: " << densities_file << endl;
+		cout << "FESS: Exported current density distribution.\n";
+		mesher::print_density_distrib(densities, grid.x, grid.y);
 
 		// Call Elmer to run FEA on new FE mesh
 		string batch_file = mesher::create_batch_file(cur_output_folder);
-		cout << "FESS: Calling Elmer .bat file (" << batch_file << ")\n";
+		cout << "FESS: Calling Elmer .bat file...\n";
 		physics::call_elmer(batch_file);
+		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
 		// Obtain vonmises stress distribution from the .vtk file
 		double* vonmises = new double[(grid.x) * (grid.y)]; // Nodes grid has +1 width along each dimension
@@ -88,8 +90,11 @@ void FESS::run() {
 			exit(1);
 		}
 		physics::FEResults2D fe_results(grid);
-		physics::load_2d_physics_data(cur_case_output_file, fe_results, grid, mesh.offset, "Vonmises");
-		cout << "FESS: Finished reading physics data." << endl;
+		bool physics_loaded = physics::load_2d_physics_data(cur_case_output_file, fe_results, grid, mesh.offset, "Vonmises");
+		if (physics_loaded) cout << "FESS: Finished reading stress distribution from .vtk file." << endl;
+		else {
+			cout << "FESS: Error: Unable to read physics data from file " << cur_case_output_file << endl;
+		}
 
 		// Get minimum and maximum stress values
 		max_stress = fe_results.max;
@@ -117,18 +122,31 @@ void FESS::run() {
 			&fe_results.data, densities, &fe_case, grid, no_cells_to_remove, removed_cells, max_stress_threshold
 		);
 		int total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
+		cout << "total no cells (in fess): " << total_no_cells << endl;
 
-		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and thus optimization should be terminated.
-		int cell_from_smaller_piece;
-		bool is_single_piece = !mesher::is_single_piece(
-			densities, grid, &fe_case, total_no_cells, &removed_cells, cell_from_smaller_piece
-		);
-		if (!is_single_piece) {
+		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and a repair operation is necessary.
+		int no_pieces = 1;
+		vector<mesher::Piece> pieces;
+		vector<int> visited_cells;
+		mesher::get_pieces(densities, grid, &fe_case, &pieces, &visited_cells, total_no_cells, &removed_cells, no_pieces);
+		if (no_pieces != 1) {
 			cout << "FESS: Element removal resulted in a shape consisting of multiple pieces. Attempting to remove smaller piece(s)..." << endl;
-			vector<int> cells_in_unremoved_pieces = physics::remove_smaller_pieces(
-				densities, grid, &fe_case, total_no_cells, cell_from_smaller_piece, &removed_cells, max_stress_threshold, &fe_results
+			vector<int> unremoved_piece_indices = physics::remove_smaller_pieces(
+				densities, grid, &fe_case, total_no_cells, &pieces, &removed_cells, max_stress_threshold, &fe_results
 			);
-			if (cells_in_unremoved_pieces.size() == 0) cout << "FESS: All floating pieces successfully removed. Continuing optimization." << endl;
+			if (unremoved_piece_indices.size() == 0) cout << "FESS: All floating pieces successfully removed." << endl;
+			else if (unremoved_piece_indices.size() == pieces.size()) {
+				cout << "FESS: Smaller pieces could not be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
+				// If none of the pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
+				// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
+				mesher::restore_removed_cells(densities, grid, &removed_cells);
+				removed_cells.clear();
+				physics::remove_low_stress_cells(
+					&fe_results.data, densities, &fe_case, grid, no_cells_to_remove, removed_cells, max_stress_threshold,
+					&pieces[0], fe_mesh.surfaces.size()
+				);
+				int total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
+			}
 		}
 
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue optimization.
@@ -140,7 +158,7 @@ void FESS::run() {
 		else {
 			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by " << std::fixed
 				<< (float)no_cells_removed / (float)grid.size2d << ", to "
-				<< (float)(total_no_cells) / (float)(grid.size2d) << "\n";
+				<< (float)(total_no_cells) / (float)grid.size2d << "\n";
 			final_valid_iteration_folder = cur_output_folder;
 			final_valid_iteration++;
 		}

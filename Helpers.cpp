@@ -280,3 +280,16 @@ void fessga::help::split(string basestring, string separator, vector<string>& su
         substrings.push_back(end);
     }
 }
+
+// Remove the largest item from the given vector
+void fessga::help::remove_largest_vector(vector<vector<int>>* vectors, int& max_size) {
+    max_size = 0;
+    int largest_item_idx = -1;
+    for (int i = 0; i < vectors->size(); i++) {
+        if (vectors->at(i).size() > max_size) {
+            max_size = vectors->at(i).size();
+            largest_item_idx = i;
+        }
+    }
+    vectors->erase(vectors->begin() + largest_item_idx);
+}
