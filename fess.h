@@ -141,10 +141,9 @@ void FESS::run() {
 				for (int j = 0; j < removed_piece_indices.size(); j++) no_cells_in_removed_pieces += pieces[removed_piece_indices[j]].cells.size();
 			}
 			else {
-				cout << "FESS: Not all smaller pieces could be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
-				// If none of the pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
+				// If not all the floating pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
 				// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
-				
+				cout << "FESS: Not all smaller pieces could be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
 				mesher::restore_removed_cells(densities, grid, &removed_cells);
 				vector<mesher::Piece> pieces_to_be_removed;
 				if (removed_piece_indices.size() > 0) {
