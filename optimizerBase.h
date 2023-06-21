@@ -39,6 +39,7 @@ public:
 		//	cout << "pairs: " << help::join_as_string(pairs, " ") << endl;
 		//}
 	};
+	string get_iteration_folder(int iteration, bool verbose = false);
 	mesher::Grid3D grid;
 	mesher::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -51,3 +52,14 @@ public:
 	mesher::Case fe_case;
 	string msh_file, output_folder;
 };
+
+string OptimizerBase::get_iteration_folder(int iteration, bool verbose) {
+	string cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+	string cur_output_folder = output_folder + "/" + cur_iteration_name;
+	if (verbose) cout << "FESS: Creating folder " << cur_output_folder << " for current iteration if it does not exist yet...\n";
+	IO::create_folder_if_not_exists(cur_output_folder);
+
+	return cur_output_folder;
+}
+
+
