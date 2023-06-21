@@ -54,8 +54,6 @@ namespace fessga {
             PairSet* fe_results, uint* densities, mesher::Case* fe_case, mesher::Grid3D grid, int no_cells_to_remove,
             vector<int>& removed_cells, double max_stress_threshold, mesher::Piece* smaller_piece = 0, int total_no_cells = -1
         ) {
-            cout << "total no cells (in physics): " << total_no_cells << endl;
-
             int count = 0;
             int cell_from_smaller_piece;
             for (auto& item : (*fe_results)) {
@@ -82,17 +80,19 @@ namespace fessga {
                 // multiple pieces. If so, undo the deletion and whitelist the cell.
                 if (smaller_piece != 0) {
                     vector<int> _removed_cell = { cell_coord };
-                    cout << "\n total no cells: " << total_no_cells - count << endl;
-                    cout << "is single piece before element removal: " << mesher::is_single_piece(
-                        densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+                    //cout << "\ntotal no cells: " << total_no_cells - count << endl;
+                    //cout << "is single piece before element removal: " << mesher::is_single_piece(
+                    //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
                     densities[cell_coord] = 0;
                     cell_from_smaller_piece = smaller_piece->cells[0];
                     bool is_single_piece = mesher::is_single_piece(densities, grid, fe_case, total_no_cells - count, &_removed_cell, cell_from_smaller_piece);
-                    cout << "is single piece? " << is_single_piece << endl;
+                    //cout << "is single piece after deleting cell " << cell_coord / grid.y << ", " << cell_coord % grid.y << " ? " << is_single_piece << endl;
                     if (!is_single_piece) {
+                        //densities[cell_coord] = 5; // TEMP
+                        //mesher::print_density_distrib(densities, grid.x, grid.y); // TEMP
                         // Cell removal resulted in multiple pieces. Restore cell and whitelist it.
                         densities[cell_coord] = 1;
-                        cout << "restored cell." << endl;
+                        //cout << "restored cell." << endl;
                         fe_case->whitelisted_cells.push_back(cell_coord);
                         continue;
                     }
@@ -101,18 +101,18 @@ namespace fessga {
 
                 // If cell deletion leads to infeasibility, skip deletion
                 int no_deleted_neighbors = 0;
-                if (!mesher::cell_is_safe_to_delete(densities, grid, cell_coord, no_deleted_neighbors, &fe_case->boundary_cells)) {
+                if (!mesher::cell_is_safe_to_delete(densities, grid, cell_coord, &removed_cells, no_deleted_neighbors, fe_case)) {
                     densities[cell_coord] = 1;
-                    cout << "cell is not safe to delete" << endl;
+                    //cout << "cell is not safe to delete" << endl;
                     continue;
                 }
                 count += no_deleted_neighbors;
 
                 if (smaller_piece != 0) {
                     vector<int> _removed_cell = { cell_coord };
-                    cout << "total no cells: " << total_no_cells - count << endl;
-                    cout << "is single piece after neighbor checking / deletion: " << mesher::is_single_piece(
-                        densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+                    //cout << "total no cells: " << total_no_cells - count << endl;
+                    //cout << "is single piece after neighbor checking / deletion: " << mesher::is_single_piece(
+                    //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
                 }
 
                 // Set cell to zero, making it empty
@@ -130,7 +130,11 @@ namespace fessga {
         ) {
             vector<int> removed_cells;
             for (auto& cell : piece->cells) {
-                if (fe_results->data_map[cell] > max_stress_threshold) {
+                if (
+                    fe_results->data_map[cell] > max_stress_threshold ||
+                    help::is_in(&fe_case->boundary_cells, cell) || // TODO: These last two conditions should not be necessary, but they are. Figure out why.
+                    help::is_in(&fe_case->whitelisted_cells, cell)
+                ) {
                     // If cell's stress exceeds maximum, restore the already deleted cells and exit this function.
                     mesher::restore_removed_cells(densities, grid, &removed_cells);
                     piece->is_removable = false;
@@ -150,11 +154,26 @@ namespace fessga {
             vector<int> unremoved_piece_indices;
             int size_largest_piece;
             mesher::remove_largest_piece(pieces, size_largest_piece);
+            cout << "pieces to be removed (in physics): " << pieces->size() << endl;
+            cout << "\n     DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
+            mesher::print_density_distrib(densities, grid.x, grid.y);
             for (int i = 0; i < pieces->size(); i++) {
                 mesher::Piece piece = pieces->at(i);
-                if (!piece.is_removable) { unremoved_piece_indices.push_back(i); continue; }
-                bool piece_removed = remove_floating_piece(densities, grid, &piece, max_stress_threshold, fe_case, fe_results);
-                if (!piece_removed) unremoved_piece_indices.push_back(i);
+                bool piece_removed = false;
+                if (!piece.is_removable) {
+                    cout << "    Cannot remove piece " << i << endl;
+                    unremoved_piece_indices.push_back(i);
+                    continue;
+                }
+                piece_removed = remove_floating_piece(densities, grid, &piece, max_stress_threshold, fe_case, fe_results);
+                if (piece_removed) {
+                    cout << "\n     DENSITIES AFTER REMOVING PIECE " << i << " / " << pieces->size() << endl;
+                    mesher::print_density_distrib(densities, grid.x, grid.y);
+                }
+                else {
+                    unremoved_piece_indices.push_back(i);
+                    cout << "\n      THE FOLLOWING PIECE WAS NOT REMOVED: " << i << endl;
+                }
             }
 
             return unremoved_piece_indices;

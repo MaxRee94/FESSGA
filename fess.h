@@ -24,7 +24,14 @@ public:
 	double min_stress_threshold = 1.0;
 	float greediness;
 	void run();
+	void log_termination(string final_valid_iteration_folder, int final_valid_iteration);
 };
+
+
+void FESS::log_termination(string final_valid_iteration_folder, int final_valid_iteration) {
+	cout << "\nTerminating FESS algorithm after " << final_valid_iteration << " iterations. Final results were saved to "
+		<< final_valid_iteration_folder << endl;
+}
 
 
 void FESS::run() {
@@ -106,13 +113,10 @@ void FESS::run() {
 		if (max_stress > max_stress_threshold) {
 			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
 				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
-			terminate = true;
-		}
-		if (terminate) {
-			cout << "\nTerminating FESS algorithm after " << final_valid_iteration << " iterations. Final results were saved to "
-				<< final_valid_iteration_folder << endl;
+			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}
+		
 
 		// If termination conditions were not reached, prepare density distribution for next iteration by removing 
 		// elements below minimum stress threshold. TODO: Prevent removal of elements to which boundary conditions were applied.
@@ -122,7 +126,7 @@ void FESS::run() {
 			&fe_results.data, densities, &fe_case, grid, no_cells_to_remove, removed_cells, max_stress_threshold
 		);
 		int total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
-		cout << "total no cells (in fess): " << total_no_cells << endl;
+		cout << "total no cells after naive element removal: " << total_no_cells << endl;
 
 		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and a repair operation is necessary.
 		int no_pieces = 1;
@@ -130,30 +134,44 @@ void FESS::run() {
 		vector<int> visited_cells;
 		mesher::get_pieces(densities, grid, &fe_case, &pieces, &visited_cells, total_no_cells, &removed_cells, no_pieces);
 		if (no_pieces != 1) {
-			cout << "FESS: Element removal resulted in a shape consisting of multiple pieces. Attempting to remove smaller piece(s)..." << endl;
+			cout << "FESS: Element removal resulted in a shape consisting of " << no_pieces << " pieces. Attempting to remove smaller piece(s)..." << endl;
 			vector<int> unremoved_piece_indices = physics::remove_smaller_pieces(
 				densities, grid, &fe_case, total_no_cells, &pieces, &removed_cells, max_stress_threshold, &fe_results
 			);
 			if (unremoved_piece_indices.size() == 0) cout << "FESS: All floating pieces successfully removed." << endl;
-			else if (unremoved_piece_indices.size() == pieces.size()) {
-				cout << "FESS: Smaller pieces could not be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
+			else if (unremoved_piece_indices.size() <= pieces.size()) {
+				cout << "FESS: Not all smaller pieces could be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
 				// If none of the pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
 				// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
+				
 				mesher::restore_removed_cells(densities, grid, &removed_cells);
+				if (unremoved_piece_indices.size() < pieces.size()) {
+					// At least one piece was succesfully removed. Therefore it should again be removed. TODO: avoid having to remove the piece(s) twice.
+					cout << pieces.size() - unremoved_piece_indices.size() << " pieces were succesfully removed" << endl;
+					vector<mesher::Piece> pieces_to_be_removed;
+					for (int j = 0; j < unremoved_piece_indices.size(); j++) pieces_to_be_removed.push_back(pieces[unremoved_piece_indices[j]]);
+					cout << "pieces to be removed: " << pieces_to_be_removed.size() << endl;
+					unremoved_piece_indices = physics::remove_smaller_pieces(
+						densities, grid, &fe_case, total_no_cells, &pieces_to_be_removed, &removed_cells, max_stress_threshold, &fe_results
+					);
+				}
 				removed_cells.clear();
 				physics::remove_low_stress_cells(
 					&fe_results.data, densities, &fe_case, grid, no_cells_to_remove, removed_cells, max_stress_threshold,
 					&pieces[0], fe_mesh.surfaces.size()
 				);
-				int total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
 			}
+			cout << "densities after attempting to handle multiple pieces:\n";
+			mesher::print_density_distrib(densities, grid.x, grid.y);
+			no_cells_removed = removed_cells.size();
+			total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
 		}
 
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue optimization.
-		terminate = false;
 		if (no_cells_removed == 0) {
 			cout << "FESS: Termination condition reached: Unable to remove any more cells." << endl;
-			terminate = true;
+			log_termination(final_valid_iteration_folder, final_valid_iteration);
+			break;
 		}
 		else {
 			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by " << std::fixed

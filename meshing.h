@@ -738,24 +738,28 @@ namespace fessga {
 
         // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of
         // deleting the given cell.
-        static bool cell_is_safe_to_delete(uint* densities, Grid3D grid, int cell_coord, int& no_deleted_neighbors, vector<int>* bound_cells) {
+        static bool cell_is_safe_to_delete(
+            uint* densities, Grid3D grid, int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, Case* fe_case
+        ) {
             int x = cell_coord / grid.y;
             int y = cell_coord % grid.y;
             vector<int> neighbors = get_true_neighbors(grid.x, grid.y, x, y, densities);
             for (auto& neighbor : neighbors) {
                 vector<int> sub_neighbors = get_true_neighbors(grid.x, grid.y, neighbor / grid.y, neighbor % grid.y, densities);
 
-                // If the neighboring cell has only one true neighbor itself, deleting the current cell would make it invalid.
+                // If the neighboring cell has only one true neighbor itself, deleting the current cell would make it float in mid-air and thus invalid.
                 // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
-                if (sub_neighbors.size() == 1) {
+                if (sub_neighbors.size() <= 1) {
                     // If the cell has a line on which a boundary condition was applied, skip deletion
-                    if (help::is_in(bound_cells, neighbor)) {
+                    if (help::is_in(&fe_case->boundary_cells, neighbor) || help::is_in(&fe_case->whitelisted_cells, neighbor)) {
                         return false;
                     }
                     no_deleted_neighbors++;
                     densities[neighbor] = 0; // Delete the neighboring cell, since deleting the cell at <cell_coord> would make it invalid.
+                    removed_cells->push_back(neighbor);
                 }
             }
+            return true;
         }
 
         // Get number of connected cells of the given cell using a version of floodfill
@@ -770,7 +774,7 @@ namespace fessga {
                         if (fe_case != 0 && piece.is_removable) {
                             // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
                             if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
-                                cout << " --- setting piece to be unremovable" << endl;
+                                cout << "piece is not removable" << endl;
                                 piece.is_removable = false;
                             }
                         }
@@ -853,6 +857,8 @@ namespace fessga {
 
             // Check if the shape consists of one piece or multiple
             if (piece_size < total_no_cells) {
+                int unvisited_cell = get_unvisited_cell(densities, grid, &piece.cells, removed_cells);
+                if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
                 return false;
             }
             else return true;
