@@ -774,7 +774,7 @@ namespace fessga {
                         if (fe_case != 0 && piece.is_removable) {
                             // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
                             if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
-                                //cout << "piece is not removable" << endl;
+                                cout << "piece is not removable" << endl;
                                 piece.is_removable = false;
                             }
                         }
@@ -858,13 +858,7 @@ namespace fessga {
             // Check if the shape consists of one piece or multiple
             if (piece_size < total_no_cells) {
                 int unvisited_cell = get_unvisited_cell(densities, grid, &piece.cells, removed_cells);
-                //if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
-                vector<mesher::Piece> pieces;
-                vector<int> visited_cells;
-                int no_pieces;
                 if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
-                get_pieces(densities, grid, fe_case, &pieces, &visited_cells, total_no_cells, removed_cells, no_pieces);
-                if (no_pieces == 1) return true;
                 return false;
             }
             else return true;
