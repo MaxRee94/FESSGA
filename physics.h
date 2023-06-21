@@ -149,12 +149,11 @@ namespace fessga {
         // Remove all pieces smaller than the largest piece from the mesh, if possible
         static vector<int> remove_smaller_pieces(
             uint* densities, mesher::Grid3D grid, mesher::Case* fe_case, int total_no_cells, vector<mesher::Piece>* pieces, vector<int>* removed_cells,
-            double max_stress_threshold, FEResults2D* fe_results
+            double max_stress_threshold, FEResults2D* fe_results, bool remove_largest_piece = true
         ) {
             vector<int> unremoved_piece_indices;
             int size_largest_piece;
-            mesher::remove_largest_piece(pieces, size_largest_piece);
-            cout << "pieces to be removed (in physics): " << pieces->size() << endl;
+            if (remove_largest_piece) mesher::remove_largest_piece(pieces, size_largest_piece);
             cout << "\n     DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
             mesher::print_density_distrib(densities, grid.x, grid.y);
             for (int i = 0; i < pieces->size(); i++) {

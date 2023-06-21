@@ -49,6 +49,7 @@ void FESS::run() {
 	int final_valid_iteration = 0;
 	int i = 1;
 	bool terminate = false;
+	bool whitelist_flushed = false;
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
@@ -145,14 +146,14 @@ void FESS::run() {
 				// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
 				
 				mesher::restore_removed_cells(densities, grid, &removed_cells);
+				vector<mesher::Piece> pieces_to_be_removed;
 				if (unremoved_piece_indices.size() < pieces.size()) {
 					// At least one piece was succesfully removed. Therefore it should again be removed. TODO: avoid having to remove the piece(s) twice.
 					cout << pieces.size() - unremoved_piece_indices.size() << " pieces were succesfully removed" << endl;
-					vector<mesher::Piece> pieces_to_be_removed;
 					for (int j = 0; j < unremoved_piece_indices.size(); j++) pieces_to_be_removed.push_back(pieces[unremoved_piece_indices[j]]);
 					cout << "pieces to be removed: " << pieces_to_be_removed.size() << endl;
 					unremoved_piece_indices = physics::remove_smaller_pieces(
-						densities, grid, &fe_case, total_no_cells, &pieces_to_be_removed, &removed_cells, max_stress_threshold, &fe_results
+						densities, grid, &fe_case, total_no_cells, &pieces_to_be_removed, &removed_cells, max_stress_threshold, &fe_results, false
 					);
 				}
 				removed_cells.clear();
@@ -167,8 +168,20 @@ void FESS::run() {
 			total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
 		}
 
+		// If the shape is still composed of multiple pieces, terminate FESS
+		/*if (!mesher::is_single_piece(densities, grid, &fe_case, total_no_cells, &removed_cells)) {
+			cout << "FESS: Termination condition reached: Failed to handle split into multiple pieces." << endl;
+			log_termination(final_valid_iteration_folder, final_valid_iteration);
+			break;
+		}*/
+
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue optimization.
-		if (no_cells_removed == 0) {
+		if (no_cells_removed == 0 && !whitelist_flushed) {
+			cout << "FESS: Unable to remove any more cells. Re-trying after flushing whitelist." << endl;
+			fe_case.whitelisted_cells.clear();
+			whitelist_flushed = true;
+		}
+		else if (no_cells_removed == 0 && whitelist_flushed) {
 			cout << "FESS: Termination condition reached: Unable to remove any more cells." << endl;
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
@@ -179,6 +192,7 @@ void FESS::run() {
 				<< (float)(total_no_cells) / (float)grid.size2d << "\n";
 			final_valid_iteration_folder = cur_output_folder;
 			final_valid_iteration++;
+			whitelist_flushed = false;
 		}
 
 
