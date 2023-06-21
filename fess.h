@@ -48,7 +48,7 @@ void FESS::run() {
 	string final_valid_iteration_folder = cur_output_folder;
 	int final_valid_iteration = 0;
 	int i = 1;
-	bool terminate = false;
+	bool last_iteration_was_valid = true;
 	bool whitelist_flushed = false;
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
@@ -81,7 +81,7 @@ void FESS::run() {
 		// Export density distribution
 		string densities_file = mesher::export_density_distrib(cur_output_folder, densities, grid.x, grid.y);
 		cout << "FESS: Exported current density distribution.\n";
-		mesher::print_density_distrib(densities, grid.x, grid.y);
+		if (last_iteration_was_valid) mesher::print_density_distrib(densities, grid.x, grid.y);
 
 		// Call Elmer to run FEA on new FE mesh
 		string batch_file = mesher::create_batch_file(cur_output_folder);
@@ -117,7 +117,6 @@ void FESS::run() {
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}
-		
 
 		// If termination conditions were not reached, prepare density distribution for next iteration by removing 
 		// elements below minimum stress threshold. TODO: Prevent removal of elements to which boundary conditions were applied.
@@ -136,23 +135,23 @@ void FESS::run() {
 		mesher::get_pieces(densities, grid, &fe_case, &pieces, &visited_cells, total_no_cells, &removed_cells, no_pieces);
 		if (no_pieces != 1) {
 			cout << "FESS: Element removal resulted in a shape consisting of " << no_pieces << " pieces. Attempting to remove smaller piece(s)..." << endl;
-			vector<int> unremoved_piece_indices = physics::remove_smaller_pieces(
+			vector<int> removed_piece_indices = physics::remove_smaller_pieces(
 				densities, grid, &fe_case, total_no_cells, &pieces, &removed_cells, max_stress_threshold, &fe_results
 			);
-			if (unremoved_piece_indices.size() == 0) cout << "FESS: All floating pieces successfully removed." << endl;
-			else if (unremoved_piece_indices.size() <= pieces.size()) {
+			if (removed_piece_indices.size() == pieces.size()) cout << "FESS: All floating pieces successfully removed." << endl;
+			else {
 				cout << "FESS: Not all smaller pieces could be removed. Restoring removed cells and re-trying cell removal in 'careful mode'...\n";
 				// If none of the pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
 				// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
 				
 				mesher::restore_removed_cells(densities, grid, &removed_cells);
 				vector<mesher::Piece> pieces_to_be_removed;
-				if (unremoved_piece_indices.size() < pieces.size()) {
+				if (removed_piece_indices.size() > 0) {
 					// At least one piece was succesfully removed. Therefore it should again be removed. TODO: avoid having to remove the piece(s) twice.
-					cout << pieces.size() - unremoved_piece_indices.size() << " pieces were succesfully removed" << endl;
-					for (int j = 0; j < unremoved_piece_indices.size(); j++) pieces_to_be_removed.push_back(pieces[unremoved_piece_indices[j]]);
-					cout << "pieces to be removed: " << pieces_to_be_removed.size() << endl;
-					unremoved_piece_indices = physics::remove_smaller_pieces(
+					cout << "FESS: " << removed_piece_indices.size() << " pieces were succesfully removed." << endl;
+					for (int j = 0; j < removed_piece_indices.size(); j++) pieces_to_be_removed.push_back(pieces[removed_piece_indices[j]]);
+					//cout << "pieces to be removed: " << pieces_to_be_removed.size() << endl;
+					removed_piece_indices = physics::remove_smaller_pieces(
 						densities, grid, &fe_case, total_no_cells, &pieces_to_be_removed, &removed_cells, max_stress_threshold, &fe_results, false
 					);
 				}
@@ -162,20 +161,14 @@ void FESS::run() {
 					&pieces[0], fe_mesh.surfaces.size()
 				);
 			}
-			cout << "densities after attempting to handle multiple pieces:\n";
-			mesher::print_density_distrib(densities, grid.x, grid.y);
+			//cout << "densities after attempting to handle multiple pieces:\n";
+			//mesher::print_density_distrib(densities, grid.x, grid.y);
 			no_cells_removed = removed_cells.size();
 			total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
 		}
 
-		// If the shape is still composed of multiple pieces, terminate FESS
-		/*if (!mesher::is_single_piece(densities, grid, &fe_case, total_no_cells, &removed_cells)) {
-			cout << "FESS: Termination condition reached: Failed to handle split into multiple pieces." << endl;
-			log_termination(final_valid_iteration_folder, final_valid_iteration);
-			break;
-		}*/
-
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue optimization.
+		last_iteration_was_valid = false;
 		if (no_cells_removed == 0 && !whitelist_flushed) {
 			cout << "FESS: Unable to remove any more cells. Re-trying after flushing whitelist." << endl;
 			fe_case.whitelisted_cells.clear();
@@ -193,8 +186,8 @@ void FESS::run() {
 			final_valid_iteration_folder = cur_output_folder;
 			final_valid_iteration++;
 			whitelist_flushed = false;
+			last_iteration_was_valid = true;
 		}
-
 
 		i++;
 	}

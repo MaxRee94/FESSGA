@@ -151,31 +151,30 @@ namespace fessga {
             uint* densities, mesher::Grid3D grid, mesher::Case* fe_case, int total_no_cells, vector<mesher::Piece>* pieces, vector<int>* removed_cells,
             double max_stress_threshold, FEResults2D* fe_results, bool remove_largest_piece = true
         ) {
-            vector<int> unremoved_piece_indices;
+            vector<int> removed_piece_indices;
             int size_largest_piece;
             if (remove_largest_piece) mesher::remove_largest_piece(pieces, size_largest_piece);
-            cout << "\n     DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
-            mesher::print_density_distrib(densities, grid.x, grid.y);
+            //cout << "\n     DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
+            //mesher::print_density_distrib(densities, grid.x, grid.y);
             for (int i = 0; i < pieces->size(); i++) {
                 mesher::Piece piece = pieces->at(i);
                 bool piece_removed = false;
                 if (!piece.is_removable) {
-                    cout << "    Cannot remove piece " << i << endl;
-                    unremoved_piece_indices.push_back(i);
+                    //cout << "    Cannot remove piece " << i << endl;
                     continue;
                 }
                 piece_removed = remove_floating_piece(densities, grid, &piece, max_stress_threshold, fe_case, fe_results);
                 if (piece_removed) {
-                    cout << "\n     DENSITIES AFTER REMOVING PIECE " << i << " / " << pieces->size() << endl;
-                    mesher::print_density_distrib(densities, grid.x, grid.y);
+                    //cout << "\n     DENSITIES AFTER REMOVING PIECE " << i << " / " << pieces->size() << endl;
+                    //mesher::print_density_distrib(densities, grid.x, grid.y);
+                    removed_piece_indices.push_back(i);
                 }
                 else {
-                    unremoved_piece_indices.push_back(i);
-                    cout << "\n      THE FOLLOWING PIECE WAS NOT REMOVED: " << i << endl;
+                    //cout << "\n      THE FOLLOWING PIECE WAS NOT REMOVED: " << i << endl;
                 }
             }
 
-            return unremoved_piece_indices;
+            return removed_piece_indices;
         }
 
         static bool load_2d_physics_data(
