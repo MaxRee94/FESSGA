@@ -46,7 +46,7 @@ void FESS::run() {
 	string cur_iteration_name = "";
 	string cur_output_folder = output_folder;
 	string final_valid_iteration_folder = cur_output_folder;
-	int final_valid_iteration = 0;
+	int final_valid_iteration = 1;
 	int i = 1;
 	bool last_iteration_was_valid = true;
 	bool whitelist_flushed = false;
@@ -126,7 +126,7 @@ void FESS::run() {
 			&fe_results.data, densities, &fe_case, grid, no_cells_to_remove, removed_cells, max_stress_threshold
 		);
 		int total_no_cells = fe_mesh.surfaces.size() - no_cells_removed;
-		cout << "total no cells after naive element removal: " << total_no_cells << endl;
+		//cout << "total no cells after naive element removal: " << total_no_cells << endl;
 
 		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and a repair operation is necessary.
 		int no_pieces = 1;
@@ -183,10 +183,10 @@ void FESS::run() {
 			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by " << std::fixed
 				<< (float)no_cells_removed / (float)grid.size2d << ", to "
 				<< (float)(total_no_cells) / (float)grid.size2d << "\n";
-			final_valid_iteration_folder = cur_output_folder;
-			final_valid_iteration++;
 			whitelist_flushed = false;
 			last_iteration_was_valid = true;
+			final_valid_iteration_folder = cur_output_folder;
+			final_valid_iteration++;
 		}
 
 		i++;
