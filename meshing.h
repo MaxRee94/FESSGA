@@ -842,6 +842,15 @@ namespace fessga {
             }
         }
 
+        // Restore all cells in the provided pieces
+        static void restore_removed_pieces(uint* densities, vector<Piece>* removed_pieces) {
+            for (auto& piece : (*removed_pieces)) {
+                for (auto& cell : piece.cells) {
+                    densities[cell] = 1;
+                }
+            }
+        }
+
         // Return whether or not the shape consists of a single piece
         static bool is_single_piece(
             uint* densities, Grid3D grid, Case* fe_case, int total_no_cells, vector<int>* removed_cells,
