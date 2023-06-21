@@ -141,7 +141,7 @@ bool Controller::test_full_evolution() {
 
 bool Controller::run_fess() {
     // Parameters
-    double max_stress = 1e10;
+    double max_stress = 1.5e9;
     double min_stress = 7e3;
     string msh_file = output_folder + "/mesh.msh";
     string fe_case = output_folder + "/case.sif";

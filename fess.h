@@ -33,7 +33,6 @@ void FESS::log_termination(string final_valid_iteration_folder, int final_valid_
 		<< final_valid_iteration_folder << endl;
 }
 
-
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
 
@@ -43,7 +42,6 @@ void FESS::run() {
 
 	double min_stress, max_stress;
 	string msh = msh_file;
-	string cur_iteration_name = "";
 	string cur_output_folder = output_folder;
 	string final_valid_iteration_folder = cur_output_folder;
 	int final_valid_iteration = 1;
@@ -54,10 +52,7 @@ void FESS::run() {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
 		// Create new subfolder for output of current iteration
-		string cur_iteration_name = fessga::help::add_padding("iteration_", i) + to_string(i);
-		string cur_output_folder = output_folder + "/" + cur_iteration_name;
-		cout << "FESS: Created output folder " << cur_output_folder << " for current iteration.\n";
-		IO::create_folder_if_not_exists(cur_output_folder);
+		string cur_output_folder = get_iteration_folder(i, true);
 		if (last_iteration_was_valid) final_valid_iteration_folder = cur_output_folder;
 
 		// Generate new FE mesh using modified density distribution
@@ -115,6 +110,7 @@ void FESS::run() {
 		if (max_stress > max_stress_threshold) {
 			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
 				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
+			final_valid_iteration_folder = get_iteration_folder(i-1);
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}
