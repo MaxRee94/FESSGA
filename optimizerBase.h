@@ -29,7 +29,7 @@ public:
 		max_stress_threshold = _max_stress_threshold;
 		grid = _grid;
 		domain_2d = true;
-		no_cells = grid.x * grid.y * grid.z;
+		no_cells = grid.x * grid.y;
 		max_iterations = _max_iterations;
 		IO::create_folder_if_not_exists(output_folder);
 		mesher::derive_boundary_conditions(densities, bound_conds, grid, mesh, fe_case);
@@ -39,7 +39,6 @@ public:
 		//	cout << "pairs: " << help::join_as_string(pairs, " ") << endl;
 		//}
 	};
-	string get_iteration_folder(int iteration, bool verbose = false);
 	mesher::Grid3D grid;
 	mesher::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -51,15 +50,16 @@ public:
 	map<string, vector<pair<int, int>>> bound_conds;
 	mesher::Case fe_case;
 	string msh_file, output_folder;
+
+	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
+	string get_iteration_folder(int iteration, bool verbose = false) {
+		string cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+		string cur_output_folder = output_folder + "/" + cur_iteration_name;
+		if (verbose) cout << "FESS: Creating folder " << cur_output_folder << " for current iteration if it does not exist yet...\n";
+		IO::create_folder_if_not_exists(cur_output_folder);
+
+		return cur_output_folder;
+	}
 };
-
-string OptimizerBase::get_iteration_folder(int iteration, bool verbose) {
-	string cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
-	string cur_output_folder = output_folder + "/" + cur_iteration_name;
-	if (verbose) cout << "FESS: Creating folder " << cur_output_folder << " for current iteration if it does not exist yet...\n";
-	IO::create_folder_if_not_exists(cur_output_folder);
-
-	return cur_output_folder;
-}
 
 
