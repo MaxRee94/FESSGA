@@ -29,7 +29,7 @@ namespace fessga {
 
 		static void write_text_to_file(std::string text, std::string path);
 
-		static void create_folder_if_not_exists(std::string folder_path);
+		static std::string create_folder_if_not_exists(std::string folder_path);
 
 		static bool is_empty(std::string folder);
 

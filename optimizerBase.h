@@ -54,8 +54,8 @@ public:
 	string msh_file, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
-	string get_iteration_folder(int iteration, bool verbose = false) {
-		string cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+	string get_iteration_folder(int iteration, string& cur_iteration_name, bool verbose = false) {
+		cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
 		string cur_output_folder = output_folder + "/" + cur_iteration_name;
 		if (verbose) cout << "FESS: Creating folder " << cur_output_folder << " for current iteration if it does not exist yet...\n";
 		IO::create_folder_if_not_exists(cur_output_folder);

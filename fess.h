@@ -8,6 +8,8 @@
 #include <functional>
 #include "helpers.h"
 #include "optimizerBase.h"
+#include "images.h"
+
 
 
 class FESS : public OptimizerBase {
@@ -144,11 +146,13 @@ void FESS::run() {
 	int i = 1;
 	bool last_iteration_was_valid = true;
 	bool whitelist_flushed = false;
+	string image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
 		// Create new subfolder for output of current iteration
-		string cur_output_folder = get_iteration_folder(i, true);
+		string cur_iteration_name;
+		string cur_output_folder = get_iteration_folder(i, cur_iteration_name, true);
 		if (last_iteration_was_valid) final_valid_iteration_folder = cur_output_folder;
 
 		// Generate new FE mesh using modified density distribution
@@ -206,7 +210,7 @@ void FESS::run() {
 		if (max_stress > max_stress_threshold) {
 			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
 				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
-			final_valid_iteration_folder = get_iteration_folder(i - 1);
+			final_valid_iteration_folder = get_iteration_folder(i - 1, cur_iteration_name);
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}
@@ -241,6 +245,8 @@ void FESS::run() {
 			whitelist_flushed = false;
 			last_iteration_was_valid = true;
 			final_valid_iteration = i;
+
+			img::write_distribution_to_image(densities, grid, image_folder + "/" + cur_iteration_name + ".jpg", 1000, 1000, true);
 		}
 
 		i++;

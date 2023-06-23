@@ -35,10 +35,11 @@ void parse_args(
             input.path = "../data/images/" + string(argv[3]);
             size = atof(argv[7]);
         }
-        else if (argv[3] == "distribution") {
+        else if (string(argv[3]) == "distribution") {
             input.type = "distribution";
-            input.path = output_folder + string(argv[3]);
+            input.path = output_folder + string(argv[3]) + ".dens";
         }
+        cout << "Input type: " << input.type << endl;
     }
 
     if (argc > 4) dim_x = stoi(string(argv[4]));
@@ -133,12 +134,7 @@ int main(int argc, char* argv[])
 
         // -- Post actions
         // Write distribution to image
-        char out_img_path[300];
-        strcpy(out_img_path, (output_folder + input.name + ".jpg").c_str());
-        img::Image image = img::Image(out_img_path, 1000, 1000, 3, grid);
-        img::write_distribution_to_image(slice_2d, grid, image);
-
-        cout << "Exported distribution to image. Path: " << string(out_img_path) << endl;
+        img::write_distribution_to_image(slice_2d, grid, output_folder + input.name + ".jpg", 1000, 1000);
     }
     else if (action == "evolve") {
         // Do crossover test
@@ -149,6 +145,10 @@ int main(int argc, char* argv[])
         // Do FESS
         Controller controller = Controller();
         controller.run_fess();
+    }
+    else if (action == "export_distribution") {
+        string densities_file = mesher::export_density_distrib(output_folder, slice_2d, grid.x, grid.y);
+        cout << "Exported density distribution to " << densities_file << endl;
     }
 
     

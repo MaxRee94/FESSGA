@@ -34,12 +34,13 @@ void fessga::IO::read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixX
     cout << "Finished reading mesh." << endl;
 }
 
-void fessga::IO::create_folder_if_not_exists(std::string folder_path) {
+string fessga::IO::create_folder_if_not_exists(std::string folder_path) {
     std::filesystem::path dir_path = std::filesystem::path(folder_path);
     if (!std::filesystem::is_directory(dir_path)) {
         cout << "Creating directory " << folder_path << endl;
         std::filesystem::create_directories(folder_path);
     }
+    return folder_path;
 }
 
 bool fessga::IO::file_exists(std::string fpath) {
