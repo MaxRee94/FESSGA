@@ -26,20 +26,20 @@ public:
         vector<MatrixXi> F_list;
 
         // Initialize gui
-        GUI gui = GUI(V_list, F_list);
+        GUI gui(V_list, F_list);
 
         // Load example object
         MatrixXd V;
         MatrixXi F;
-        fessga::IO::read_mesh("../data/test_objects/teapot.obj", V, F);
+        fessga::IO::read_mesh("../data/objects/teapot.obj", V, F);
         gui.load_example(&V, &F);
-        mesh = mesher::create_surface_mesh(&V, &F);
+        mesh = mesher::SurfaceMesh(&V, &F);
 
         // Create 3d Grid
-        grid = mesher::create_grid3d(40, 40, 40, mesh.diagonal);
+        grid = mesher::create_grid3d(200, 200, 200, mesh.diagonal);
 
         // Set output folder
-        output_folder = "E:/Development/FESSGA/data/msh_output/FESSGA_test_output_40elements";
+        output_folder = "E:/Development/FESSGA/data/FESS/FESS_teapot_40_elements";
         
         // Compute no of cells
         no_cells = grid.x * grid.y;
@@ -141,16 +141,21 @@ bool Controller::test_full_evolution() {
 
 bool Controller::run_fess() {
     // Parameters
-    double max_stress = 1.5e9;
+    double max_stress = 6e4;
     double min_stress = 7e3;
     string msh_file = output_folder + "/mesh.msh";
     string fe_case = output_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
-    float greediness = 0.05;
+    float greediness = 0.2;
+    bool verbose = true;
+    bool maintain_boundary_cells = false;
     
     // Run optimization
-    FESS fess = FESS(msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness, export_msh);
+    FESS fess = FESS(
+        msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities, grid, max_iterations, greediness,
+        maintain_boundary_cells, export_msh, verbose
+    );
     fess.run();
 
     return true;

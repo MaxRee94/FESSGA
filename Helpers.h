@@ -91,5 +91,7 @@ namespace fessga {
 		static string join_as_string(vector<pair<int, int>> numbers, string separator);
 
 		static void remove_largest_vector(vector<vector<int>>* vectors, int& max_size);
+
+		static bool ends_with(string full_string, string ending);
 	};
 };

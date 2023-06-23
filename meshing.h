@@ -47,7 +47,27 @@ namespace fessga {
         };
 
         // Define the struct for a Surface mesh
-        struct SurfaceMesh {
+        class SurfaceMesh {
+        public:
+            SurfaceMesh() = default;
+            SurfaceMesh(MatrixXd* _V, MatrixXi* _F) {
+                V = _V;
+                F = _F;
+                bounding_box.row(0) = V->colwise().minCoeff();
+                bounding_box.row(1) = V->colwise().maxCoeff();
+                diagonal = bounding_box.row(1) - bounding_box.row(0);
+                offset = -0.5 * diagonal;
+                cout << "diagonal: " << diagonal.transpose() << endl;
+                cout << "offset: " << offset.transpose() << endl;
+            }
+            SurfaceMesh(Vector3d size) {
+                offset = -0.5 * size;
+                diagonal = size;
+                bounding_box.row(0) = 0.5 * size;
+                bounding_box.row(1) = -0.5 * size;
+                cout << "diagonal: " << diagonal.transpose() << endl;
+                cout << "offset: " << offset.transpose() << endl;
+            }
             Vector3d offset;
             Vector3d diagonal;
             MatrixXd bounding_box = MatrixXd(2, 3);
@@ -78,20 +98,6 @@ namespace fessga {
             Vector3d position;
             int density;
         };
-
-        static SurfaceMesh create_surface_mesh(MatrixXd* V, MatrixXi* F) {
-            mesher::SurfaceMesh surface_mesh;
-            surface_mesh.V = V;
-            surface_mesh.F = F;
-            surface_mesh.bounding_box.row(0) = V->colwise().minCoeff();
-            surface_mesh.bounding_box.row(1) = V->colwise().maxCoeff();
-            surface_mesh.diagonal = surface_mesh.bounding_box.row(1) - surface_mesh.bounding_box.row(0);
-            cout << "diagonal: " << surface_mesh.diagonal.transpose() << endl;
-            surface_mesh.offset = -0.5 * surface_mesh.diagonal;
-            cout << "offset: " << surface_mesh.offset.transpose() << endl;
-
-            return surface_mesh;
-        }
 
         static void print_density_distrib(uint* densities, int dim_x, int dim_y) {
             for (int y = dim_y -1; y > -1; y--) {
@@ -703,7 +709,10 @@ namespace fessga {
                             break;
                         }
                     }
-                    if (!found) cout << "ERROR: Failed to find boundary id for line " << line.first << ", " << line.second << endl;
+                    if (!found) {
+                        cout << "ERROR: Failed to find boundary id for line (" << line.first / 200 << ", " << line.first % 200 << "), ("
+                            << line.second / 200 << ", " << line.second % 200 << ")" << endl;
+                    }
                 }
                 bound_id_lookup[bound_name] = bound_ids;
             }
@@ -774,7 +783,6 @@ namespace fessga {
                         if (fe_case != 0 && piece.is_removable) {
                             // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
                             if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
-                                cout << "piece is not removable" << endl;
                                 piece.is_removable = false;
                             }
                         }
@@ -825,11 +833,12 @@ namespace fessga {
             if (piece_size < cells_left) {
                 no_pieces++;
                 cells_left -= piece_size;
-                for (int i = 0; i < piece.cells.size(); i++) visited_cells->push_back(piece.cells[i]);
+                for (int i = 0; i < piece_size; i++) visited_cells->push_back(piece.cells[i]);
 
                 // Recurse if there are still unvisited cells left
                 if (cells_left > 0) {
                     int unvisited_cell = get_unvisited_cell(densities, grid, visited_cells, removed_cells);
+                    if (unvisited_cell == -1) return;
                     get_pieces(densities, grid, fe_case, pieces, visited_cells, cells_left, removed_cells, no_pieces, unvisited_cell);
                 }
             }
@@ -854,15 +863,17 @@ namespace fessga {
         // Return whether or not the shape consists of a single piece
         static bool is_single_piece(
             uint* densities, Grid3D grid, Case* fe_case, int total_no_cells, vector<int>* removed_cells,
-            int _start_cell = -1
+            int _start_cell = -1, bool verbose = false
         ) {
             Piece piece;
             int start_cell;
             if (_start_cell > -1) start_cell = _start_cell;
             else start_cell = fe_case->boundary_cells[0];
             int piece_size = get_no_connected_cells(densities, grid, start_cell, piece);
-            //cout << "piece size: " << piece_size << endl;
-            //cout << "total no cells: " << total_no_cells << endl;
+            if (verbose) {
+                cout << "piece size: " << piece_size << endl;
+                cout << "total no cells: " << total_no_cells << endl;
+            }
 
             // Check if the shape consists of one piece or multiple
             if (piece_size < total_no_cells) {

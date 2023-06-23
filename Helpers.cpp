@@ -293,3 +293,12 @@ void fessga::help::remove_largest_vector(vector<vector<int>>* vectors, int& max_
     }
     vectors->erase(vectors->begin() + largest_item_idx);
 }
+
+bool fessga::help::ends_with(string full_string, string ending) {
+    if (full_string.length() >= ending.length()) {
+        return (0 == full_string.compare(full_string.length() - ending.length(), ending.length(), ending));
+    }
+    else {
+        return false;
+    }
+}

@@ -22,9 +22,11 @@ public:
 	Evolver(
 		string _msh_file, string _fe_case, mesher::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
 		function<bool(uint*, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
-		uint* _starting_densities, mesher::Grid3D _grid, int _max_iterations, bool _export_msh = false, float _initial_perturbation_size = 0.5,
-		float variance_treshold = 0.5
-	) : OptimizerBase(_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid, _max_iterations, _export_msh) {
+		uint* _starting_densities, mesher::Grid3D _grid, int _max_iterations, bool _export_msh = false, bool _verbose = true,
+		float _initial_perturbation_size = 0.5, float variance_treshold = 0.5
+	) : OptimizerBase(
+		_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid, _max_iterations, _export_msh, _verbose)
+	{
 		pop_size = _pop_size;
 		mutation_rate = _mutation_rate;
 		tournament_size = _tournament_size;
