@@ -15,6 +15,7 @@ using namespace fessga;
 struct Input {
     string type = "object";
     string path;
+    string name;
 };
 
 
@@ -28,6 +29,7 @@ void parse_args(
     if (argc > 3) {
         string relative_path = string(argv[3]);
         input.path = "../data/objects/" + string(argv[3]);
+        input.name = string(argv[3]);
         if (help::ends_with(string(argv[3]), ".jpg")) {
             input.type = "image";
             input.path = "../data/images/" + string(argv[3]);
@@ -45,6 +47,7 @@ void parse_args(
     else dim_y = 40;
     if (argc > 6) dim_z = stoi(string(argv[6]));
     else dim_z = 40;
+    if (argc > 7) input.name = string(argv[7]);
 }
 
 
@@ -126,7 +129,16 @@ int main(int argc, char* argv[])
         // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
         mesher::export_as_elmer_files(&fe_mesh, output_folder);
 
-        cout << "Finished." << endl;
+        cout << "Finished exporting FE mesh. Continuing to post actions.." << endl;
+
+        // -- Post actions
+        // Write distribution to image
+        char out_img_path[300];
+        strcpy(out_img_path, (output_folder + input.name + ".jpg").c_str());
+        img::Image image = img::Image(out_img_path, 1000, 1000, 3, grid);
+        img::write_distribution_to_image(slice_2d, grid, image);
+
+        cout << "Exported distribution to image. Path: " << string(out_img_path) << endl;
     }
     else if (action == "evolve") {
         // Do crossover test
@@ -138,4 +150,6 @@ int main(int argc, char* argv[])
         Controller controller = Controller();
         controller.run_fess();
     }
+
+    
 }
