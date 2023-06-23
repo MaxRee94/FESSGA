@@ -543,7 +543,7 @@ namespace fessga {
         }
 
         // Import binary density distribution from file
-        static void import_densities(string densities_path, uint* densities) {
+        static uint* import_densities(string densities_path, Grid3D& grid, Vector3d diagonal) {
             // Get a vector of strings representing the lines in the file
             vector<string> lines;
             IO::read_file_content(densities_path, lines);
@@ -557,12 +557,16 @@ namespace fessga {
             
             // Get the number of cells in the grid
             int grid_size = dim_x * dim_y * dim_z;
+            uint* densities = new uint[grid_size];
+            grid = create_grid3d(dim_x, dim_y, dim_z, diagonal);
             
             // Fill the densities array with the binary values stored in the last line of the file
             string densities_line = lines[no_dimensions + 1];
             for (int i = 0; i < grid_size; i++) {
                 densities[i] = densities_line[i] - '0';
             }
+
+            return densities;
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
