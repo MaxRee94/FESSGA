@@ -153,7 +153,10 @@ void FESS::run() {
 		// Create new subfolder for output of current iteration
 		string cur_iteration_name;
 		string cur_output_folder = get_iteration_folder(i, cur_iteration_name, true);
-		if (last_iteration_was_valid) final_valid_iteration_folder = cur_output_folder;
+		if (last_iteration_was_valid) {
+			final_valid_iteration_folder = cur_output_folder;
+			img::write_distribution_to_image(densities, grid, image_folder + "/" + cur_iteration_name + ".jpg", 1000, 1000, true);
+		}
 
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
@@ -245,8 +248,6 @@ void FESS::run() {
 			whitelist_flushed = false;
 			last_iteration_was_valid = true;
 			final_valid_iteration = i;
-
-			img::write_distribution_to_image(densities, grid, image_folder + "/" + cur_iteration_name + ".jpg", 1000, 1000, true);
 		}
 
 		i++;
