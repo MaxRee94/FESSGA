@@ -169,12 +169,14 @@ namespace fessga {
             double max_stress_threshold, FEResults2D* fe_results, bool maintain_boundary_cells,
             bool remove_largest_piece = true, bool check_if_single_piece = false
         ) {
-            bool print_densities = false;
+            bool verbose = false;
             vector<int> removed_piece_indices;
             int size_largest_piece;
-            if (remove_largest_piece) mesher::remove_largest_piece(pieces, size_largest_piece);
-            cout << "DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
-            if (print_densities) mesher::print_density_distrib(densities, grid.x, grid.y);
+            if (remove_largest_piece) {
+                cout << "DENSITIES BEFORE ANY PIECES ARE REMOVED " << endl;
+                mesher::remove_largest_piece(pieces, size_largest_piece);
+            }
+            if (verbose) mesher::print_density_distrib(densities, grid.x, grid.y);
 
             for (int i = 0; i < pieces->size(); i++) {
                 mesher::Piece piece = pieces->at(i);
@@ -186,12 +188,14 @@ namespace fessga {
                 }
                 
                 if (piece_removed) {
-                    cout << "DENSITIES AFTER REMOVING PIECE " << i + 1 << " / " << pieces->size() << endl;
-                    if (print_densities) mesher::print_density_distrib(densities, grid.x, grid.y);
+                    cout << "Removed piece " << i + 1 << " / " << pieces->size() << endl;
+                    if (verbose) {
+                        mesher::print_density_distrib(densities, grid.x, grid.y);
+                    }
                     removed_piece_indices.push_back(i);
                 }
                 else {
-                    cout << "THE FOLLOWING PIECE WAS NOT REMOVED: " << i + 1 << endl;
+                    cout << "Piece " << i + 1 << " was not removed." << endl;
                 }
 
                 // If this flag is set, we want to prevent that the removal of a piece results in the splitting of the shape into multiple pieces.
@@ -200,14 +204,18 @@ namespace fessga {
                 if (check_if_single_piece) {
                     bool is_single_piece = mesher::is_single_piece(densities, grid, fe_case, total_no_cells, removed_cells, -1, true);
                     vector<mesher::Piece> removed_piece = { piece };
-                    cout << "CHECKING WHETHER PIECE REMOVAL RESULTED IN MULTIPLE PIECES....\n\n\n";
+                    cout << "CHECKING WHETHER PIECE REMOVAL RESULTED IN MULTIPLE PIECES....\n";
 
                     // If the shape is broken into multiple pieces, undo the removal of the current piece
                     if (!is_single_piece) {
                         cout << "UNDOING THE REMOVAL OF PIECE " << i + 1 << " BECAUSE ITS REMOVAL SPLIT THE SHAPE INTO MULTIPLE PIECES" << endl;
                         mesher::restore_removed_pieces(densities, &removed_piece);
                         total_no_cells += piece.cells.size();
-                        removed_piece_indices.erase(removed_piece_indices.begin() + i);
+                        cout << "index: " << i << endl;
+                        cout << "indices: ";
+                        for (auto& index : removed_piece_indices) cout << index + " ";
+                        cout << endl;
+                        removed_piece_indices.erase(removed_piece_indices.begin() + removed_piece_indices.size() - 1);
                     }
                 }
             }
