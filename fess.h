@@ -93,8 +93,10 @@ void FESS::handle_floating_pieces(
 				removed_piece_indices = physics::remove_smaller_pieces(
 					densities, grid, fe_case, total_no_cells, &pieces_to_be_removed, removed_cells, max_stress_threshold, fe_results, maintain_boundary_cells, false, true
 				);
+				cout << "Densities after attempt to re-remove pieces:\n";
+				mesher::print_density_distrib(densities, grid.x, grid.y);
 
-				// Count no cells that were removed as the result of removing the floating pieces
+				// Count number of cells that were removed as the result of removing the floating pieces
 				no_cells_in_removed_pieces = 0;
 				for (int j = 0; j < removed_piece_indices.size(); j++) no_cells_in_removed_pieces += pieces[removed_piece_indices[j]].cells.size();
 				no_cells_removed = no_cells_in_removed_pieces;
@@ -115,8 +117,6 @@ void FESS::handle_floating_pieces(
 				&pieces[0], total_no_cells
 			);
 		}
-		//cout << "densities after attempting to handle multiple pieces:\n";
-		//mesher::print_density_distrib(densities, grid.x, grid.y);
 		no_cells_removed = removed_cells->size() + no_cells_in_removed_pieces;
 		total_no_cells = fe_mesh->surfaces.size() - no_cells_removed;
 

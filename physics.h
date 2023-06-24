@@ -26,7 +26,6 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #define VTK_DEBUG_LEAKS true
 
 
-
 namespace fessga {
     class physics {
     public:
@@ -59,7 +58,9 @@ namespace fessga {
             int no_iterations_without_removal = -1;
             for (auto& item : (*fe_results)) {
                 no_iterations_without_removal++;
-                if (no_iterations_without_removal > 100) cout << "WARNING: 100 cells in a row could not be removed. There may be no more cells to remove.\n";
+                if (no_iterations_without_removal > 100) {
+                    cout << "WARNING: 100 cells in a row could not be removed. There may be no more cells to remove.\n";
+                }
                 int cell_coord = item.first;
                 double cell_stress = item.second;
 
@@ -90,9 +91,9 @@ namespace fessga {
                     cell_from_smaller_piece = smaller_piece->cells[0];
                     bool verbose = no_iterations_without_removal > 100;
                     bool is_single_piece = mesher::is_single_piece(
-                        densities, grid, fe_case, total_no_cells - count, &_removed_cell, cell_from_smaller_piece, verbose
+                        densities, grid, fe_case, total_no_cells, &_removed_cell, cell_from_smaller_piece, verbose
                     );
-                    //cout << "is single piece after deleting cell " << cell_coord / grid.y << ", " << cell_coord % grid.y << " ? " << is_single_piece << endl;
+                    //if (verbose) cout << "is single piece after deleting cell " << cell_coord / grid.y << ", " << cell_coord % grid.y << " ? " << is_single_piece << endl;
                     if (!is_single_piece) {
                         if (no_iterations_without_removal > 100) {
                             densities[cell_coord] = 5; // TEMP
@@ -106,6 +107,7 @@ namespace fessga {
                     }
                     if (count % (no_cells_to_remove / 10) == 0) cout << "no removed cells: " << count << " / " << no_cells_to_remove << endl;
                     count++;
+                    total_no_cells--;
                 }
 
                 // If cell deletion leads to infeasibility, skip deletion
@@ -116,6 +118,7 @@ namespace fessga {
                     continue;
                 }
                 count += no_deleted_neighbors;
+                total_no_cells -= no_deleted_neighbors;
 
                 if (smaller_piece != 0) {
                     vector<int> _removed_cell = { cell_coord };
@@ -211,10 +214,6 @@ namespace fessga {
                         cout << "UNDOING THE REMOVAL OF PIECE " << i + 1 << " BECAUSE ITS REMOVAL SPLIT THE SHAPE INTO MULTIPLE PIECES" << endl;
                         mesher::restore_removed_pieces(densities, &removed_piece);
                         total_no_cells += piece.cells.size();
-                        cout << "index: " << i << endl;
-                        cout << "indices: ";
-                        for (auto& index : removed_piece_indices) cout << index + " ";
-                        cout << endl;
                         removed_piece_indices.erase(removed_piece_indices.begin() + removed_piece_indices.size() - 1);
                     }
                 }

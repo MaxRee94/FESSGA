@@ -776,7 +776,7 @@ namespace fessga {
         }
 
         // Get number of connected cells of the given cell using a version of floodfill
-        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, Piece& piece, Case* fe_case = 0) {
+        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, Piece& piece, Case* fe_case = 0, bool verbose = false) {
             piece.cells = { cell_coord };
             int i = 0;
             while (i < piece.cells.size()) {
@@ -808,6 +808,7 @@ namespace fessga {
                 for (auto& neighbor : neighbors) {
                     if (!help::is_in(visited_cells, neighbor)) {
                         unvisited_cell = neighbor;
+                        return unvisited_cell;
                     }
                 }
             }
@@ -864,9 +865,19 @@ namespace fessga {
             }
         }
 
+        static int count_total_no_cells(uint* densities, Grid3D grid) {
+            int count = 0;
+            for (int x = 0; x < grid.x; x++) {
+                for (int y = 0; y < grid.y; y++) {
+                    count += densities[x * grid.y + y];
+                }
+            }
+            return count;
+        }
+
         // Return whether or not the shape consists of a single piece
         static bool is_single_piece(
-            uint* densities, Grid3D grid, Case* fe_case, int total_no_cells, vector<int>* removed_cells,
+            uint* densities, Grid3D grid, Case* fe_case, int& total_no_cells, vector<int>* removed_cells,
             int _start_cell = -1, bool verbose = false
         ) {
             Piece piece;
@@ -875,7 +886,7 @@ namespace fessga {
             else start_cell = fe_case->boundary_cells[0];
             int piece_size = get_no_connected_cells(densities, grid, start_cell, piece);
             if (verbose) {
-                cout << "piece size: " << piece_size << endl;
+                cout << "\npiece size: " << piece_size << endl;
                 cout << "total no cells: " << total_no_cells << endl;
             }
 
@@ -883,6 +894,7 @@ namespace fessga {
             if (piece_size < total_no_cells) {
                 int unvisited_cell = get_unvisited_cell(densities, grid, &piece.cells, removed_cells);
                 if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
+                
                 return false;
             }
             else return true;

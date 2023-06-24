@@ -88,9 +88,13 @@ public:
             string densities_file = mesher::export_density_distrib(output_folder, densities, grid.x, grid.y);
             cout << "Exported density distribution to " << densities_file << endl;
         }
+        else if (action == "test") {
+            run_tests();
+        }
     };
     void load_density_distribution();
     void create_parents(uint* parent1, uint* parent2);
+    void run_tests();
     bool test_2d_crossover();
     bool test_full_evolution();
     bool run_fess();
@@ -113,6 +117,11 @@ private:
     uint* densities = 0;
     Input input;
 };
+
+
+void Controller::run_tests() {
+
+}
 
 
 void Controller::load_density_distribution() {
@@ -208,7 +217,7 @@ bool Controller::run_fess() {
     string fe_case = output_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
-    float greediness = 0.2;
+    float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_cells = true;
     
