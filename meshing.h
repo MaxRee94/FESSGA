@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include "helpers.h"
+#include "densities.h"
 
 #define TEST2D true;
 #define TEST3D false;
