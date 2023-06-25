@@ -18,7 +18,6 @@ namespace fessga {
         struct Piece {
             vector<int> cells;
             bool is_removable = true;
-
         };
 
         struct Case {
@@ -130,6 +129,9 @@ namespace fessga {
                 if (_count == -1) redo_count();
                 return _count;
             }
+            uint at(int idx) {
+                return values[idx];
+            }
 
             void filter();
             string do_export(string output_folder);
@@ -162,6 +164,9 @@ namespace fessga {
                 double max_stress_threshold, FEResults2D* fe_results, bool maintain_boundary_cells,
                 bool _remove_largest_piece = true, bool check_if_single_piece = false
             );
+            void save_snapshot();
+            void load_snapshot();
+            void copy_from(Densities2d* source);
 
             int dim_x = 0;
             int dim_y = 0;
@@ -173,6 +178,7 @@ namespace fessga {
                 dim_y = _dim_y;
                 size = dim_x * dim_y;
                 values = new uint[size];
+                snapshot = new uint[size];
             }
             void init_cell_size(Vector3d diagonal) {
                 Vector2d _diagonal2d = Vector2d(diagonal(0), diagonal(1));
@@ -181,7 +187,9 @@ namespace fessga {
                 );
             }
             int _count = -1;
+            int _snapshot_count = -1;
             uint* values = 0;
+            uint* snapshot = 0;
         };
     };
 }

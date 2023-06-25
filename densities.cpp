@@ -427,3 +427,20 @@ vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
     return removed_piece_indices;
 }
 
+// Save a copy of the current state of the density distribution
+void fessga::grd::Densities2d::save_snapshot() {
+    for (int i = 0; i < size; i++) snapshot[i] = values[i];
+    _snapshot_count = _count;
+}
+
+// Load the previously saved state (i.e. the snapshot)
+void fessga::grd::Densities2d::load_snapshot() {
+    for (int i = 0; i < size; i++) values[i] = snapshot[i];
+    _count = _snapshot_count;
+}
+
+// Copy the density values from the given Densities2d-object to the current object
+void fessga::grd::Densities2d::copy_from(Densities2d* source) {
+    for (int i = 0; i < size; i++) values[i] = source->at(i);
+    _count = source->count();
+}
