@@ -9,6 +9,7 @@
 #include "helpers.h"
 #include "optimizerBase.h"
 #include "meshing.h"
+#include "individual.h"
 
 using namespace fessga;
 
