@@ -73,15 +73,6 @@ namespace fessga {
             int density;
         };
 
-        /*static void print_density_distrib(uint* densities, int dim_x, int dim_y) {
-            for (int y = dim_y -1; y > -1; y--) {
-                for (int x = 0; x < dim_x; x++) {
-                    cout << densities[x * dim_y + y];
-                }
-                cout << endl;
-            }
-        }*/
-
         struct Ray {
             Vector3d origin;
             Vector3d direction;
@@ -236,34 +227,6 @@ namespace fessga {
             cout << "Finished filtering floating cells." << endl;
         }
 
-//        static void filter_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
-//            // Filter out floating cells that have no direct neighbors
-//            cout << "Filtering 2d floating cells..." << endl;
-//#pragma omp parallel for
-//            for (int x = 0; x < dim_x; x++) {
-//                for (int y = 0; y < dim_y; y++) {
-//                    int filled = densities[x * dim_y + y];
-//                    if (!filled) continue;
-//                    int neighbor = 0;
-//                    for (int _x = -1; _x <= 1; _x++) {
-//                        for (int _y = -1; _y <= 1; _y++) {
-//                            if (_y == 0 && _x == 0) continue;
-//                            if (x + _x == dim_x || y + _y == dim_y) continue;
-//                            if (x + _x <= 0 || y + _y <= 0) continue;
-//                            neighbor = densities[(x + _x) * dim_y + (y + _y)];
-//                            if (neighbor) break;
-//                        }
-//                        if (neighbor) break;
-//                    }
-//                    if (!neighbor) {
-//                        cout << "floating cell detected. Setting to 0" << endl;
-//                        densities[x * dim_y + y] = 0; // Set density to 0 if the cell has no neighbors
-//                    }
-//                }
-//            }
-//            cout << "Finished filtering floating cells." << endl;
-//        }
-
         static void create_2d_slice(uint* densities3d, grd::Densities2d slice2d, grd::Grid3D grid, int z) {
             for (int x = 0; x < grid.x; x++) {
                 for (int y = 0; y < grid.y; y++) {
@@ -274,10 +237,6 @@ namespace fessga {
 
         static bool node_exists(std::map<int, int>* node_coords, int coords) {
             bool exists = !(node_coords->find(coords) == node_coords->end());
-            //cout << "node with coords " << coords << " exists?  " << to_string(exists) << endl;
-            //cout << "node coords: ";
-            //help::print_map(node_coords);
-
             return exists;
         }
 
@@ -318,13 +277,7 @@ namespace fessga {
             return -1; // Return -1 if no unvisited node was found
         }
 
-        /* Generate a grid-based description of a FE mesh that can be output as a .msh file
-        Input:
-            dim_x, dim_y, dim_z (int):  Number of cells along each dimension of the grid
-            csize (float): Size of a single cell (size=width=height=depth)
-            V (MatrixXd*): Pointer to the matrix of vertex positions for the given mesh
-            F (MatrixXi*): Pointer to the matrix of faces for the given mesh
-            msh (string): The generated description string in .msh-format
+        /* Generate a grid-based description of a FE mesh
         */
         static void generate_FE_mesh(
             SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh
@@ -469,40 +422,6 @@ namespace fessga {
             }
             IO::write_text_to_file(elements_description, output_folder + "/mesh.boundary");
         }
-
-        /*
-        * Export 3d density distribution to file
-        */
-        /*static void export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y, int dim_z) {
-            string content = "3\n";
-            content += to_string(dim_x) + " " + to_string(dim_y) + " " + to_string(dim_z) + "\n";
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    for (int z = 0; z < dim_z; z++) {
-                        content += to_string(distrib[x * dim_y * dim_z + y * dim_z + z]);
-                    }
-                }
-            }
-            content += "\n";
-            IO::write_text_to_file(content, output_folder + "/distribution.dens");
-        }*/
-
-        ///*
-        //* Export 2d density distribution to file
-        //*/
-        //static string export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y) {
-        //    string content = "2\n";
-        //    content += to_string(dim_x) + "\n" + to_string(dim_y) + "\n";
-        //    for (int x = 0; x < dim_x; x++) {
-        //        for (int y = 0; y < dim_y; y++) {
-        //            content += to_string(distrib[x * dim_y + y]);
-        //        }
-        //    }
-        //    content += "\n";
-        //    IO::write_text_to_file(content, output_folder + "/distribution.dens");
-        //    return output_folder + "/distribution.dens";
-        //}
-
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
         static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
