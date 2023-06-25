@@ -5,7 +5,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "helpers.h"
 #include "densities.h"
 
 #define TEST2D true;
@@ -20,32 +19,6 @@ namespace fessga {
     class mesher
     {
     public:
-
-        struct Piece {
-            vector<int> cells;
-            bool is_removable = true;
-
-        };
-
-        struct Case {
-            string path;
-            vector<string> names, sections;
-            vector<int> boundary_cells;
-            vector<int> whitelisted_cells;
-            string content;
-        };
-        
-        // Define the struct for a 2d Grid
-        struct Grid2D {
-            int x, y;
-            Vector2d cell_size;
-        };
-
-        // Define the struct for a 3d Grid
-        struct Grid3D {
-            int x, y, z, size2d, size3d;
-            Vector3d cell_size;
-        };
 
         // Define the struct for a Surface mesh
         class SurfaceMesh {
@@ -100,14 +73,14 @@ namespace fessga {
             int density;
         };
 
-        static void print_density_distrib(uint* densities, int dim_x, int dim_y) {
+        /*static void print_density_distrib(uint* densities, int dim_x, int dim_y) {
             for (int y = dim_y -1; y > -1; y--) {
                 for (int x = 0; x < dim_x; x++) {
                     cout << densities[x * dim_y + y];
                 }
                 cout << endl;
             }
-        }
+        }*/
 
         struct Ray {
             Vector3d origin;
@@ -119,19 +92,6 @@ namespace fessga {
             Vector3d v1 = Vector3d(0.0, 0.0, 0.0);
             Vector3d v2 = Vector3d(0.0, 0.0, 0.0);
         };
-
-        static Grid3D create_grid3d(int dim_x, int dim_y, int dim_z, Vector3d diagonal) {
-            mesher::Grid3D grid;
-            grid.x = dim_x;
-            grid.y = dim_y;
-            grid.z = dim_z;
-            grid.cell_size = diagonal.cwiseProduct(
-                Vector3d(1.0 / (double)grid.x, 1.0 / (double)grid.y, 1.0 / (double)grid.z)
-            );
-            grid.size3d = dim_x * dim_y * dim_z;
-            grid.size2d = dim_x * dim_y;
-            return grid;
-        }
 
         static bool trace_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
             double closestDist = INFINITY;
@@ -182,7 +142,7 @@ namespace fessga {
             densities (uint*): Array which contains a binary density value (0 or 1) for each cell in the grid
         */
         static void generate_3d_density_distribution(
-            Grid3D grid, mesher::SurfaceMesh mesh, MatrixXd* V, MatrixXi* F, uint* densities
+            grd::Grid3D grid, mesher::SurfaceMesh mesh, MatrixXd* V, MatrixXi* F, uint* densities
         ) {
             cout << "Generating 3d grid-based density distribution..." << endl;
 
@@ -276,38 +236,38 @@ namespace fessga {
             cout << "Finished filtering floating cells." << endl;
         }
 
-        static void filter_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
-            // Filter out floating cells that have no direct neighbors
-            cout << "Filtering 2d floating cells..." << endl;
-#pragma omp parallel for
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    int filled = densities[x * dim_y + y];
-                    if (!filled) continue;
-                    int neighbor = 0;
-                    for (int _x = -1; _x <= 1; _x++) {
-                        for (int _y = -1; _y <= 1; _y++) {
-                            if (_y == 0 && _x == 0) continue;
-                            if (x + _x == dim_x || y + _y == dim_y) continue;
-                            if (x + _x <= 0 || y + _y <= 0) continue;
-                            neighbor = densities[(x + _x) * dim_y + (y + _y)];
-                            if (neighbor) break;
-                        }
-                        if (neighbor) break;
-                    }
-                    if (!neighbor) {
-                        cout << "floating cell detected. Setting to 0" << endl;
-                        densities[x * dim_y + y] = 0; // Set density to 0 if the cell has no neighbors
-                    }
-                }
-            }
-            cout << "Finished filtering floating cells." << endl;
-        }
+//        static void filter_2d_density_distrib(uint* densities, int dim_x, int dim_y) {
+//            // Filter out floating cells that have no direct neighbors
+//            cout << "Filtering 2d floating cells..." << endl;
+//#pragma omp parallel for
+//            for (int x = 0; x < dim_x; x++) {
+//                for (int y = 0; y < dim_y; y++) {
+//                    int filled = densities[x * dim_y + y];
+//                    if (!filled) continue;
+//                    int neighbor = 0;
+//                    for (int _x = -1; _x <= 1; _x++) {
+//                        for (int _y = -1; _y <= 1; _y++) {
+//                            if (_y == 0 && _x == 0) continue;
+//                            if (x + _x == dim_x || y + _y == dim_y) continue;
+//                            if (x + _x <= 0 || y + _y <= 0) continue;
+//                            neighbor = densities[(x + _x) * dim_y + (y + _y)];
+//                            if (neighbor) break;
+//                        }
+//                        if (neighbor) break;
+//                    }
+//                    if (!neighbor) {
+//                        cout << "floating cell detected. Setting to 0" << endl;
+//                        densities[x * dim_y + y] = 0; // Set density to 0 if the cell has no neighbors
+//                    }
+//                }
+//            }
+//            cout << "Finished filtering floating cells." << endl;
+//        }
 
-        static void create_2d_slice(uint* densities3d, uint* slice2d, Grid3D grid, int z) {
+        static void create_2d_slice(uint* densities3d, grd::Densities2d slice2d, grd::Grid3D grid, int z) {
             for (int x = 0; x < grid.x; x++) {
                 for (int y = 0; y < grid.y; y++) {
-                    slice2d[x * grid.y + y] = densities3d[z * grid.x * grid.y + x * grid.y + y];
+                    slice2d.set(x * grid.y + y, densities3d[z * grid.x * grid.y + x * grid.y + y]);
                 }
             }
         }
@@ -322,7 +282,7 @@ namespace fessga {
         }
 
         static int add_node_if_not_exists(
-            int x, int y, Vector3d offset, int dim_y, std::map<int, int>& node_coords, Vector3d cell_size,
+            int x, int y, Vector3d offset, int dim_y, std::map<int, int>& node_coords, Vector2d cell_size,
             vector<vector<double>>& nodes, int& _node_idx)
         {
             dim_y += 1; // Number of nodes along an axis = number of cells + 1
@@ -367,7 +327,7 @@ namespace fessga {
             msh (string): The generated description string in .msh-format
         */
         static void generate_FE_mesh(
-            Grid3D grid, SurfaceMesh mesh, uint* densities, FEMesh2D& fe_mesh
+            SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh
         );
 
         static string get_msh_element_description(Element element) {
@@ -513,7 +473,7 @@ namespace fessga {
         /*
         * Export 3d density distribution to file
         */
-        static void export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y, int dim_z) {
+        /*static void export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y, int dim_z) {
             string content = "3\n";
             content += to_string(dim_x) + " " + to_string(dim_y) + " " + to_string(dim_z) + "\n";
             for (int x = 0; x < dim_x; x++) {
@@ -525,50 +485,24 @@ namespace fessga {
             }
             content += "\n";
             IO::write_text_to_file(content, output_folder + "/distribution.dens");
-        }
+        }*/
 
-        /*
-        * Export 2d density distribution to file
-        */
-        static string export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y) {
-            string content = "2\n";
-            content += to_string(dim_x) + "\n" + to_string(dim_y) + "\n";
-            for (int x = 0; x < dim_x; x++) {
-                for (int y = 0; y < dim_y; y++) {
-                    content += to_string(distrib[x * dim_y + y]);
-                }
-            }
-            content += "\n";
-            IO::write_text_to_file(content, output_folder + "/distribution.dens");
-            return output_folder + "/distribution.dens";
-        }
+        ///*
+        //* Export 2d density distribution to file
+        //*/
+        //static string export_density_distrib(string output_folder, uint* distrib, int dim_x, int dim_y) {
+        //    string content = "2\n";
+        //    content += to_string(dim_x) + "\n" + to_string(dim_y) + "\n";
+        //    for (int x = 0; x < dim_x; x++) {
+        //        for (int y = 0; y < dim_y; y++) {
+        //            content += to_string(distrib[x * dim_y + y]);
+        //        }
+        //    }
+        //    content += "\n";
+        //    IO::write_text_to_file(content, output_folder + "/distribution.dens");
+        //    return output_folder + "/distribution.dens";
+        //}
 
-        // Import binary density distribution from file
-        static uint* import_densities(string densities_path, Grid3D& grid, Vector3d diagonal) {
-            // Get a vector of strings representing the lines in the file
-            vector<string> lines;
-            IO::read_file_content(densities_path, lines);
-
-            // Get the number of dimensions of the distribution
-            int no_dimensions = stoi(lines[0]);
-            
-            // Get the sizes of the grid along each axis
-            int dim_x = stoi(lines[1]), dim_y = stoi(lines[2]), dim_z = 1;
-            if (no_dimensions == 3) dim_z = stoi(lines[3]);
-            
-            // Get the number of cells in the grid
-            int grid_size = dim_x * dim_y * dim_z;
-            uint* densities = new uint[grid_size];
-            grid = create_grid3d(dim_x, dim_y, dim_z, diagonal);
-            
-            // Fill the densities array with the binary values stored in the last line of the file
-            string densities_line = lines[no_dimensions + 1];
-            for (int i = 0; i < grid_size; i++) {
-                densities[i] = densities_line[i] - '0';
-            }
-
-            return densities;
-        }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
         static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
@@ -610,7 +544,7 @@ namespace fessga {
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
         static void read_boundary_conditions(
-            map<string, vector<int>>& boundary_id_lookup, Case& fe_case
+            map<string, vector<int>>& boundary_id_lookup, grd::Case& fe_case
         ) {
             // Read content
             vector<string> case_content;
@@ -657,10 +591,10 @@ namespace fessga {
             fe_case.sections.push_back(section);
         }
 
-        // Create a map from strings that encode the name of a boundary condition (e.g. "Force") to vectors of boundary node coordinate pairs that
+        // Create a map from strings that encode the name of a boundary condition to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            uint* densities, map<string, vector<pair<int, int>>>& bound_conds, Grid3D grid, SurfaceMesh mesh, Case& fe_case
+            grd::Densities2d densities, map<string, vector<pair<int, int>>>& bound_conds, SurfaceMesh mesh, grd::Case& fe_case
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
@@ -668,7 +602,7 @@ namespace fessga {
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
-            generate_FE_mesh(grid, mesh, densities, fe_mesh);
+            generate_FE_mesh(mesh, densities, fe_mesh);
             
             // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_conds map
             int q = 0;
@@ -715,7 +649,7 @@ namespace fessga {
                         }
                     }
                     if (!found) {
-                        cout << "ERROR: Failed to find boundary id for line (" << line.first / 200 << ", " << line.first % 200 << "), ("
+                        cerr << "ERROR: Failed to find boundary id for line (" << line.first / 200 << ", " << line.first % 200 << "), ("
                             << line.second / 200 << ", " << line.second % 200 << ")" << endl;
                     }
                 }
@@ -724,7 +658,7 @@ namespace fessga {
         }
 
         // Re-assemble the case file's content by concatenating the sections and updated target boundaries
-        static void assemble_fe_case(Case* fe_case, map<string, vector<int>>* bound_id_lookup) {
+        static void assemble_fe_case(grd::Case* fe_case, map<string, vector<int>>* bound_id_lookup) {
             fe_case->content = "";
             for (int i = 0; i < fe_case->names.size(); i++) {
                 string name = fe_case->names[i];
@@ -733,185 +667,6 @@ namespace fessga {
                 fe_case->content += fe_case->sections[i] + bound_ids_string;
             }
             fe_case->content += fe_case->sections[fe_case->names.size()];
-        }
-
-        // Return the number of 'true neighbors' of the cell at the given coordinates.
-        // True neighbors are here defined as filled neighbor cells that share a line with the given cell
-        static vector<int> get_true_neighbors(int dim_x, int dim_y, int x, int y, uint* densities) {
-            vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
-            vector<int> true_neighbors;
-            for (auto& offset : offsets) {
-                int _x = x + offset.first;
-                int _y = y + offset.second;
-                if (_x == dim_x || _y == dim_y || _x < 0 || _y < 0) continue;
-                int neighbor_coord = _x * dim_y + _y;
-                if (densities[neighbor_coord]) true_neighbors.push_back(neighbor_coord);
-            }
-            return true_neighbors;
-        }
-
-        // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of
-        // deleting the given cell.
-        static bool cell_is_safe_to_delete(
-            uint* densities, Grid3D grid, int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, Case* fe_case
-        ) {
-            int x = cell_coord / grid.y;
-            int y = cell_coord % grid.y;
-            vector<int> neighbors = get_true_neighbors(grid.x, grid.y, x, y, densities);
-            for (auto& neighbor : neighbors) {
-                vector<int> sub_neighbors = get_true_neighbors(grid.x, grid.y, neighbor / grid.y, neighbor % grid.y, densities);
-
-                // If the neighboring cell has only one true neighbor itself, deleting the current cell would make it float in mid-air and thus invalid.
-                // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
-                if (sub_neighbors.size() <= 1) {
-                    // If the cell has a line on which a boundary condition was applied, skip deletion
-                    if (help::is_in(&fe_case->boundary_cells, neighbor) || help::is_in(&fe_case->whitelisted_cells, neighbor)) {
-                        return false;
-                    }
-                    no_deleted_neighbors++;
-                    densities[neighbor] = 0; // Delete the neighboring cell, since deleting the cell at <cell_coord> would make it invalid.
-                    removed_cells->push_back(neighbor);
-                }
-            }
-            return true;
-        }
-
-        // Get number of connected cells of the given cell using a version of floodfill
-        static int get_no_connected_cells(uint* densities, Grid3D grid, int cell_coord, Piece& piece, Case* fe_case = 0, bool verbose = false) {
-            piece.cells = { cell_coord };
-            int i = 0;
-            while (i < piece.cells.size()) {
-                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, piece.cells[i] / grid.y, piece.cells[i] % grid.y, densities);
-                for (int j = 0; j < neighbors.size(); j++) {
-                    if (!help::is_in(&piece.cells, neighbors[j])) {
-                        piece.cells.push_back(neighbors[j]);
-                        if (fe_case != 0 && piece.is_removable) {
-                            // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
-                            if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
-                                piece.is_removable = false;
-                            }
-                        }
-                    }
-                }
-                i++;
-            }
-            return piece.cells.size();
-        }
-
-        // Return cell that was not yet visited
-        static int get_unvisited_cell(
-            uint* densities, Grid3D grid, vector<int>* visited_cells, vector<int>* removed_cells
-        ) {
-            int unvisited_cell = -1;
-            for (auto& removed_cell : (*removed_cells)) {
-                // At least one of the neighbors of the last-removed cells must belong to the other piece
-                vector<int> neighbors = get_true_neighbors(grid.x, grid.y, removed_cell / grid.y, removed_cell % grid.y, densities);
-                for (auto& neighbor : neighbors) {
-                    if (!help::is_in(visited_cells, neighbor)) {
-                        unvisited_cell = neighbor;
-                        return unvisited_cell;
-                    }
-                }
-            }
-            return unvisited_cell;
-        }
-
-        // Get the pieces inside the given shape
-        static void get_pieces(
-            uint* densities, Grid3D grid, Case* fe_case, vector<Piece>* pieces, vector<int>* visited_cells, int& cells_left,
-            vector<int>* removed_cells, int& no_pieces, int _start_cell = -1
-        ) {
-            Piece piece;
-            int start_cell = -1;
-            if (_start_cell > -1) start_cell = _start_cell;
-            else {
-                // If no start cell was provided as an argument, pick one of the neighbors of one of the removed cells
-                for (int i = 0; i < removed_cells->size(); i++) {
-                    vector<int> neighbors = get_true_neighbors(grid.x, grid.y, removed_cells->at(i) / grid.y, removed_cells->at(i) % grid.y, densities);
-                    if (neighbors.size() > 0) { start_cell = neighbors[0]; break; }
-                }
-            }
-            if (start_cell == -1) start_cell = fe_case->boundary_cells[0];
-            int piece_size = get_no_connected_cells(densities, grid, start_cell, piece, fe_case);
-            pieces->push_back(piece);
-
-            // Check if the shape consists of one piece or several
-            if (piece_size < cells_left) {
-                no_pieces++;
-                cells_left -= piece_size;
-                for (int i = 0; i < piece_size; i++) visited_cells->push_back(piece.cells[i]);
-
-                // Recurse if there are still unvisited cells left
-                if (cells_left > 0) {
-                    int unvisited_cell = get_unvisited_cell(densities, grid, visited_cells, removed_cells);
-                    if (unvisited_cell == -1) return;
-                    get_pieces(densities, grid, fe_case, pieces, visited_cells, cells_left, removed_cells, no_pieces, unvisited_cell);
-                }
-            }
-        }
-
-        // Restore all cells that were removed
-        static void restore_removed_cells(uint* densities, Grid3D grid, vector<int>* removed_cells) {
-            for (auto& cell : (*removed_cells)) {
-                densities[cell] = 1;
-            }
-        }
-
-        // Restore all cells in the provided pieces
-        static void restore_removed_pieces(uint* densities, vector<Piece>* removed_pieces) {
-            for (auto& piece : (*removed_pieces)) {
-                for (auto& cell : piece.cells) {
-                    densities[cell] = 1;
-                }
-            }
-        }
-
-        static int count_total_no_cells(uint* densities, Grid3D grid) {
-            int count = 0;
-            for (int x = 0; x < grid.x; x++) {
-                for (int y = 0; y < grid.y; y++) {
-                    count += densities[x * grid.y + y];
-                }
-            }
-            return count;
-        }
-
-        // Return whether or not the shape consists of a single piece
-        static bool is_single_piece(
-            uint* densities, Grid3D grid, Case* fe_case, int& total_no_cells, vector<int>* removed_cells,
-            int _start_cell = -1, bool verbose = false
-        ) {
-            Piece piece;
-            int start_cell;
-            if (_start_cell > -1) start_cell = _start_cell;
-            else start_cell = fe_case->boundary_cells[0];
-            int piece_size = get_no_connected_cells(densities, grid, start_cell, piece);
-            if (verbose) {
-                cout << "\npiece size: " << piece_size << endl;
-                cout << "total no cells: " << total_no_cells << endl;
-            }
-
-            // Check if the shape consists of one piece or multiple
-            if (piece_size < total_no_cells) {
-                int unvisited_cell = get_unvisited_cell(densities, grid, &piece.cells, removed_cells);
-                if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
-                
-                return false;
-            }
-            else return true;
-        }
-
-        // Remove the largest piece from the given pieces vector
-        static void remove_largest_piece(vector<mesher::Piece>* pieces, int& max_size) {
-            max_size = 0;
-            int largest_piece_idx = -1;
-            for (int i = 0; i < pieces->size(); i++) {
-                if (pieces->at(i).cells.size() > max_size) {
-                    max_size = pieces->at(i).cells.size();
-                    largest_piece_idx = i;
-                }
-            }
-            pieces->erase(pieces->begin() + largest_piece_idx);
         }
 
     };

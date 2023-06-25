@@ -13,7 +13,7 @@
 using namespace fessga;
 
 
-bool variation_minimum_passed(uint* population, int pop_size, int no_cells, float threshold);
+bool variation_minimum_passed(vector<grd::Densities2d> population, int pop_size, int no_cells, float threshold);
 
 
 class Evolver : public OptimizerBase {
@@ -21,11 +21,11 @@ public:
 	Evolver() = default;
 	Evolver(
 		string _msh_file, string _fe_case, mesher::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
-		function<bool(uint*, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
-		uint* _starting_densities, mesher::Grid3D _grid, int _max_iterations, bool _export_msh = false, bool _verbose = true,
+		function<bool(vector<grd::Densities2d>, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
+		grd::Densities2d _starting_densities, int _max_iterations, bool _export_msh = false, bool _verbose = true,
 		float _initial_perturbation_size = 0.5, float variance_treshold = 0.5
 	) : OptimizerBase(
-		_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _grid, _max_iterations, _export_msh, _verbose)
+		_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
 		pop_size = _pop_size;
 		mutation_rate = _mutation_rate;
@@ -33,8 +33,8 @@ public:
 		termination_condition = _termination_condition;
 		initial_perturbation_size = _initial_perturbation_size;
 	}
-	void do_2d_crossover(uint* parent1, uint* parent2, uint* child1, uint* child2);
-	void do_2d_mutation(uint* densities, float _mutation_rate);
+	void do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2, grd::Densities2d child1, grd::Densities2d child2);
+	void do_2d_mutation(grd::Densities2d densities, float _mutation_rate);
 	void init_population();
 	void do_evolution();
 private:
@@ -43,6 +43,6 @@ private:
 	float initial_perturbation_size = 0;
 	float variance_treshold = 0;
 	int tournament_size = 1;
-	uint* population = 0;
-	function<bool(uint*, int, int, float)> termination_condition = 0;
+	vector<grd::Densities2d>* population = 0;
+	function<bool(vector<grd::Densities2d>, int, int, float)> termination_condition = 0;
 };

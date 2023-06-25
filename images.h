@@ -10,7 +10,6 @@
 #include "lib/stb_image_write.h"
 
 
-
 using namespace std;
 using namespace fessga;
 
@@ -22,19 +21,21 @@ namespace fessga{
 		class Image {
 		public:
 			Image() = default;
-			Image(string _path, int _width, int _height, int _channels, mesher::Grid3D grid) {
+			Image(string _path, int _width, int _height, int _channels, grd::Densities2d& _densities) {
 				strcpy(path, (_path).c_str());
 				width = _width; height = _height; channels = _channels;
 				size = width * height * channels;
-				pixels_per_cell = height / grid.y;
+				densities = _densities;
+				pixels_per_cell = height / densities.dim_y;
 				vals = new unsigned char[width * height * channels];
 			}
 			int width, height, channels, size, pixels_per_cell;
 			unsigned char* vals = 0;
+			grd::Densities2d densities;
 			char path[300];
 		};
 
-		static void load_distribution_from_image(const char* filename, uint* densities, mesher::Grid3D grid) {
+		static void load_distribution_from_image(grd::Densities2d densities, const char* filename) {
 			// Load image
 			int width, height, numChannels;
 			unsigned char* image = stbi_load(filename, &width, &height, &numChannels, 0);
@@ -44,7 +45,7 @@ namespace fessga{
 
 			// Extract red values
 			int numPixels = width * height;
-			int pixels_per_cell = height / grid.y;
+			int pixels_per_cell = height / densities.dim_y;
 			int* redValues = new int[numPixels];
 			for (int i = 0; i < numPixels; ++i) {
 				int index = i * numChannels;
@@ -53,18 +54,18 @@ namespace fessga{
 			stbi_image_free(image);
 
 			// Sample red values with intervals
-			for (int y = 0; y < grid.y; y++) {
-				for (int x = 0; x < grid.x; x++) {
+			for (int y = 0; y < densities.dim_y; y++) {
+				for (int x = 0; x < densities.dim_x; x++) {
 					int img_idx = y * width * pixels_per_cell + x * pixels_per_cell + (int)(0.5 * width * pixels_per_cell);
-					densities[(x + 1) * grid.y - y - 1] = redValues[img_idx] / 255;
+					densities.set((x + 1) * densities.dim_y - y - 1, redValues[img_idx] / 255);
 				}
 			}
 		}
 
-		static void convert_distribution_to_single_channel_image(uint* densities, unsigned char* single_channel, mesher::Grid3D grid, Image* image) {
-			for (int y = 0; y < grid.y; y++) {
-				for (int x = 0; x < grid.x; x++) {
-					int dens_idx = (x + 1) * grid.y - y - 1;
+		static void convert_distribution_to_single_channel_image(grd::Densities2d densities, unsigned char* single_channel, Image* image) {
+			for (int y = 0; y < densities.dim_y; y++) {
+				for (int x = 0; x < densities.dim_x; x++) {
+					int dens_idx = (x + 1) * densities.dim_y - y - 1;
 					//int img_idx = (y) * image->width * pixels_per_cell + (x) * pixels_per_cell;
 					//single_channel[img_idx] = densities[dens_idx] * 255;
 					for (int i = 0; i < image->pixels_per_cell; i++) {
@@ -87,10 +88,10 @@ namespace fessga{
 			}
 		}
 
-		static void write_distribution_to_image(uint* densities, mesher::Grid3D grid, string path, int x, int y, bool verbose = false) {
-			img::Image image = img::Image(path, 1000, 1000, 3, grid);
+		static void write_distribution_to_image(grd::Densities2d densities, string path, int x, int y, bool verbose = false) {
+			img::Image image = img::Image(path, 1000, 1000, 3, densities);
 			unsigned char* single_channel = new unsigned char[image.width * image.height];
-			convert_distribution_to_single_channel_image(densities, single_channel, grid, &image);
+			convert_distribution_to_single_channel_image(densities, single_channel, &image);
 			singlechannel_to_rgb(single_channel, &image);
 			stbi_write_jpg(image.path, image.width, image.height, image.channels, image.vals, 100);
 			if (verbose) cout << "Exported distribution to image. Path: " << image.path << endl;

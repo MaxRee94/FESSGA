@@ -1,8 +1,5 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include "io.h"
-#include "gui.h"
-#include "meshing.h"
-#include "physics.h"
 #include "controller.h"
 #include "fess.h"
 #include "images.h"
