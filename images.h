@@ -60,6 +60,7 @@ namespace fessga{
 					densities.set((x + 1) * densities.dim_y - y - 1, redValues[img_idx] / 255);
 				}
 			}
+			densities.update_count();
 		}
 
 		static void convert_distribution_to_single_channel_image(grd::Densities2d densities, unsigned char* single_channel, Image* image) {

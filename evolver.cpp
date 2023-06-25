@@ -47,6 +47,8 @@ void Evolver::do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2
 			}
 		}
 	}
+	child1.update_count();
+	child2.update_count();
 }
 
 /*

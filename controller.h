@@ -162,6 +162,8 @@ void Controller::create_parents(grd::Densities2d parent1, grd::Densities2d paren
             parent2.set(x * dim_x + y, densities[z1 * dim_x * dim_y + x * dim_x + y]);
         }
     }
+    parent1.update_count();
+    parent2.update_count();
 }
 
 /*
