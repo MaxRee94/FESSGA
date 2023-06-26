@@ -12,6 +12,12 @@ using namespace std;
 
 float INV_RAND_MAX = 1.0 / (float)RAND_MAX;
 
+void fessga::help::init_RNG() {
+    srand(time(NULL));
+    int x = rand();
+    int z = x * 3;
+}
+
 float fessga::help::get_rand_float(float min, float max) {
     return min + (float)rand() * INV_RAND_MAX * (max - min);
 }

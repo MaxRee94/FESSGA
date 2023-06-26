@@ -8,7 +8,7 @@ Variation is not the same as variance; it is determined by the number of times e
 where the 'other solution' is randomly chosen from the population (to avoid doing a costly n^2 check of all combinations
 of solutions).
 */
-bool variation_minimum_passed(vector<grd::Densities2d> population, int pop_size, int no_cells, float threshold) {
+bool variation_minimum_passed(vector<evo::Individual2d> population, int pop_size, int no_cells, float threshold) {
 	float sum_of_sq_diffs = 0;
 	for (int i = 0; i < pop_size; i++) {
 		int individual_diff = 0;
@@ -27,7 +27,7 @@ bool variation_minimum_passed(vector<grd::Densities2d> population, int pop_size,
 }
 
 
-void Evolver::do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2, grd::Densities2d child1, grd::Densities2d child2) {
+void Evolver::do_2d_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2) {
 	vector<uint> crosspoints = { fessga::help::get_rand_uint(0, no_cells - 1), fessga::help::get_rand_uint(0, no_cells - 1) };
 	uint crosspoint_1 = min(crosspoints[0], crosspoints[1]);
 	cout << "cross 1: " << crosspoint_1 << endl;
@@ -52,7 +52,7 @@ void Evolver::do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2
 /*
 Mutate the given solution according to the set mutation rate
 */
-void Evolver::do_2d_mutation(grd::Densities2d individual, float _mutation_rate = -1) {
+void Evolver::do_2d_mutation(evo::Individual2d individual, float _mutation_rate = -1) {
 	for (int i = 0; i < no_cells; i++) {
 		// Probability of a bit flip is equal to the mutation rate
 		float rand_val = fessga::help::get_rand_float(0.0, 1.0);
@@ -69,18 +69,19 @@ Initialize a population of unique density distributions. Each differs slightly f
 */
 void Evolver::init_population() {
 	// Create uint buffer to store the binary density distributions of each individual, concatenated into a single array
-	population ;
+	population;
 
 	// Fill the buffer with (mutated) copies of the base densities
-	grd::Densities2d _individual(densities.dim_x, densities.dim_y, mesh.diagonal);
+	evo::Individual2d _individual(densities.dim_x, densities.dim_y, mesh.diagonal);
 	for (int indiv = 0; indiv < pop_size; indiv++) {
-		grd::Densities2d individual = _individual;
+		// Make a copy of the base individual
+		evo::Individual2d individual = _individual;
 
-		// Perturb each individual's density distribution through mutation. This is done to add variation to the population.
+		// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 		do_2d_mutation(individual, initial_perturbation_size);
 		population->push_back(individual);
 
-		// Run the genotype-phenotype mapping pipeline on each solution, to ensure feasibility.
+		// Run the genotype-phenotype mapping pipeline on each individual, to ensure feasibility.
 	}
 }
 

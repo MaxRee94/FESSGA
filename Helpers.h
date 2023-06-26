@@ -35,6 +35,8 @@ namespace fessga {
 	{
 	public:
 
+		static void init_RNG();
+
 		static double max(double val1, double val2);
 
 		static void sort(std::map<int, double>& _map, PairSet& _set);

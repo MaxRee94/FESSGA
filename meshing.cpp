@@ -85,11 +85,7 @@ void msh::generate_FE_mesh(
     for (auto [coord, idx] : boundary_node_coords) {
         int x = coord / (densities.dim_y + 1);
         int y = coord % (densities.dim_y + 1);
-        //cout << "(" << x << ", " << y << "), ";
     }
-    //cout << endl;
-
-    //cout << "node coord of node 6: " << fessga::help::get_key(&boundary_node_coords, 6) << endl;
 
     // ----  Order boundary nodes according to occurrence along perimeter of the mesh ---- //
     // Initialize starting node and ordered boundary nodes maps
@@ -195,7 +191,6 @@ void msh::generate_FE_mesh(
                 if (y > 0) down_cell = densities[(x + x_diff) * densities.dim_y + y - 1];
                 if (y == 0) {
                     infeasible = !up_cell; // Infeasible if the line is on the lower y-limit and there's no cell above it
-                    //cout << "coming from (" << x << ", " << y << ") a path to " << densities.dim_y + y << " is infeasible." << endl;
                 }
                 else if (y == densities.dim_y) {
                     infeasible = !down_cell; // Infeasible if the line is on the upper y-limit and there's no cell below it
@@ -227,7 +222,6 @@ void msh::generate_FE_mesh(
         if (valid_neighbors.size() > 1) {
             int j = 0;
             while (j < valid_neighbors.size()) {
-                //cout << "checking whether " << valid_neighbors[j].first << " is in ordered boundary node coords" << endl;
                 bool neighbor_visited = fessga::help::is_in(&ordered_boundary_node_coords, valid_neighbors[j].first);
                 if (!neighbor_visited) {
                     break; // Found a valid neighbor that hasn't been visited yet
@@ -247,7 +241,6 @@ void msh::generate_FE_mesh(
                 neighbor_idx = valid_neighbors[j].second;
                 neighbor_x = neighbor_coord / (densities.dim_y + 1);
                 neighbor_y = neighbor_coord % (densities.dim_y + 1);
-                //cout << "Choosing unvisited node " << neighbor_x << ", " << neighbor_y << endl;
             }
 
         }
@@ -279,7 +272,6 @@ void msh::generate_FE_mesh(
     cout << "   no perimeter components: " << no_components << endl;
     cout << "   no unordered bound nodes: " << boundary_node_coords.size() << endl;
     cout << "   no ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
-    //cout << "ordered bound nodes: "; fessga::help::print_vector(&ordered_boundary_node_coords);
 
     // ---- Generate boundary lines ---- //
     int tag = 1;

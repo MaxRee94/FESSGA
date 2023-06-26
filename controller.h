@@ -22,15 +22,15 @@ class Controller {
 public:
     Controller(Input _input, string _output_folder, string action, int _dim_x, int _dim_y, int _dim_z, int size)
     {
+        // Initialize member variables
         input = _input; output_folder = _output_folder;
         dim_x = _dim_x, dim_y = _dim_y, dim_z = _dim_z;
-
-        // Initialize mesh lists
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
-
-        // Initialize gui
         GUI gui = GUI(V_list, F_list);
+        
+        // Initialize RNG
+        help::init_RNG();
 
         // Load mesh
         MatrixXd V;
@@ -174,8 +174,8 @@ void Controller::create_parents(grd::Densities2d parent1, grd::Densities2d paren
 Test 2-point crossover of two 2d parent solutions. Print parents and children to console
 */
 bool Controller::test_2d_crossover() {
-    grd::Densities2d parent1(dim_x, dim_y, mesh.diagonal);
-    grd::Densities2d parent2(dim_x, dim_y, mesh.diagonal);
+    evo::Individual2d parent1(dim_x, dim_y, mesh.diagonal);
+    evo::Individual2d parent2(dim_x, dim_y, mesh.diagonal);
     double max_stress = 1e9; // arbitrary maximum stress
     int max_iterations = 100;
     bool export_msh = false;
@@ -191,8 +191,8 @@ bool Controller::test_2d_crossover() {
     string output_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
-    grd::Densities2d child1(dim_x, dim_y, mesh.diagonal);
-    grd::Densities2d child2(dim_x, dim_y, mesh.diagonal);
+    evo::Individual2d child1(dim_x, dim_y, mesh.diagonal);
+    evo::Individual2d child2(dim_x, dim_y, mesh.diagonal);
     Evolver evolver = Evolver(
         msh_file, fe_case, mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2,
         max_stress, parent1, max_iterations

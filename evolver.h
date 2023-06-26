@@ -14,7 +14,7 @@
 using namespace fessga;
 
 
-bool variation_minimum_passed(vector<grd::Densities2d> population, int pop_size, int no_cells, float threshold);
+bool variation_minimum_passed(vector<evo::Individual2d> population, int pop_size, int no_cells, float threshold);
 
 
 class Evolver : public OptimizerBase {
@@ -22,8 +22,8 @@ public:
 	Evolver() = default;
 	Evolver(
 		string _msh_file, string _fe_case, msh::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
-		function<bool(vector<grd::Densities2d>, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
-		grd::Densities2d _starting_densities, int _max_iterations, bool _export_msh = false, bool _verbose = true,
+		function<bool(vector<evo::Individual2d>, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
+		evo::Individual2d _starting_densities, int _max_iterations, bool _export_msh = false, bool _verbose = true,
 		float _initial_perturbation_size = 0.5, float variance_treshold = 0.5
 	) : OptimizerBase(
 		_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
@@ -33,10 +33,9 @@ public:
 		tournament_size = _tournament_size;
 		termination_condition = _termination_condition;
 		initial_perturbation_size = _initial_perturbation_size;
-		srand(time(NULL));
 	}
-	void do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2, grd::Densities2d child1, grd::Densities2d child2);
-	void do_2d_mutation(grd::Densities2d densities, float _mutation_rate);
+	void do_2d_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
+	void do_2d_mutation(evo::Individual2d densities, float _mutation_rate);
 	void init_population();
 	void do_evolution();
 private:
@@ -45,6 +44,6 @@ private:
 	float initial_perturbation_size = 0;
 	float variance_treshold = 0;
 	int tournament_size = 1;
-	vector<grd::Densities2d>* population = 0;
-	function<bool(vector<grd::Densities2d>, int, int, float)> termination_condition = 0;
+	vector<evo::Individual2d>* population = 0;
+	function<bool(vector<evo::Individual2d>, int, int, float)> termination_condition = 0;
 };
