@@ -17,7 +17,7 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		string _msh_file, string _fe_case, mesher::SurfaceMesh _mesh, string _output_folder,
+		string _msh_file, string _fe_case, msh::SurfaceMesh _mesh, string _output_folder,
 		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
@@ -31,9 +31,9 @@ public:
 		max_iterations = _max_iterations;
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
-		mesher::derive_boundary_conditions(densities, bound_conds, mesh, fe_case);
+		msh::derive_boundary_conditions(densities, bound_conds, mesh, fe_case);
 	};
-	mesher::SurfaceMesh mesh;
+	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
 	int no_cells = 1;
 	double max_stress_threshold = 0.0;

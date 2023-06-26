@@ -56,7 +56,7 @@ namespace fessga {
             }
             Densities2d(int _dim_x, int _dim_y, Vector3d diagonal) {
                 construct_grid(_dim_x, _dim_y);
-                init_cell_size(diagonal);
+                compute_cellsize(diagonal);
             }
             int get_idx(int x, int y) {
                 return x * dim_y + y;
@@ -73,10 +73,11 @@ namespace fessga {
             }
             void redo_count() {
                 _count = 0;
-                for (int i = 0; i < size; i++) if (values[i] == 1) _count++;
+                for (int i = 0; i < size; i++) _count += values[i];
             }
             void update_count() {
-                if (_count == -1) redo_count();
+                if (_count == -2) redo_count(); // Values have been set using the set() function and can be safely recounted.
+                else if (_count == -1) cerr << "Cannot count density values because the array has not been completely filled.\n" << endl;
             }
             void fill(int idx) {
                 update_count();
@@ -91,10 +92,10 @@ namespace fessga {
             }
             // Set a value without updating the _count. Count will be reset to -1.
             void set(int idx, uint value) {
-                _count = -1;
+                _count = -2;
                 values[idx] = value;
             }
-            void set(uint* values_ptr) {
+            void replace_values(uint* values_ptr) {
                 values = values_ptr;
                 redo_count();
             }
@@ -171,25 +172,65 @@ namespace fessga {
             int dim_x = 0;
             int dim_y = 0;
             int size = 0;
+            int no_dimensions = 2;
             Vector2d cell_size;
-        private:
-            void construct_grid(int _dim_x, int _dim_y) {
+
+        protected:
+            uint* values = 0;
+            uint* snapshot = 0;
+            int _count = 0;
+            int _snapshot_count = 0;
+
+            virtual void construct_grid(int _dim_x, int _dim_y, int _ = 0) {
                 dim_x = _dim_x;
                 dim_y = _dim_y;
                 size = dim_x * dim_y;
                 values = new uint[size];
                 snapshot = new uint[size];
+                delete_all(); // Initialize all values to zero
             }
-            void init_cell_size(Vector3d diagonal) {
+            virtual void compute_cellsize(Vector3d diagonal) {
                 Vector2d _diagonal2d = Vector2d(diagonal(0), diagonal(1));
                 cell_size = _diagonal2d.cwiseProduct(
                     Vector2d(1.0 / (double)dim_x, 1.0 / (double)dim_y)
                 );
             }
-            int _count = -1;
-            int _snapshot_count = -1;
-            uint* values = 0;
-            uint* snapshot = 0;
+        };
+
+        class Densities3d : public Densities2d {
+        public:
+            Densities3d(){ no_dimensions = 3; };
+            Densities3d(int _dim_x, int _dim_y, int _dim_z, Vector3d diagonal) {
+                construct_grid(_dim_x, _dim_y, _dim_z);
+                compute_cellsize(diagonal);
+            }
+            string do_export(string output_folder);
+            void generate(Vector3d offset, MatrixXd* V, MatrixXi* F);
+            void filter();
+            void create_slice(Densities2d& densities2d, int dimension, int offset);
+
+            Vector3d cell_size;
+            int dim_z = 0;
+
+        protected:
+            void construct_grid(int _dim_x, int _dim_y, int _dim_z) override {
+                dim_x = _dim_x;
+                dim_y = _dim_y;
+                dim_z = _dim_z;
+                size = dim_x * dim_y * dim_z;
+                values = new uint[size];
+                snapshot = new uint[size];
+                delete_all(); // Initialize all values to zero
+            }
+            void compute_cellsize(Vector3d diagonal) override {
+                cell_size = diagonal.cwiseProduct(
+                    Vector3d(1.0 / (double)dim_x, 1.0 / (double)dim_y, 1.0 / (double)dim_z)
+                );
+            }
+            void fill_cells_inside_mesh(Vector3d offset, MatrixXd* V, MatrixXi* F);
+            void create_x_slice(grd::Densities2d& densities2d, int x);
+            void create_y_slice(grd::Densities2d& densities2d, int y);
+            void create_z_slice(grd::Densities2d& densities2d, int z);
         };
     };
 }

@@ -20,9 +20,10 @@ struct Input {
 
 class Controller {
 public:
-    Controller(Input _input, string _output_folder, string action, int dim_x, int dim_y, int dim_z, int size)
+    Controller(Input _input, string _output_folder, string action, int _dim_x, int _dim_y, int _dim_z, int size)
     {
         input = _input; output_folder = _output_folder;
+        dim_x = _dim_x, dim_y = _dim_y, dim_z = _dim_z;
 
         // Initialize mesh lists
         vector<MatrixXd> V_list;
@@ -34,45 +35,38 @@ public:
         // Load mesh
         MatrixXd V;
         MatrixXi F;
-        if (input.type == "image" || input.type == "distribution") {
+        if (input.type == "image" || input.type == "distribution2d" || input.type == "distribution3d") {
             Vector3d object_size(size, size, size);
-            mesh = mesher::SurfaceMesh(object_size);
+            mesh = msh::SurfaceMesh(object_size);
             cout << "Created dummy mesh" << endl;
         }
         else {
             fessga::IO::read_mesh(input.path, V, F);
             gui.load_example(&V, &F);
-            mesh = mesher::SurfaceMesh(&V, &F);
+            mesh = msh::SurfaceMesh(&V, &F);
         }
-
-        // Create 3d grid
-        grid = grd::Grid3D(dim_x, dim_y, dim_z, mesh.diagonal);
 
         // Create output folder
         IO::create_folder_if_not_exists(output_folder);
 
-        // Load density distribution or generate it on the fly
-        load_density_distribution();
+        // Load density distribution from a file or generate it on the fly
+        init_densities();
 
         // Execute action
         if (action == "export_mesh") {
-            densities.print();
+            densities2d.print();
 
             // Obtain a grid-based FE representation based on the chosen mesh
-            mesher::FEMesh2D fe_mesh;
-            mesher::generate_FE_mesh(mesh, densities, fe_mesh);
+            msh::FEMesh2D fe_mesh;
+            msh::generate_FE_mesh(mesh, densities2d, fe_mesh);
 
             // Export the FE mesh in .msh format
-            mesher::export_as_msh_file(&fe_mesh, output_folder);
+            msh::export_as_msh_file(&fe_mesh, output_folder);
 
             // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
-            mesher::export_as_elmer_files(&fe_mesh, output_folder);
+            msh::export_as_elmer_files(&fe_mesh, output_folder);
 
-            cout << "Finished exporting FE mesh. Continuing to post actions.." << endl;
-
-            // -- Post actions
-            // Write distribution to image
-            img::write_distribution_to_image(densities, output_folder + input.name + ".jpg", 1000, 1000);
+            cout << "Finished exporting FE mesh. Continuing to post actions.." << endl;           
         }
         else if (action == "evolve") {
             // Do crossover test
@@ -83,14 +77,14 @@ public:
             run_fess();
         }
         else if (action == "export_distribution") {
-            string densities_file = densities.do_export(output_folder);
+            string densities_file = densities2d.do_export(output_folder);
             cout << "Exported density distribution to " << densities_file << endl;
         }
         else if (action == "test") {
             run_tests();
         }
     };
-    void load_density_distribution();
+    void init_densities();
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     void run_tests();
     bool test_2d_crossover();
@@ -99,10 +93,11 @@ public:
 private:
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
-    mesher::SurfaceMesh mesh;
+    msh::SurfaceMesh mesh;
+    grd::Densities2d densities2d;
+    grd::Densities3d densities3d;
     grd::Grid3D grid;
     GUI gui;
-    map<uint, uint> line_bounds;
     string mesh_description = "";
     uint no_cells;
     float domain_size;
@@ -112,41 +107,56 @@ private:
     float cell_size = 0;
     string output_folder;
     Vector3d offset;
-    grd::Densities2d densities;
     Input input;
 };
 
 
 void Controller::run_tests() {
     cout << "Running tests...\n";
+    bool success = test_2d_crossover();
+    cout << "Crossover test success? " << to_string(success) << endl;
 }
 
 
-void Controller::load_density_distribution() {
+void Controller::init_densities() {
     // Load distribution from file or generate it on the fly
-    densities = grd::Densities2d(grid.x, grid.y, mesh.diagonal);
-    if (input.type == "distribution") {
-        densities.do_import(input.path, mesh.diagonal);
+    densities2d = grd::Densities2d(dim_x, dim_y, mesh.diagonal);
+    if (input.type == "distribution2d") {
+        cout << "Importing 2d density distribution from location " << input.path << "\n";
+        densities2d.do_import(input.path, mesh.diagonal);
+    }
+    else if (input.type == "distribution3d") {
+        cout << "Importing 3d density distribution from location " << input.path << "\n";
+        densities3d.do_import(input.path, mesh.diagonal);
     }
     else if (input.type == "image") {
         cout << "Loading densities from image...\n";
         char img_path[200];
         strcpy(img_path, input.path.c_str());
-        img::load_distribution_from_image(densities, img_path);
+        img::load_distribution_from_image(densities2d, img_path);
     }
     else {
+        // Init 3d density distribution
+        densities3d = grd::Densities3d(dim_x, dim_y, dim_z, mesh.diagonal);
+
         // Generate grid-based binary density distribution based on the given (unstructured) mesh file
-        uint* densities3d = new uint[grid.x * grid.y * grid.z];
-        mesher::generate_3d_density_distribution(grid, mesh, &gui.V_list[0], &gui.F_list[0], densities3d);
+        densities3d.generate(mesh.offset, mesh.V, mesh.F);
 
         // Create slice from 3d binary density distribution for 2d surface generation
-        int z = grid.x / 2;
-        mesher::create_2d_slice(densities3d, densities, grid, z);
-        densities.filter();
+        int z = dim_z / 2;
+        densities3d.create_slice(densities2d, 2, z);
+        densities2d.filter();
 
-        // Export density distribution
-        string densities_file = densities.do_export(output_folder);
-        cout << "FESS: Exported 2d slice density distribution to file: " << densities_file << endl;
+        // Export 3d density distribution
+        string densities3d_file = densities3d.do_export(output_folder);
+        cout << "FESS: Exported 3d density distribution to file: " << densities3d_file << endl;
+
+        // Export 2d density distribution
+        string densities_file = densities2d.do_export(output_folder);
+        cout << "FESS: Exported 2d density distribution to file: " << densities_file << endl;
+
+        // Write 2d distribution to image
+        img::write_distribution_to_image(densities2d, output_folder + input.name + ".jpg", 1000, 1000);
     }
 }
 
@@ -156,14 +166,8 @@ Create 2 parent slices from the 3d binary density distribution for 2d test
 void Controller::create_parents(grd::Densities2d parent1, grd::Densities2d parent2) {
     int z1 = dim_x / 2;
     int z2 = dim_x / 2 + (dim_x / 5);
-    for (int x = 0; x < dim_x; x++) {
-        for (int y = 0; y < dim_y; y++) {
-            parent1.set(x * dim_x + y, densities[z1 * dim_x * dim_y + x * dim_x + y]);
-            parent2.set(x * dim_x + y, densities[z1 * dim_x * dim_y + x * dim_x + y]);
-        }
-    }
-    parent1.update_count();
-    parent2.update_count();
+    densities3d.create_slice(parent1, 2, z1);
+    densities3d.create_slice(parent2, 2, z2);
 }
 
 /*
@@ -182,8 +186,8 @@ bool Controller::test_2d_crossover() {
     cout << "\nParent 2: \n";
     parent2.print();
 
-    string msh_file = "../data/msh_output/test.msh";
     string fe_case = "../data/msh_output/case.sif";
+    string msh_file = "../data/msh_output/test.msh";
     string output_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
@@ -223,7 +227,7 @@ bool Controller::run_fess() {
     
     // Run optimization
     FESS fess = FESS(
-        msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities, max_iterations, greediness,
+        msh_file, fe_case, mesh, output_folder, min_stress, max_stress, densities2d, max_iterations, greediness,
         maintain_boundary_cells, export_msh, verbose
     );
     fess.run();

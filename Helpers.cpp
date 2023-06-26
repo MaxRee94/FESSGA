@@ -302,3 +302,4 @@ bool fessga::help::ends_with(string full_string, string ending) {
         return false;
     }
 }
+

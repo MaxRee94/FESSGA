@@ -47,9 +47,7 @@ namespace fessga {
 
 		static void split(string basestring, string separator, vector<string>& substrings);
 
-		/*
-		Return whether the given vector <vec> contains the integer <item>
-		 */
+		//Return whether the given vector <vec> contains the integer <item>
 		static bool is_in(std::vector<int>* vec, int item);
 
 		static void print_map(std::map<int, int>* map);
@@ -93,5 +91,6 @@ namespace fessga {
 		static void remove_largest_vector(vector<vector<int>>* vectors, int& max_size);
 
 		static bool ends_with(string full_string, string ending);
+
 	};
 };

@@ -10,7 +10,7 @@ using namespace std;
 /* 
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
-void mesher::generate_FE_mesh(
+void msh::generate_FE_mesh(
     SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh
 ) {
     // Create nodes and surfaces
@@ -23,10 +23,10 @@ void mesher::generate_FE_mesh(
             int filled = densities[x * densities.dim_y + y];
             if (filled) {
                 // Create 4 nodes that will enclose the surface element to be created (if they do not yet exist)
-                int node4_idx = mesher::add_node_if_not_exists(x, y, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
-                int node1_idx = mesher::add_node_if_not_exists(x + 1, y, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
-                int node2_idx = mesher::add_node_if_not_exists(x + 1, y + 1, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
-                int node3_idx = mesher::add_node_if_not_exists(x, y + 1, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
+                int node4_idx = msh::add_node_if_not_exists(x, y, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
+                int node1_idx = msh::add_node_if_not_exists(x + 1, y, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
+                int node2_idx = msh::add_node_if_not_exists(x + 1, y + 1, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
+                int node3_idx = msh::add_node_if_not_exists(x, y + 1, mesh.offset, densities.dim_y, node_coords, densities.cell_size, nodes, node_idx);
 
                 // Compute surface index (equals flattened coordinates + 1)
                 int surface_idx = x * densities.dim_y + y + 1;
@@ -117,7 +117,7 @@ void mesher::generate_FE_mesh(
     bool force_new_component_search = false;
     while (true) {
         if (i > (no_boundary_nodes + no_components)) {
-            node_coord = mesher::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+            node_coord = msh::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
             if (node_coord == -1) {
                 break; // If there's no unvisited nodes, break the while-loop since we're done.
             }
@@ -130,7 +130,7 @@ void mesher::generate_FE_mesh(
         // node that has not yet been visited (such a node must be part of another component, for example a hole)
         if (force_new_component_search || (i > 1 && x == start_x && y == start_y)) {
             force_new_component_search = false;
-            node_coord = mesher::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
+            node_coord = msh::find_unvisited_node(&boundary_node_coords, &ordered_boundary_node_coords);
             if (node_coord == -1) {
                 break; // If there's no unvisited nodes, break the while-loop since we're done.
             }

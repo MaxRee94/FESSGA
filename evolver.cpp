@@ -47,8 +47,6 @@ void Evolver::do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2
 			}
 		}
 	}
-	child1.update_count();
-	child2.update_count();
 }
 
 /*
@@ -63,7 +61,6 @@ void Evolver::do_2d_mutation(grd::Densities2d individual, float _mutation_rate =
 			individual.set(i, (int)(!individual[i]));
 		}
 	}
-	individual.update_count();
 	// TODO: Test if having larger perturbations (flipping a group of multiple adjacent bits with low probability) is desirable
 }
 

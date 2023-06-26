@@ -16,7 +16,7 @@ using namespace std;
 
 
 namespace fessga {
-    class mesher
+    class msh
     {
     public:
 
@@ -66,174 +66,6 @@ namespace fessga {
             vector<Element> lines;
             vector<Element> surfaces;
         };
-
-        // Define the struct for a 3d cell in the grid
-        struct Cell3D {
-            Vector3d position;
-            int density;
-        };
-
-        struct Ray {
-            Vector3d origin;
-            Vector3d direction;
-        };
-
-        struct Triangle {
-            Vector3d v0 = Vector3d(0.0, 0.0, 0.0);
-            Vector3d v1 = Vector3d(0.0, 0.0, 0.0);
-            Vector3d v2 = Vector3d(0.0, 0.0, 0.0);
-        };
-
-        static bool trace_ray(const Ray& ray, const std::vector<Triangle>& triangles, Vector3d& hitPoint, Vector3d& hit_normal) {
-            double closestDist = INFINITY;
-            bool hit = false;
-
-            for (const Triangle& triangle : triangles) {
-                Vector3d e1 = triangle.v1 - triangle.v0;
-                Vector3d e2 = triangle.v2 - triangle.v0;
-                Vector3d h = ray.direction.cross(e2);
-                double a = e1.dot(h);
-
-                if (a > -1e-8 && a < 1e-8) {
-                    continue;
-                }
-
-                double f = 1.0 / a;
-                Vector3d s = ray.origin - triangle.v0;
-                double u = f * s.dot(h);
-
-                if (u < 0 || u > 1) {
-                    continue;
-                }
-
-                Vector3d q = s.cross(e1);
-                double v = f * ray.direction.dot(q);
-
-                if (v < 0 || u + v > 1) {
-                    continue;
-                }
-
-                double dist = f * e2.dot(q);
-
-                if (dist > 1e-12 && dist < closestDist) {
-                    closestDist = dist;
-                    hit = true;
-                    hitPoint = ray.origin + ray.direction * dist;
-                    hit_normal = e1.cross(e2).normalized();
-                }
-            }
-
-            return hit;
-        }
-
-
-        /* Generate a binary density distribution on the grid based on the given mesh file
-        Input:
-        Returns (by reference):
-            densities (uint*): Array which contains a binary density value (0 or 1) for each cell in the grid
-        */
-        static void generate_3d_density_distribution(
-            grd::Grid3D grid, mesher::SurfaceMesh mesh, MatrixXd* V, MatrixXi* F, uint* densities
-        ) {
-            cout << "Generating 3d grid-based density distribution..." << endl;
-
-            // Compute the barycenter of the mesh
-            Vector3d mesh_barycent = V->colwise().mean();
-
-            // Compute vector to center of a grid cell from its corner
-            Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5).cwiseProduct(grid.cell_size);
-
-            // Initialize different ray directions, (this is a temporary fix for a bug whereby some cells
-            // are not properly assigned a density of 1)
-            vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0) };
-
-            // Create list of triangles
-            std::vector<Triangle> triangles;
-            for (int face_idx = 0; face_idx < F->rows(); face_idx++) {
-                Triangle triangle;
-                triangle.v0 = V->row(F->coeff(face_idx, 0));
-                triangle.v1 = V->row(F->coeff(face_idx, 1));
-                triangle.v2 = V->row(F->coeff(face_idx, 2));
-                triangles.push_back(triangle);
-            }
-
-            // Assign density values to cells in the grid
-            int slices_done = 0;
-#pragma omp parallel for
-            for (int x = 0; x < grid.x; x++) {
-                for (int y = 0; y < grid.y; y++) {
-                    for (int z = 0; z < grid.z; z++) {
-                        Cell3D cell;
-                        Vector3d indices; indices << x, y, z;
-                        cell.position = mesh.offset + indices.cwiseProduct(grid.cell_size) + to_cell_center;
-                        cell.density = 0;
-                        // Try three ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
-                        for (int i = 0; i < 3; i++) {
-                            // Cast ray and check for hits
-                            Ray ray;
-                            ray.origin = cell.position;
-                            ray.direction = ray_directions[i];
-                            Vector3d hitPoint;
-                            Vector3d hit_normal;
-                            bool hit = trace_ray(ray, triangles, hitPoint, hit_normal);
-
-                            // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
-                            // If so, the cell must be inside the mesh
-                            bool inside = false;
-                            if (hit) {
-                                inside = hit_normal.dot(ray.direction) > 0.0;
-                            }
-
-                            // If the cell is inside the mesh, assign density 1
-                            if (inside) {
-                                cell.density = 1;
-                                break;
-                            }
-                        }
-                        densities[x * grid.z * grid.y + y * grid.z + z] = cell.density;
-                    }
-                }
-                cout << "    Processing slice " << slices_done + 1 << " / " << grid.x << endl;
-                slices_done++;
-            }
-            cout << "Finished generating density distribution. Filtering out floating cells..." << endl;
-
-            // Filter out floating cells that have no direct neighbors
-#pragma omp parallel for
-            for (int x = 0; x < grid.x; x++) {
-                for (int y = 0; y < grid.y; y++) {
-                    for (int z = 0; z < grid.z; z++) {
-                        int filled = densities[x * grid.z * grid.y + y * grid.z + z];
-                        if (!filled) continue;
-                        int neighbor = 0;
-                        for (int _x = -1; _x <= 1; _x++) {
-                            for (int _y = -1; _y <= 1; _y++) {
-                                for (int _z = -1; _z <= 1; _z++) {
-                                    if (x+_x == grid.x || y + _y == grid.y || z+_z == grid.z) continue;
-                                    if (x + _x <= 0 || y + _y <= 0 || z + _z <= 0) continue;
-                                    neighbor = densities[(x + _x) * grid.z * grid.y + (y + _y) * grid.z + (z + _z)];
-                                    if (neighbor) break;
-                                }
-                                if (neighbor) break;
-                            }
-                            if (neighbor) break;
-                        }
-                        if (!neighbor) {
-                            densities[x * grid.z * grid.y + y * grid.z + z] = 0; // Set density to 0 if the cell has no neighbors
-                        }
-                    }
-                }
-            }
-            cout << "Finished filtering floating cells." << endl;
-        }
-
-        static void create_2d_slice(uint* densities3d, grd::Densities2d slice2d, grd::Grid3D grid, int z) {
-            for (int x = 0; x < grid.x; x++) {
-                for (int y = 0; y < grid.y; y++) {
-                    slice2d.set(x * grid.y + y, densities3d[z * grid.x * grid.y + x * grid.y + y]);
-                }
-            }
-        }
 
         static bool node_exists(std::map<int, int>* node_coords, int coords) {
             bool exists = !(node_coords->find(coords) == node_coords->end());
@@ -351,7 +183,7 @@ namespace fessga {
         static void export_as_msh_file(FEMesh2D* fe_mesh, string output_folder) {
             // Encode the FE mesh in a .msh format
             string msh_description;
-            mesher::generate_msh_description(fe_mesh, msh_description);
+            msh::generate_msh_description(fe_mesh, msh_description);
 
             // Export the .msh description to a .msh file
             string msh_output_path = output_folder + "/mesh.msh";

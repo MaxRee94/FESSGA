@@ -21,7 +21,7 @@ class Evolver : public OptimizerBase {
 public:
 	Evolver() = default;
 	Evolver(
-		string _msh_file, string _fe_case, mesher::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
+		string _msh_file, string _fe_case, msh::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
 		function<bool(vector<grd::Densities2d>, int, int, float)> _termination_condition, int _tournament_size, double _max_stress_threshold,
 		grd::Densities2d _starting_densities, int _max_iterations, bool _export_msh = false, bool _verbose = true,
 		float _initial_perturbation_size = 0.5, float variance_treshold = 0.5
@@ -33,6 +33,7 @@ public:
 		tournament_size = _tournament_size;
 		termination_condition = _termination_condition;
 		initial_perturbation_size = _initial_perturbation_size;
+		srand(time(NULL));
 	}
 	void do_2d_crossover(grd::Densities2d parent1, grd::Densities2d parent2, grd::Densities2d child1, grd::Densities2d child2);
 	void do_2d_mutation(grd::Densities2d densities, float _mutation_rate);

@@ -1,5 +1,5 @@
 #include "densities.h"
-
+#include "raytracing.h"
 
 
 // Remove floating cells (i.e. cells that have no direct neighbors)
@@ -43,13 +43,30 @@ string fessga::grd::Densities2d::do_export(string output_folder) {
         }
     }
     content += "\n";
-    IO::write_text_to_file(content, output_folder + "/distribution.dens");
-    return output_folder + "/distribution.dens";
+    IO::write_text_to_file(content, output_folder + "/distribution2d.dens");
+    return output_folder + "/distribution2d.dens";
 }
 
+/*
+* Export 3d density distribution to file
+*/
+string fessga::grd::Densities3d::do_export(string output_folder) {
+    string content = "3\n";
+    content += to_string(dim_x) + "\n" + to_string(dim_y) + "\n" + to_string(dim_z) + "\n";
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            for (int z = 0; z < dim_z; z++) {
+                content += to_string(values[x * dim_y * dim_z + y * dim_z + z]);
+            }
+        }
+    }
+    content += "\n";
+    IO::write_text_to_file(content, output_folder + "/distribution3d.dens");
+    return output_folder + "/distribution3d.dens";
+}
 
 /*
-* Import 2d density distribution from file
+* Import density distribution from file
 */
 void fessga::grd::Densities2d::do_import(string path, Vector3d diagonal) {
     // Get a vector of strings representing the lines in the file
@@ -57,29 +74,29 @@ void fessga::grd::Densities2d::do_import(string path, Vector3d diagonal) {
     IO::read_file_content(path, lines);
 
     // Get the number of dimensions of the distribution
-    int no_dimensions = stoi(lines[0]);
-
-    // Get the sizes of the grid along each axis
-    int dim_x = stoi(lines[1]), dim_y = stoi(lines[2]);
-    if (no_dimensions == 3) {
-        cerr << "Error: Densities file " << path << " contains an (incompatible) 3d density distribution.\n";
-        return;
+    int _no_dimensions = stoi(lines[0]);
+    int _dim_x = stoi(lines[1]), _dim_y = stoi(lines[2]);
+    if (_no_dimensions == 3) {
+        if (no_dimensions == 2) {
+            cerr << "Error: Cannot load a 3d density distribution using a Densities2d object. Use Densities3d instead.\n";
+            return;
+        }
+        int _dim_z = stoi(lines[3]);
+        construct_grid(_dim_x, _dim_y, _dim_z);
     }
-
-    // Construct a grid
-    int grid_size = dim_x * dim_y;
-    construct_grid(dim_x, dim_y);
+    else construct_grid(_dim_x, _dim_y);
 
     // Fill the densities array with the binary values stored in the last line of the file
-    string densities_line = lines[no_dimensions + 1];
-    for (int i = 0; i < grid_size; i++) {
+    string densities_line = lines[_no_dimensions + 1];
+    for (int i = 0; i < size; i++) {
         set(i, densities_line[i] - '0');
     }
     update_count();
 
-    // Update cell size
-    init_cell_size(diagonal);
+    // Initialize cell size
+    compute_cellsize(diagonal);
 }
+
 
 // Return the indices of the 'true neighbors' of the cell at the given coordinates.
 // True neighbors are here defined as filled neighbor cells that share a line with the given cell
@@ -290,7 +307,7 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         if (smaller_piece != 0) {
             vector<int> _removed_cell = { cell_coord };
             //cout << "\ntotal no cells: " << total_no_cells - count << endl;
-            //cout << "is single piece before element removal: " << mesher::is_single_piece(
+            //cout << "is single piece before element removal: " << msh::is_single_piece(
             //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
             del(cell_coord);
             cell_from_smaller_piece = smaller_piece->cells[0];
@@ -328,7 +345,7 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         if (smaller_piece != 0) {
             vector<int> _removed_cell = { cell_coord };
             //cout << "total no cells: " << total_no_cells - count << endl;
-            //cout << "is single piece after neighbor checking / deletion: " << mesher::is_single_piece(
+            //cout << "is single piece after neighbor checking / deletion: " << msh::is_single_piece(
             //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
         }
 
@@ -425,6 +442,140 @@ vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
     }
 
     return removed_piece_indices;
+}
+
+void fessga::grd::Densities3d::filter() {
+    // Filter out floating cells that have no direct neighbors
+#pragma omp parallel for
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            for (int z = 0; z < dim_z; z++) {
+                int filled = values[x * dim_z * dim_y + y * dim_z + z];
+                if (!filled) continue;
+                int neighbor = 0;
+                for (int _x = -1; _x <= 1; _x++) {
+                    for (int _y = -1; _y <= 1; _y++) {
+                        for (int _z = -1; _z <= 1; _z++) {
+                            if (x + _x == dim_x || y + _y == dim_y || z + _z == dim_z) continue;
+                            if (x + _x <= 0 || y + _y <= 0 || z + _z <= 0) continue;
+                            neighbor = values[(x + _x) * dim_z * dim_y + (y + _y) * dim_z + (z + _z)];
+                            if (neighbor) break;
+                        }
+                        if (neighbor) break;
+                    }
+                    if (neighbor) break;
+                }
+                if (!neighbor) {
+                    del(x * dim_z * dim_y + y * dim_z + z); // Set density to 0 if the cell has no neighbors
+                }
+            }
+        }
+    }
+    cout << "Finished filtering floating cells." << endl;
+}
+
+void fessga::grd::Densities3d::fill_cells_inside_mesh(Vector3d offset, MatrixXd* V, MatrixXi* F) {
+    // Compute the barycenter of the mesh
+    Vector3d mesh_barycent = V->colwise().mean();
+
+    // Compute vector to center of a grid cell from its corner
+    Vector3d to_cell_center = Vector3d(0.5, 0.5, 0.5).cwiseProduct(cell_size);
+
+    // Initialize different ray directions, (this is a temporary fix for a bug whereby some cells
+    // are not properly assigned a density of 1)
+    vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0) };
+
+    // Create list of triangles
+    std::vector<tracer::Triangle> triangles;
+    for (int face_idx = 0; face_idx < F->rows(); face_idx++) {
+        tracer::Triangle triangle;
+        triangle.v0 = V->row(F->coeff(face_idx, 0));
+        triangle.v1 = V->row(F->coeff(face_idx, 1));
+        triangle.v2 = V->row(F->coeff(face_idx, 2));
+        triangles.push_back(triangle);
+    }
+
+    int slices_done = 0;
+#pragma omp parallel for
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            for (int z = 0; z < dim_z; z++) {
+                tracer::Cell3D cell;
+                Vector3d indices; indices << x, y, z;
+                cell.position = offset + indices.cwiseProduct(cell_size) + to_cell_center;
+                cell.density = 0;
+                // Try three ray directions (temporary bug fix, see 'Initialize two different ray directions' above) 
+                for (int i = 0; i < 3; i++) {
+                    // Cast ray and check for hits
+                    tracer::Ray ray;
+                    ray.origin = cell.position;
+                    ray.direction = ray_directions[i];
+                    Vector3d hitPoint;
+                    Vector3d hit_normal;
+                    bool hit = tracer::trace_ray(ray, triangles, hitPoint, hit_normal);
+
+                    // If there was a hit, check if the hit triangle's normal points in the same direction as the ray
+                    // If so, the cell must be inside the mesh
+                    bool inside = false;
+                    if (hit) {
+                        inside = hit_normal.dot(ray.direction) > 0.0;
+                    }
+
+                    // If the cell is inside the mesh, assign density 1
+                    if (inside) {
+                        cell.density = 1;
+                        break;
+                    }
+                }
+                set(x * dim_z * dim_y + y * dim_z + z, cell.density);
+            }
+        }
+        cout << "    Processed slice " << slices_done + 1 << " / " << dim_x << endl;
+        slices_done++;
+    }
+}
+
+/* Generate a binary density distribution on the grid based on the given mesh
+*/
+void fessga::grd::Densities3d::generate(Vector3d offset, MatrixXd* V, MatrixXi* F) {
+    cout << "Generating 3d grid-based density distribution..." << endl;
+    fill_cells_inside_mesh(offset, V, F);
+    update_count();
+    filter();
+    cout << "Finished generating density distribution." << endl;
+}
+
+void fessga::grd::Densities3d::create_x_slice(grd::Densities2d& densities2d, int x) {
+    for (int z = 0; z < dim_z; z++) {
+        for (int y = 0; y < dim_y; y++) {
+            densities2d.set(x * dim_y + y, values[z * dim_x * dim_y + x * dim_y + y]);
+        }
+    }
+}
+
+void fessga::grd::Densities3d::create_y_slice(grd::Densities2d& densities2d, int y) {
+    for (int x = 0; x < dim_x; x++) {
+        for (int z = 0; z < dim_z; z++) {
+            densities2d.set(x * dim_y + y, values[z * dim_x * dim_y + x * dim_y + y]);
+        }
+    }
+}
+
+void fessga::grd::Densities3d::create_z_slice(grd::Densities2d& densities2d, int z) {
+    for (int x = 0; x < dim_x; x++) {
+        for (int y = 0; y < dim_y; y++) {
+            densities2d.set(x * dim_y + y, values[z * dim_x * dim_y + x * dim_y + y]);
+        }
+    }
+}
+
+void fessga::grd::Densities3d::create_slice(grd::Densities2d& densities2d, int dimension, int offset) {
+    switch (dimension) {
+        case 0: create_x_slice(densities2d, offset); return;
+        case 1: create_y_slice(densities2d, offset); return;
+        case 2: create_z_slice(densities2d, offset); return;
+    }
+    densities2d.update_count();
 }
 
 // Save a copy of the current state of the density distribution

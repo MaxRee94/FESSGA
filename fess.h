@@ -17,7 +17,7 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		string _msh_file, string _fe_case, mesher::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
+		string _msh_file, string _fe_case, msh::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
 		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, float _greediness,
 		bool _maintain_boundary_cells, bool _export_msh = false, bool _verbose = true
 	) : OptimizerBase(_msh_file, _fe_case, _mesh, _output_folder, _max_stress_threshold, _densities, _max_iterations, _export_msh, _verbose)
@@ -33,7 +33,7 @@ public:
 	void log_termination(string final_valid_iteration_folder, int final_valid_iteration);
 	void FESS::handle_floating_pieces(
 		grd::Densities2d densities, grd::Case* fe_case, int& total_no_cells, vector<int>* removed_cells, FEResults2D* fe_results,
-		int& no_cells_removed, mesher::FEMesh2D* fe_mesh, int& no_cells_to_remove, bool recurse = true
+		int& no_cells_removed, msh::FEMesh2D* fe_mesh, int& no_cells_to_remove, bool recurse = true
 	);
 };
 
@@ -51,7 +51,7 @@ void flush_whitelist(grd::Case* fe_case, bool& whitelist_flushed) {
 
 void FESS::handle_floating_pieces(
 	grd::Densities2d densities, grd::Case* fe_case, int& total_no_cells, vector<int>* removed_cells, FEResults2D* fe_results,
-	int& no_cells_removed, mesher::FEMesh2D* fe_mesh, int& no_cells_to_remove, bool recurse
+	int& no_cells_removed, msh::FEMesh2D* fe_mesh, int& no_cells_to_remove, bool recurse
 ) {
 	int no_pieces = 1;
 	vector<grd::Piece> pieces;
@@ -160,20 +160,20 @@ void FESS::run() {
 
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
-		mesher::FEMesh2D fe_mesh;
-		mesher::generate_FE_mesh(mesh, densities, fe_mesh);
+		msh::FEMesh2D fe_mesh;
+		msh::generate_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
 
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
-		mesher::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
-		mesher::assemble_fe_case(&fe_case, &bound_id_lookup);
+		msh::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
+		msh::assemble_fe_case(&fe_case, &bound_id_lookup);
 		IO::write_text_to_file(fe_case.content, cur_output_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";
 
 		// Export newly generated FE mesh
-		mesher::export_as_elmer_files(&fe_mesh, cur_output_folder);
-		if (export_msh) mesher::export_as_msh_file(&fe_mesh, cur_output_folder);
+		msh::export_as_elmer_files(&fe_mesh, cur_output_folder);
+		if (export_msh) msh::export_as_msh_file(&fe_mesh, cur_output_folder);
 		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh.\n";
 		else cout << "FESS: ERROR: Failed to export new FE mesh.\n";
 
@@ -183,7 +183,7 @@ void FESS::run() {
 		if (last_iteration_was_valid && verbose) densities.print();
 
 		// Call Elmer to run FEA on new FE mesh
-		string batch_file = mesher::create_batch_file(cur_output_folder);
+		string batch_file = msh::create_batch_file(cur_output_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
 		fessga::phys::call_elmer(batch_file);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
