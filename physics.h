@@ -32,18 +32,31 @@ using namespace Eigen;
 
 namespace fessga {
 
-    class FEResults2D {
-    public:
-        FEResults2D(int dim_x, int dim_y) { x = dim_x, y = dim_y; }
-        PairSet data;
-        map<int, double> data_map;
-        int x, y;
-        string type;
-        double min, max;
-    };
-
     class phys {
     public:
+
+        class FEACase {
+        public:
+            FEACase() = default;
+            FEACase(string _path) : path(_path) {}
+            string path;
+            vector<string> names, sections;
+            vector<int> boundary_cells;
+            vector<int> whitelisted_cells;
+            string content;
+            double max_stress_threshold = INFINITY;
+        };
+
+        class FEAResults2D {
+        public:
+            FEAResults2D() = default;
+            FEAResults2D(int dim_x, int dim_y) { x = dim_x, y = dim_y; }
+            PairSet data;
+            map<int, double> data_map;
+            int x, y;
+            string type;
+            double min, max;
+        };
 
         static void call_elmer(string bat_file, bool verbose = false) {
             std::string command = bat_file;
@@ -56,7 +69,7 @@ namespace fessga {
         }
 
         static bool load_2d_physics_data(
-            string filename, FEResults2D& results, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, char* data_type)
+            string filename, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, char* data_type)
         {
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
@@ -122,11 +135,11 @@ namespace fessga {
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
                 int cell_coord = x * dim_y + y;
-                results.data_map[cell_coord] = cell_stress;
+                results->data_map.insert(pair(cell_coord, cell_stress));
             }
-            help::sort(results.data_map, results.data);
-            results.min = min_stress;
-            results.max = max_stress;
+            help::sort(results->data_map, results->data);
+            results->min = min_stress;
+            results->max = max_stress;
 
             //cout << "\nNonzero physics values: " << endl;
 

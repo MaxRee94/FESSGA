@@ -121,7 +121,7 @@ vector<int> fessga::grd::Densities2d::get_true_neighbors(int idx) {
 }
 
 // Get number of connected cells of the given cell using a version of floodfill
-int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piece, grd::Case* fe_case, bool verbose) {
+int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piece, phys::FEACase* fea_case, bool verbose) {
     piece.cells = { cell_coord };
     int i = 0;
     while (i < piece.cells.size()) {
@@ -129,9 +129,9 @@ int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piec
         for (int j = 0; j < neighbors.size(); j++) {
             if (!help::is_in(&piece.cells, neighbors[j])) {
                 piece.cells.push_back(neighbors[j]);
-                if (fe_case != 0 && piece.is_removable) {
+                if (fea_case != 0 && piece.is_removable) {
                     // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
-                    if (help::is_in(&fe_case->boundary_cells, neighbors[j])) {
+                    if (help::is_in(&fea_case->boundary_cells, neighbors[j])) {
                         piece.is_removable = false;
                     }
                 }
@@ -145,7 +145,7 @@ int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piec
 // Return whether the cell at the given coordinates is safe to remove. Also remove neighbor cells that become invalid as a result of
 // deleting the given cell.
 bool fessga::grd::Densities2d::cell_is_safe_to_delete(
-    int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, grd::Case* fe_case
+    int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, phys::FEACase* fea_case
 ) {
     vector<int> neighbors = get_true_neighbors(cell_coord);
     for (auto& neighbor : neighbors) {
@@ -155,7 +155,7 @@ bool fessga::grd::Densities2d::cell_is_safe_to_delete(
         // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
         if (sub_neighbors.size() <= 1) {
             // If the cell has a line on which a boundary condition was applied, skip deletion
-            if (help::is_in(&fe_case->boundary_cells, neighbor) || help::is_in(&fe_case->whitelisted_cells, neighbor)) {
+            if (help::is_in(&fea_case->boundary_cells, neighbor) || help::is_in(&fea_case->whitelisted_cells, neighbor)) {
                 return false;
             }
             no_deleted_neighbors++;
@@ -166,12 +166,9 @@ bool fessga::grd::Densities2d::cell_is_safe_to_delete(
     return true;
 }
 
-// Return cell that was not yet visited
-int fessga::grd::Densities2d::get_unvisited_cell(
-    vector<int>* visited_cells, vector<int>* removed_cells
-) {
+int fessga::grd::Densities2d::get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells) {
     int unvisited_cell = -1;
-    for (auto& removed_cell : (*removed_cells)) {
+    for (auto& removed_cell : removed_cells) {
         // At least one of the neighbors of the last-removed cells must belong to the other piece
         vector<int> neighbors = get_true_neighbors(removed_cell);
         for (auto& neighbor : neighbors) {
@@ -184,36 +181,48 @@ int fessga::grd::Densities2d::get_unvisited_cell(
     return unvisited_cell;
 }
 
+int fessga::grd::Densities2d::get_cell_not_in_vector(vector<int>* cells_vector) {
+    for (int cell = 0; cell < size; cell++) {
+        bool cell_is_member = help::is_in(cells_vector, cell);
+        if (!cell_is_member) return cell;
+    }
+    return -1;
+}
+
+
+// Return cell that was not yet visited
+int fessga::grd::Densities2d::get_unvisited_cell(vector<int>* visited_cells) {
+    if (removed_cells.size() > 0) return get_unvisited_neighbor_of_removed_cell(visited_cells);
+    else return get_cell_not_in_vector(visited_cells);
+}
+
 // Get the pieces inside the density distribution
-void fessga::grd::Densities2d::get_pieces(
-    grd::Case* fe_case, vector<Piece>* pieces, vector<int>* visited_cells, int& cells_left,
-    vector<int>* removed_cells, int& no_pieces, int _start_cell
-) {
+void fessga::grd::Densities2d::get_pieces(vector<int>* visited_cells, int cells_left, int _start_cell) {
     Piece piece;
     int start_cell = -1;
-    if (_start_cell > -1) start_cell = _start_cell;
-    else {
+    if (cells_left == -1) cells_left = count();
+    if (_start_cell != -1) start_cell = _start_cell;
+    else if (removed_cells.size() > 0) {
         // If no start cell was provided as an argument, pick one of the neighbors of one of the removed cells
-        for (int i = 0; i < removed_cells->size(); i++) {
-            vector<int> neighbors = get_true_neighbors(removed_cells->at(i));
+        for (int i = 0; i < removed_cells.size(); i++) {
+            vector<int> neighbors = get_true_neighbors(removed_cells.at(i));
             if (neighbors.size() > 0) { start_cell = neighbors[0]; break; }
         }
     }
-    if (start_cell == -1) start_cell = fe_case->boundary_cells[0];
-    int piece_size = get_no_connected_cells(start_cell, piece, fe_case);
+    else start_cell = fea_case->boundary_cells[0];
+    int piece_size = get_no_connected_cells(start_cell, piece, fea_case);
     pieces->push_back(piece);
 
     // Check if the shape consists of one piece or several
     if (piece_size < cells_left) {
-        no_pieces++;
         cells_left -= piece_size;
         for (int i = 0; i < piece_size; i++) visited_cells->push_back(piece.cells[i]);
 
         // Recurse if there are still unvisited cells left
         if (cells_left > 0) {
-            int unvisited_cell = get_unvisited_cell(visited_cells, removed_cells);
-            if (unvisited_cell == -1) return;
-            get_pieces(fe_case, pieces, visited_cells, cells_left, removed_cells, no_pieces, unvisited_cell);
+            int unvisited_cell = get_unvisited_cell(visited_cells);
+            if (unvisited_cell == -1) cerr << "No unvisited cell found, but there are still cells left that haven't been visited (" << cells_left << ")\n";
+            get_pieces(visited_cells, cells_left, unvisited_cell);
         }
     }
 }
@@ -236,22 +245,22 @@ void fessga::grd::Densities2d::restore_removed_pieces(vector<grd::Piece>* remove
 
 // Return whether or not the shape consists of a single piece
 bool fessga::grd::Densities2d::is_single_piece(
-    grd::Case* fe_case, int& total_no_cells, vector<int>* removed_cells, int _start_cell, bool verbose
+    phys::FEACase* fea_case, vector<int>* removed_cells, int _start_cell, bool verbose
 ) {
     grd::Piece piece;
     int start_cell;
     if (_start_cell > -1) start_cell = _start_cell;
-    else start_cell = fe_case->boundary_cells[0];
+    else start_cell = fea_case->boundary_cells[0];
     int piece_size = get_no_connected_cells(start_cell, piece);
     if (verbose) {
         cout << "\npiece size: " << piece_size << endl;
-        cout << "total no cells: " << total_no_cells << endl;
+        cout << "total no cells: " << count() << endl;
     }
 
     // Check if the shape consists of one piece or multiple
-    if (piece_size < total_no_cells) {
-        int unvisited_cell = get_unvisited_cell(&piece.cells, removed_cells);
-        if (unvisited_cell < 0 && (total_no_cells - piece_size == 1 || piece_size == 1)) return true;
+    if (piece_size < count()) {
+        int unvisited_cell = get_unvisited_cell(&piece.cells);
+        if (unvisited_cell < 0 && (count() - piece_size == 1 || piece_size == 1)) return true;
 
         return false;
     }
@@ -271,14 +280,11 @@ void fessga::grd::Densities2d::remove_largest_piece(vector<grd::Piece>* pieces, 
     pieces->erase(pieces->begin() + largest_piece_idx);
 }
 
-int fessga::grd::Densities2d::remove_low_stress_cells(
-    PairSet* fe_results, grd::Case* fe_case, int no_cells_to_remove,
-    vector<int>& removed_cells, double max_stress_threshold, grd::Piece* smaller_piece, int total_no_cells
-) {
-    int count = 0;
+int fessga::grd::Densities2d::remove_low_stress_cells(int no_cells_to_remove, grd::Piece* smaller_piece) {
+    int no_cells_removed = 0;
     int cell_from_smaller_piece;
     int no_iterations_without_removal = -1;
-    for (auto& item : (*fe_results)) {
+    for (auto& item : fea_results->data) {
         no_iterations_without_removal++;
         if (no_iterations_without_removal > 100) {
             cout << "WARNING: 100 cells in a row could not be removed. There may be no more cells to remove.\n";
@@ -287,15 +293,15 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         double cell_stress = item.second;
 
         // If the cell's stress exceeds the maximum, break the loop (all subsequent cells will also exceed the maximum since the list is ordered).
-        if (cell_stress > max_stress_threshold) continue;
+        if (cell_stress > fea_case->max_stress_threshold) continue;
 
         // If the cell has a line on which a boundary condition was applied, skip deletion
-        if (help::is_in(&fe_case->boundary_cells, cell_coord)) {
+        if (help::is_in(&fea_case->boundary_cells, cell_coord)) {
             continue;
         }
 
         // If the cell was previously whitelisted, skip deletion
-        if (help::is_in(&fe_case->whitelisted_cells, cell_coord)) {
+        if (help::is_in(&fea_case->whitelisted_cells, cell_coord)) {
             continue;
         }
 
@@ -308,12 +314,13 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
             vector<int> _removed_cell = { cell_coord };
             //cout << "\ntotal no cells: " << total_no_cells - count << endl;
             //cout << "is single piece before element removal: " << msh::is_single_piece(
-            //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+            //    densities, grid, fea_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
             del(cell_coord);
             cell_from_smaller_piece = smaller_piece->cells[0];
+            int total_no_cells = count();
             bool verbose = no_iterations_without_removal > 100;
             bool _is_single_piece = is_single_piece(
-                fe_case, total_no_cells, &_removed_cell, cell_from_smaller_piece, verbose
+                fea_case, &_removed_cell, cell_from_smaller_piece, verbose
             );
             //if (verbose) cout << "is single piece after deleting cell " << cell_coord / grid.y << ", " << cell_coord % grid.y << " ? " << _is_single_piece << endl;
             if (!_is_single_piece) {
@@ -324,57 +331,56 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
                 // Cell removal resulted in multiple pieces. Restore cell and whitelist it.
                 fill(cell_coord);
                 //cout << "restored cell." << endl;
-                fe_case->whitelisted_cells.push_back(cell_coord);
+                fea_case->whitelisted_cells.push_back(cell_coord);
                 continue;
             }
-            if (count % (no_cells_to_remove / 10) == 0) cout << "no removed cells: " << count << " / " << no_cells_to_remove << endl;
-            count++;
-            total_no_cells--;
+            if (no_cells_removed % (no_cells_to_remove / 10) == 0) cout << "no removed cells: " << no_cells_removed << " / " << no_cells_to_remove << endl;
+            no_cells_removed++;
         }
 
         // If cell deletion leads to infeasibility, skip deletion
         int no_deleted_neighbors = 0;
-        if (!cell_is_safe_to_delete(cell_coord, &removed_cells, no_deleted_neighbors, fe_case)) {
+        if (!cell_is_safe_to_delete(cell_coord, &removed_cells, no_deleted_neighbors, fea_case)) {
             fill(cell_coord);
             //cout << "cell is not safe to delete" << endl;
             continue;
         }
-        count += no_deleted_neighbors;
-        total_no_cells -= no_deleted_neighbors;
+        no_cells_removed += no_deleted_neighbors;
 
         if (smaller_piece != 0) {
             vector<int> _removed_cell = { cell_coord };
             //cout << "total no cells: " << total_no_cells - count << endl;
             //cout << "is single piece after neighbor checking / deletion: " << msh::is_single_piece(
-            //    densities, grid, fe_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
+            //    densities, grid, fea_case, total_no_cells - count, &_removed_cell, smaller_piece->cells[0]) << endl;
         }
 
         // Set cell to zero, making it empty
         del(cell_coord);
-        if (!smaller_piece) count++;
+        if (!smaller_piece) no_cells_removed++;
         removed_cells.push_back(cell_coord);
         no_iterations_without_removal = 0;
-        if (count >= no_cells_to_remove) break;
+        if (no_cells_removed >= no_cells_to_remove) break;
     }
-    fe_case->whitelisted_cells.clear();
-    return count;
+    fea_case->whitelisted_cells.clear();
+    return no_cells_removed;
 }
 
 // Remove a floating piece (if possible)
 bool fessga::grd::Densities2d::remove_floating_piece(
-    grd::Piece* piece, double max_stress_threshold, grd::Case* fe_case, FEResults2D* fe_results,
+    grd::Piece* piece, double max_stress_threshold, phys::FEACase* fea_case, phys::FEAResults2D* fea_results,
     int& total_no_cells, bool maintain_boundary_cells
 ) {
     vector<int> removed_cells;
     for (auto& cell : piece->cells) {
         // TODO: The last two conditions of the following if-statement should not be necessary, but they are. Figure out why.
-        bool cell_cannot_be_removed = fe_results->data_map[cell] > max_stress_threshold ||
-            (help::is_in(&fe_case->boundary_cells, cell) || help::is_in(&fe_case->whitelisted_cells, cell)
+        bool cell_cannot_be_removed = fea_results->data_map[cell] > max_stress_threshold ||
+            (help::is_in(&fea_case->boundary_cells, cell) || help::is_in(&fea_case->whitelisted_cells, cell)
                 );
         if (cell_cannot_be_removed) {
             if (maintain_boundary_cells) {
                 restore_removed_cells(&removed_cells);
                 total_no_cells += removed_cells.size();
+                _count += removed_cells.size();
                 piece->is_removable = false;
                 return false;
             }
@@ -390,11 +396,12 @@ bool fessga::grd::Densities2d::remove_floating_piece(
 
 // Remove all pieces smaller than the largest piece from the mesh, if possible
 vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
-    grd::Case* fe_case, int total_no_cells, vector<grd::Piece>* pieces, vector<int>* removed_cells,
-    double max_stress_threshold, FEResults2D* fe_results, bool maintain_boundary_cells,
+    phys::FEACase* fea_case, vector<grd::Piece>* pieces, vector<int>* removed_cells,
+    double max_stress_threshold, phys::FEAResults2D* fea_results, bool maintain_boundary_cells,
     bool _remove_largest_piece, bool check_if_single_piece
 ) {
     bool verbose = false;
+    int total_no_cells = count();
     vector<int> removed_piece_indices;
     int size_largest_piece;
     if (_remove_largest_piece) {
@@ -408,7 +415,7 @@ vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
         bool piece_removed = false;
         if (piece.is_removable || !maintain_boundary_cells) {
             piece_removed = remove_floating_piece(
-                &piece, max_stress_threshold, fe_case, fe_results, total_no_cells, maintain_boundary_cells
+                &piece, max_stress_threshold, fea_case, fea_results, total_no_cells, maintain_boundary_cells
             );
         }
 
@@ -427,7 +434,7 @@ vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
         // This can be the case if we've just restored the naively removed cells, and are trying to re-remove the pieces that could be successfully
         // removed.
         if (check_if_single_piece) {
-            bool _is_single_piece = is_single_piece(fe_case, total_no_cells, removed_cells, -1, true);
+            bool _is_single_piece = is_single_piece(fea_case, removed_cells, -1, true);
             vector<grd::Piece> removed_piece = { piece };
             cout << "CHECKING WHETHER PIECE REMOVAL RESULTED IN MULTIPLE PIECES....\n";
 
@@ -444,8 +451,8 @@ vector<int> fessga::grd::Densities2d::remove_smaller_pieces(
     return removed_piece_indices;
 }
 
+// Filter out floating cells that have no direct neighbors
 void fessga::grd::Densities3d::filter() {
-    // Filter out floating cells that have no direct neighbors
 #pragma omp parallel for
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
@@ -594,4 +601,10 @@ void fessga::grd::Densities2d::load_snapshot() {
 void fessga::grd::Densities2d::copy_from(Densities2d* source) {
     for (int i = 0; i < size; i++) values[i] = source->at(i);
     _count = source->count();
+}
+
+// Copy the density values from one array to another
+void fessga::grd::Densities2d::_copy(uint* source, uint* target, int source_count, int target_count) {
+    for (int i = 0; i < size; i++) values[i] = source[i];
+    target_count = source_count;
 }

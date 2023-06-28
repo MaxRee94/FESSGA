@@ -85,7 +85,7 @@ void Evolver::init_population() {
 	}
 }
 
-void Evolver::do_evolution() {
+void Evolver::evolve() {
 
 }
 

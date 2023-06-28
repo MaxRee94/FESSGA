@@ -20,15 +20,6 @@ namespace fessga {
             bool is_removable = true;
         };
 
-        struct Case {
-
-            string path;
-            vector<string> names, sections;
-            vector<int> boundary_cells;
-            vector<int> whitelisted_cells;
-            string content;
-        };
-
         struct Grid3D {
             Grid3D() = default;
             Grid3D(int dim_x, int dim_y, int dim_z, Vector3d diagonal) {
@@ -134,46 +125,43 @@ namespace fessga {
                 return values[idx];
             }
 
-            void filter();
+            bool cell_is_safe_to_delete(int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, phys::FEACase* fea_case);
+            bool is_single_piece(phys::FEACase* fea_case, vector<int>* removed_cells, int _start_cell = -1, bool verbose = false);
+            int get_cell_not_in_vector(vector<int>* cells_vector);
+            int get_no_connected_cells(int cell_coord, Piece& piece, phys::FEACase* fea_case = 0, bool verbose = false);
+            int get_unvisited_cell(vector<int>* visited_cells);
+            int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_folder);
-            void do_import(string path, Vector3d diagonal);
-            vector<int> get_true_neighbors(int x, int y);
             vector<int> get_true_neighbors(int idx);
-            bool cell_is_safe_to_delete(int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, Case* fe_case);
-            int get_no_connected_cells(int cell_coord, Piece& piece, Case* fe_case = 0, bool verbose = false);
-            int get_unvisited_cell(vector<int>* visited_cells, vector<int>* removed_cells);
-            void get_pieces(
-                Case* fe_case, vector<Piece>* pieces, vector<int>* visited_cells, int& cells_left,
-                vector<int>* removed_cells, int& no_pieces, int _start_cell = -1
+            vector<int> get_true_neighbors(int x, int y);
+            vector<int> remove_smaller_pieces(
+                phys::FEACase* fea_case, vector<grd::Piece>* pieces, vector<int>* removed_cells, double max_stress_threshold, phys::FEAResults2D* fea_results,
+                bool maintain_boundary_cells,bool _remove_largest_piece = true, bool check_if_single_piece = false
             );
-            void restore_removed_cells(vector<int>* removed_cells);
-            void restore_removed_pieces(vector<Piece>* removed_pieces);
-            bool is_single_piece(
-                Case* fe_case, int& total_no_cells, vector<int>* removed_cells, int _start_cell = -1, bool verbose = false
+            void copy_from(Densities2d* source);
+            void do_import(string path, Vector3d diagonal);
+            void filter();
+            void get_pieces(vector<int>* visited_cells, int cells_left = -1, int _start_cell = -1);
+            void load_snapshot();
+            bool remove_floating_piece(
+                grd::Piece* piece, double max_stress_threshold, phys::FEACase* fea_case, phys::FEAResults2D* fea_results, int& total_no_cells,
+                bool maintain_boundary_cells
             );
             void remove_largest_piece(vector<Piece>* pieces, int& max_size);
-            int remove_low_stress_cells(
-                PairSet* fe_results, grd::Case* fe_case, int no_cells_to_remove,
-                vector<int>& removed_cells, double max_stress_threshold, grd::Piece* smaller_piece = 0, int total_no_cells = -1
-            );
-            bool remove_floating_piece(
-                grd::Piece* piece, double max_stress_threshold, grd::Case* fe_case, FEResults2D* fe_results,
-                int& total_no_cells, bool maintain_boundary_cells
-            );
-            vector<int> remove_smaller_pieces(
-                grd::Case* fe_case, int total_no_cells, vector<grd::Piece>* pieces, vector<int>* removed_cells,
-                double max_stress_threshold, FEResults2D* fe_results, bool maintain_boundary_cells,
-                bool _remove_largest_piece = true, bool check_if_single_piece = false
-            );
+            int remove_low_stress_cells(int no_cells_to_remove, grd::Piece* smaller_piece = 0);
+            void restore_removed_cells(vector<int>* removed_cells);
+            void restore_removed_pieces(vector<Piece>* removed_pieces);
             void save_snapshot();
-            void load_snapshot();
-            void copy_from(Densities2d* source);
 
             int dim_x = 0;
             int dim_y = 0;
             int size = 0;
             int no_dimensions = 2;
             Vector2d cell_size;
+            phys::FEACase* fea_case = 0;
+            phys::FEAResults2D* fea_results = 0;
+            vector<int> removed_cells = {};
+            vector<Piece>* pieces;
 
         protected:
             uint* values = 0;
@@ -195,6 +183,7 @@ namespace fessga {
                     Vector2d(1.0 / (double)dim_x, 1.0 / (double)dim_y)
                 );
             }
+            void _copy(uint* source, uint* target, int source_count, int target_count);
         };
 
         class Densities3d : public Densities2d {

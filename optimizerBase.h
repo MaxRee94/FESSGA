@@ -17,12 +17,11 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		string _msh_file, string _fe_case, msh::SurfaceMesh _mesh, string _output_folder,
+		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _output_folder,
 		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
 		msh_file = _msh_file; output_folder = IO::get_fullpath(_output_folder);
-		fe_case.path = _fe_case;
 		densities = _densities;
 		export_msh = _export_msh;
 		max_stress_threshold = _max_stress_threshold;
@@ -31,7 +30,7 @@ public:
 		max_iterations = _max_iterations;
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
-		msh::derive_boundary_conditions(densities, bound_conds, mesh, fe_case);
+		msh::derive_boundary_conditions(densities, bound_conds, mesh);
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -42,7 +41,6 @@ public:
 	int max_iterations = 0;
 	bool export_msh = false;
 	map<string, vector<pair<int, int>>> bound_conds;
-	grd::Case fe_case;
 	string msh_file, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.

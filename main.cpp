@@ -3,6 +3,7 @@
 #include "controller.h"
 #include "fess.h"
 #include "images.h"
+#include "tests.h"
 
 using namespace Eigen;
 using namespace std;
@@ -45,6 +46,12 @@ void parse_args(
 }
 
 
+void run_tests(Controller* controller) {
+    Tester tester(controller);
+    tester.run_tests();
+}
+
+
 int main(int argc, char* argv[])
 {
     // Parse arguments
@@ -55,5 +62,8 @@ int main(int argc, char* argv[])
     float size;
     parse_args(argc, argv, input, output_folder, action, dim_x, dim_y, dim_z, size);
 
-    Controller(input, output_folder, action, dim_x, dim_y, dim_z, size);
+    Controller controller = Controller(input, output_folder, action, dim_x, dim_y, dim_z, size);
+    if (action == "test") {
+        run_tests(&controller);
+    }
 }

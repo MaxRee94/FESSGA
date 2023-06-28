@@ -295,11 +295,11 @@ namespace fessga {
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
         static void read_boundary_conditions(
-            map<string, vector<int>>& boundary_id_lookup, grd::Case& fe_case
+            map<string, vector<int>>& boundary_id_lookup, phys::FEACase* fea_case
         ) {
             // Read content
             vector<string> case_content;
-            IO::read_file_content(fe_case.path, case_content);
+            IO::read_file_content(fea_case->path, case_content);
 
             // Get target boundaries and in-between sections
             bool target_boundaries = false;
@@ -317,7 +317,7 @@ namespace fessga {
                     string prefix;
                     parse_target_boundaries(line, prefix, bound_ids);
                     section += prefix;
-                    fe_case.sections.push_back(section);
+                    fea_case->sections.push_back(section);
                     section = "\n";
                     continue;
                 }
@@ -333,23 +333,23 @@ namespace fessga {
                     for (int j = 1; j < last_idx; j++) {
                         name += split_line[1][j];
                     }
-                    fe_case.names.push_back(name);
+                    fea_case->names.push_back(name);
                     boundary_id_lookup[name] = bound_ids;
                     bound_ids.clear();
                 }
                 section += line + "\n";
             }
-            fe_case.sections.push_back(section);
+            fea_case->sections.push_back(section);
         }
 
         // Create a map from strings that encode the name of a boundary condition to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            grd::Densities2d densities, map<string, vector<pair<int, int>>>& bound_conds, SurfaceMesh mesh, grd::Case& fe_case
+            grd::Densities2d& densities, map<string, vector<pair<int, int>>>& bound_conds, SurfaceMesh mesh
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_conditions(boundary_id_lookup, fe_case);
+            read_boundary_conditions(boundary_id_lookup, densities.fea_case);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
@@ -365,12 +365,12 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = (line.id - 1) >> 2;
-                    fe_case.boundary_cells.push_back(cell_coord);
+                    densities.fea_case->boundary_cells.push_back(cell_coord);
                     q++;
                 }
                 bound_conds[bound_name] = bound_lines;
             }
-            cout << "no boundary cells: " << fe_case.boundary_cells.size() << endl;
+            cout << "no boundary cells: " << densities.fea_case->boundary_cells.size() << endl;
             cout << "no boundary lines: " << q << endl;
         }
 
@@ -409,15 +409,15 @@ namespace fessga {
         }
 
         // Re-assemble the case file's content by concatenating the sections and updated target boundaries
-        static void assemble_fe_case(grd::Case* fe_case, map<string, vector<int>>* bound_id_lookup) {
-            fe_case->content = "";
-            for (int i = 0; i < fe_case->names.size(); i++) {
-                string name = fe_case->names[i];
+        static void assemble_fea_case(phys::FEACase* fea_case, map<string, vector<int>>* bound_id_lookup) {
+            fea_case->content = "";
+            for (int i = 0; i < fea_case->names.size(); i++) {
+                string name = fea_case->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
                 string bound_ids_string = help::join_as_string(bound_ids, " ");
-                fe_case->content += fe_case->sections[i] + bound_ids_string;
+                fea_case->content += fea_case->sections[i] + bound_ids_string;
             }
-            fe_case->content += fe_case->sections[fe_case->names.size()];
+            fea_case->content += fea_case->sections[fea_case->names.size()];
         }
 
     };
