@@ -54,13 +54,24 @@ namespace fessga{
 			stbi_image_free(image);
 
 			// Sample red values with intervals
+			int x_offset = (densities.dim_x / 2);
 			for (int y = 0; y < densities.dim_y; y++) {
 				for (int x = 0; x < densities.dim_x; x++) {
-					int img_idx = y * width * pixels_per_cell + x * pixels_per_cell + (int)(0.5 * width * pixels_per_cell);
-					densities.set((x + 1) * densities.dim_y - y - 1, redValues[img_idx] / 255);
+					int img_idx = y * width * pixels_per_cell + (x) * pixels_per_cell;
+					int pixel_count = 0;
+					// Count all pixel values in the cell
+					for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
+						int _y = i / pixels_per_cell;
+						int _x = i % pixels_per_cell;
+						int _img_idx = img_idx + _y * width + _x;
+						pixel_count += redValues[_img_idx];
+					}
+					int cell_value = pixel_count / 255 / (pixels_per_cell * pixels_per_cell);
+					densities.set((x + 1) * densities.dim_y - y - 1, cell_value);
 				}
 			}
 			densities.update_count();
+			densities.filter();
 		}
 
 		static void convert_distribution_to_single_channel_image(grd::Densities2d densities, unsigned char* single_channel, Image* image) {
