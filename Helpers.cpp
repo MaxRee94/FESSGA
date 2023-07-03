@@ -300,6 +300,15 @@ void fessga::help::remove_largest_vector(vector<vector<int>>* vectors, int& max_
     vectors->erase(vectors->begin() + largest_item_idx);
 }
 
+void fessga::help::remove(vector<int>* vec, int item) {
+    auto position = find(vec->begin(), vec->end(), item);
+    if (position != vec->end()) {
+        int idx = position - vec->begin();
+        vec->erase(vec->begin() + idx);
+    }
+    else throw("Error: Cannot remove item from vector because it is not present\n");
+}
+
 bool fessga::help::ends_with(string full_string, string ending) {
     if (full_string.length() >= ending.length()) {
         return (0 == full_string.compare(full_string.length() - ending.length(), ending.length(), ending));
@@ -307,5 +316,12 @@ bool fessga::help::ends_with(string full_string, string ending) {
     else {
         return false;
     }
+}
+
+bool fessga::help::have_overlap(vector<int>* larger_vector, vector<int>* smaller_vector) {
+    for (auto& item : *smaller_vector) {
+        if (help::is_in(larger_vector, item)) return true;
+    }
+    return false;
 }
 

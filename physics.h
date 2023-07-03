@@ -45,6 +45,7 @@ namespace fessga {
             vector<int> whitelisted_cells;
             string content;
             double max_stress_threshold = INFINITY;
+            bool maintain_boundary_connection = true;
         };
 
         class FEAResults2D {

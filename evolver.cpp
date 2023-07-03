@@ -72,7 +72,7 @@ void Evolver::init_population() {
 	population;
 
 	// Fill the buffer with (mutated) copies of the base densities
-	evo::Individual2d _individual(densities.dim_x, densities.dim_y, mesh.diagonal);
+	evo::Individual2d _individual(densities, mesh.diagonal);
 	for (int indiv = 0; indiv < pop_size; indiv++) {
 		// Make a copy of the base individual
 		evo::Individual2d individual = _individual;

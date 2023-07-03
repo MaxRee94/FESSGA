@@ -84,6 +84,8 @@ namespace fessga {
 
 		static uint get_rand_uint(float min, float max);
 
+		static void remove(vector<int>* vec, int item);
+
 		static std::string add_padding(std::string basestring, int version);
 
 		static string join_as_string(vector<int> numbers, string separator);
@@ -93,6 +95,8 @@ namespace fessga {
 		static void remove_largest_vector(vector<vector<int>>* vectors, int& max_size);
 
 		static bool ends_with(string full_string, string ending);
+
+		static bool have_overlap(vector<int>* larger_vector, vector<int>* smaller_vector);
 
 	};
 };

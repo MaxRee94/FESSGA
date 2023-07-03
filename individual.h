@@ -16,14 +16,21 @@ namespace fessga {
 		class Individual2d : public grd::Densities2d {
 		public:
 			Individual2d() = default;
-			Individual2d(int _dim_x, int _dim_y, Vector3d diagonal) : grd::Densities2d(_dim_x, _dim_y, diagonal) {
+			Individual2d(
+				int _dim_x, int _dim_y, Vector3d diagonal, phys::FEAResults2D* _fea_results,
+				phys::FEACase* _fea_case) : grd::Densities2d(_dim_x, _dim_y, diagonal, _fea_results, _fea_case
+			) {};
+			Individual2d(grd::Densities2d densities, Vector3d diagonal) : grd::Densities2d(
+				densities.dim_x, densities.dim_y, diagonal, densities.fea_results, densities.fea_case
+			) {
+				copy_from(&densities);
 			};
 			int phenotype_count() {
 				if (_phenotype_count == -1) redo_count();
 				return _phenotype_count;
 			}
-			void update_phenotype();
-			void remove_isolated_material();
+			bool update_phenotype();
+			bool remove_isolated_material();
 			void do_feasibility_filtering();
 			void do_ground_element_filtering();
 		protected:

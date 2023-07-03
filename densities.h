@@ -15,9 +15,13 @@ namespace fessga {
     class grd {
     public:
 
-        struct Piece {
+        class Piece {
+        public:
+            Piece() { id = help::get_rand_uint(0, 1e9); };
             vector<int> cells;
             bool is_removable = true;
+            int id;
+            bool is_main_piece = false;
         };
 
         struct Grid3D {
@@ -39,25 +43,21 @@ namespace fessga {
         class Densities2d {
         public:
             Densities2d() = default;
-            Densities2d(int _dim_x, int _dim_y, Vector2d diagonal) {
-                construct_grid(_dim_x, _dim_y);
-                cell_size = diagonal.cwiseProduct(
-                    Vector2d(1.0 / (double)dim_x, 1.0 / (double)dim_y)
-                );
-            }
-            Densities2d(int _dim_x, int _dim_y, Vector3d diagonal) {
+            Densities2d(int _dim_x, int _dim_y, Vector3d diagonal, phys::FEAResults2D* _fea_results, phys::FEACase* _fea_case) {
                 construct_grid(_dim_x, _dim_y);
                 compute_cellsize(diagonal);
+                fea_results = _fea_results;
+                fea_case = _fea_case;
             }
             int get_idx(int x, int y) {
                 return x * dim_y + y;
             }
-            pair<int, int> get_coords(int idx) {
-                pair<int, int> coords(idx / dim_y, idx % dim_y);
+            pair<int, int> get_coords(int cell) {
+                pair<int, int> coords(cell / dim_y, cell % dim_y);
                 return coords;
             }
-            uint operator[](int idx) {
-                return values[idx];
+            uint operator[](int cell) {
+                return values[cell];
             }
             uint operator()(int x, int y) {
                 return values[get_idx(x, y)];
@@ -70,36 +70,60 @@ namespace fessga {
                 if (_count == -2) redo_count(); // Values have been set using the set() function and can be safely recounted.
                 else if (_count == -1) cerr << "Cannot count density values because the array has not been completely filled.\n" << endl;
             }
-            void fill(int idx) {
+            void fill(int cell) {
                 update_count();
-                if (values[idx] != 1) {
-                    values[idx] = 1;
+                if (values[cell] != 1) {
+                    values[cell] = 1;
                     _count++;
                 }
             }
-            void fill(vector<int> indices) {
+            void fill(vector<int> cells) {
                 update_count();
-                for (auto& idx : indices) fill(idx);
+                for (auto& cell : cells) fill(cell);
             }
             // Set a value without updating the _count. Count will be reset to -1.
-            void set(int idx, uint value) {
+            void set(int cell, uint value) {
                 _count = -2;
-                values[idx] = value;
+                values[cell] = value;
             }
             void replace_values(uint* values_ptr) {
                 values = values_ptr;
                 redo_count();
             }
-            void del(int idx) {
+            // Delete cell, update count, but do not record the removal
+            void del(int cell) {
                 update_count();
-                if (values[idx] != 0) {
-                    values[idx] = 0;
+                if (values[cell] != 0) {
+                    values[cell] = 0;
                     _count--;
                 }
             }
-            void del(vector<int> indices) {
+            // Delete cells, update count, but do not record the removal
+            void del(vector<int> cells) {
                 update_count();
-                for (auto& idx : indices) del(idx);
+                for (auto& cell : cells) del(cell);
+            }
+            // Delete cell, update count, AND record the removal
+            void remove_and_remember(int cell) {
+                update_count();
+                if (values[cell] != 0) {
+                    values[cell] = 0;
+                    _count--;
+                }
+                removed_cells.push_back(cell);
+            }
+            // Delete cells, update count, AND record the removal
+            void remove_and_remember(vector<int> cells) {
+                update_count();
+                for (auto& cell : cells) {
+                    del(cell);
+                    removed_cells.push_back(cell);
+                }
+            }
+            void set_main_piece(Piece* piece) {
+                main_piece = *piece;
+                for (auto& _piece : pieces) _piece.is_main_piece = false;
+                piece->is_main_piece = true;
             }
             void delete_all() {
                 for (int i = 0; i < size; i++) values[i] = 0;
@@ -121,37 +145,50 @@ namespace fessga {
                 if (_count == -1) redo_count();
                 return _count;
             }
-            uint at(int idx) {
-                return values[idx];
+            uint at(int cell) {
+                return values[cell];
+            }
+            void restore(int cell) {
+                fill(cell);
+                help::remove(&removed_cells, cell);
+            }
+            int get_piece_index(vector<Piece>* _pieces, Piece* piece) {
+                for (int i = 0; i < _pieces->size(); i++) {
+                    if (piece->id == _pieces->at(i).id) return i;
+                }
+                throw("ERROR: piece not found\n");
             }
 
+            void move_piece_to_trash(Piece* piece);
+            void move_piece_from_trash(Piece* piece);
             bool cell_is_safe_to_delete(int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, phys::FEACase* fea_case);
-            bool is_single_piece(phys::FEACase* fea_case, vector<int>* removed_cells, int _start_cell = -1, bool verbose = false);
+            bool is_single_piece(int _start_cell = -1, bool verbose = false);
             int get_cell_not_in_vector(vector<int>* cells_vector);
             int get_no_connected_cells(int cell_coord, Piece& piece, phys::FEACase* fea_case = 0, bool verbose = false);
             int get_unvisited_cell(vector<int>* visited_cells);
+            bool is_in(vector<Piece>* pieces, Piece* piece);
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
-            string do_export(string output_folder);
+            string do_export(string output_path);
             vector<int> get_true_neighbors(int idx);
             vector<int> get_true_neighbors(int x, int y);
-            vector<int> remove_smaller_pieces(
-                phys::FEACase* fea_case, vector<grd::Piece>* pieces, vector<int>* removed_cells, double max_stress_threshold, phys::FEAResults2D* fea_results,
-                bool maintain_boundary_cells,bool _remove_largest_piece = true, bool check_if_single_piece = false
+            void remove_smaller_pieces(
+                vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true, bool check_if_single_piece = false
             );
+            void remove_smaller_pieces();
             void copy_from(Densities2d* source);
             void do_import(string path, Vector3d diagonal);
             void filter();
-            void get_pieces(vector<int>* visited_cells, int cells_left = -1, int _start_cell = -1);
+            void init_pieces(int _start_cell = -1);
             void load_snapshot();
-            bool remove_floating_piece(
-                grd::Piece* piece, double max_stress_threshold, phys::FEACase* fea_case, phys::FEAResults2D* fea_results, int& total_no_cells,
-                bool maintain_boundary_cells
-            );
-            void remove_largest_piece(vector<Piece>* pieces, int& max_size);
-            int remove_low_stress_cells(int no_cells_to_remove, grd::Piece* smaller_piece = 0);
-            void restore_removed_cells(vector<int>* removed_cells);
-            void restore_removed_pieces(vector<Piece>* removed_pieces);
+            bool remove_floating_piece(grd::Piece* piece);
+            void remove_largest_piece_from_vector(vector<Piece>* pieces, int& max_size);
+            int remove_low_stress_cells(int no_cells_to_remove, int no_cells_removed, grd::Piece* smaller_piece = 0);
+            void restore_removed_cells(vector<int> removed_cells);
+            void restore_removed_pieces(vector<Piece> pieces_to_restore);
             void save_snapshot();
+            void flush_edit_memory();
+            int get_no_cells_in_removed_pieces();
+            void visualize_bound_cells();
 
             int dim_x = 0;
             int dim_y = 0;
@@ -161,7 +198,9 @@ namespace fessga {
             phys::FEACase* fea_case = 0;
             phys::FEAResults2D* fea_results = 0;
             vector<int> removed_cells = {};
-            vector<Piece>* pieces;
+            vector<Piece> pieces;
+            vector<Piece> removed_pieces;
+            Piece main_piece = Piece();
 
         protected:
             uint* values = 0;
@@ -169,6 +208,7 @@ namespace fessga {
             int _count = 0;
             int _snapshot_count = 0;
 
+            void init_pieces(vector<int>* visited_cells, int cells_left, int _start_cell);
             virtual void construct_grid(int _dim_x, int _dim_y, int _ = 0) {
                 dim_x = _dim_x;
                 dim_y = _dim_y;
@@ -189,11 +229,13 @@ namespace fessga {
         class Densities3d : public Densities2d {
         public:
             Densities3d(){ no_dimensions = 3; };
-            Densities3d(int _dim_x, int _dim_y, int _dim_z, Vector3d diagonal) {
+            Densities3d(int _dim_x, int _dim_y, int _dim_z, Vector3d diagonal, phys::FEAResults2D* _fea_results, phys::FEACase* _fea_case) {
                 construct_grid(_dim_x, _dim_y, _dim_z);
                 compute_cellsize(diagonal);
+                fea_results = _fea_results;
+                fea_case = _fea_case;
             }
-            string do_export(string output_folder);
+            string do_export(string output_path);
             void generate(Vector3d offset, MatrixXd* V, MatrixXi* F);
             void filter();
             void create_slice(Densities2d& densities2d, int dimension, int offset);
