@@ -106,13 +106,14 @@ public:
     string output_folder;
     Vector3d offset;
     Input input;
+    vector<grd::Piece> pieces;
 };
 
 // Load distribution from file or generate it on the fly
 void Controller::init_densities() {
-    densities2d = grd::Densities2d(dim_x, dim_y, mesh.diagonal);
-    fea_results = phys::FEAResults2D(densities2d.dim_x, densities2d.dim_y);
+    fea_results = phys::FEAResults2D(dim_x, dim_y);
     fea_case = phys::FEACase(output_folder + "/case.sif");
+    densities2d = grd::Densities2d(dim_x, dim_y, mesh.diagonal, &fea_results, &fea_case);
     if (input.type == "distribution2d") {
         cout << "Importing 2d density distribution from location " << input.path << "\n";
         densities2d.do_import(input.path, mesh.diagonal);
@@ -129,7 +130,7 @@ void Controller::init_densities() {
     }
     else {
         // Init 3d density distribution
-        densities3d = grd::Densities3d(dim_x, dim_y, dim_z, mesh.diagonal);
+        densities3d = grd::Densities3d(dim_x, dim_y, dim_z, mesh.diagonal, &fea_results, &fea_case);
 
         // Generate grid-based binary density distribution based on the given (unstructured) mesh file
         densities3d.generate(mesh.offset, mesh.V, mesh.F);
@@ -150,10 +151,6 @@ void Controller::init_densities() {
         // Write 2d distribution to image
         img::write_distribution_to_image(densities2d, output_folder + "/" + input.name + ".jpg", 1000, 1000);
     }
-    densities2d.fea_results = &fea_results;
-    densities2d.fea_case = &fea_case;
-    densities3d.fea_results = &fea_results;
-    densities3d.fea_case = &fea_case;
 }
 
 
@@ -165,14 +162,15 @@ bool Controller::run_fess() {
     string fea_case = output_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
-    float greediness = 0.1;
+    float greediness = 0.05;
     bool verbose = true;
-    bool maintain_boundary_cells = true;
+    bool maintain_boundary_connection = true;
+    
     
     // Run optimization
     FESS fess = FESS(
         msh_file, fea_case, mesh, output_folder, min_stress, max_stress, densities2d, max_iterations, greediness,
-        maintain_boundary_cells, export_msh, verbose
+        maintain_boundary_connection, export_msh, verbose
     );
     fess.run();
 

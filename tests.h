@@ -10,12 +10,60 @@ public:
     void init_dummy_optimizer(OptimizerBase& optimizer);
     bool test_is_single_piece();
     bool do_individual_is_single_piece_test(string type, string path);
+    bool do_individual_init_pieces_test(string type, string path, int expected_result, int dim_x = -1, int dim_y = -1, bool verbose = false);
+    bool do_individual_remove_smaller_pieces_test(string type, string path, bool expected_result, bool verbose = false);
+    bool do_individual_restore_pieces_test(string type, string path, bool verbose = false);
+    bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = true);
+    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
+    bool test_init_pieces();
+    bool test_remove_smaller_pieces();
+    bool test_restore_removed_pieces();
+    bool test_remove_isolated_material();
+    bool test_feasibility_filtering();
+    void do_teardown();
+    OptimizerBase do_setup(string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = "");
 
     Controller* ctrl = 0;
+    Input _input;
+    int _dim_x, _dim_y;
+    string _output_folder;
 };
+
+void Tester::run_tests() {
+    cout << "Running tests...\n\n";
+    int successes = 0;
+    int failures = 0;
+
+    bool _success = test_is_single_piece();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_init_pieces();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_remove_smaller_pieces();
+    successes += _success;
+    failures += !_success;
+    
+    _success = test_restore_removed_pieces();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_remove_isolated_material();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_feasibility_filtering();
+    successes += _success;
+    failures += !_success;
+
+    cout << "ALL TESTS FINISHED. " << successes << " / " << (failures + successes) << " tests passed.\n";
+}
+
 
 void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
     // Parameters
@@ -27,53 +75,261 @@ void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
     bool export_msh = true;
     float greediness = 0.1;
     bool verbose = true;
-    bool maintain_boundary_cells = true;
+    bool maintain_boundary_connection = true;
     optimizer = OptimizerBase(msh_file, fea_case, ctrl->mesh, ctrl->output_folder, max_stress, ctrl->densities2d, max_iterations, export_msh, verbose);
 }
 
-bool Tester::do_individual_is_single_piece_test(string type, string path) {
-    // Setup
-    Input _input = ctrl->input;
-    ctrl->input.path = path;
-    ctrl->input.type = type;
+OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x, int dim_y, string output_folder) {
+    _input = ctrl->input;
+    _dim_x = ctrl->dim_x; _dim_y = ctrl->dim_y;
+    if (dim_x > 0 && dim_y > 0) {
+        ctrl->dim_x = dim_x;
+        ctrl->dim_y = dim_y;
+    }
+    // Init optimizer with base teapot distribution
+    _output_folder = ctrl->output_folder;
+    if (output_folder != "") ctrl->output_folder = output_folder;
+    ctrl->input.path = ctrl->output_folder + "/distribution2d.dens";
+    ctrl->input.type = "distribution2d";
     ctrl->init_densities();
     OptimizerBase optimizer;
     init_dummy_optimizer(optimizer);
-    optimizer.densities.print();
 
-    // Test
-    bool output = optimizer.densities.is_single_piece(ctrl->densities2d.fea_case, &ctrl->densities2d.removed_cells);
+    // Update input and distribution with given type and path
+    phys::FEACase fea_case = ctrl->fea_case;
+    phys::FEAResults2D fea_results = ctrl->fea_results;
+    ctrl->input.path = path;
+    ctrl->input.type = type;
+    ctrl->init_densities();
 
-    // Teardown
+    //// repair (temp)
+    //for (auto& cell : fea_case.boundary_cells) {
+    //    optimizer.densities.fill(cell);
+    //}
+    //optimizer.densities.do_export(path);
+
+    ctrl->fea_case = fea_case;
+    ctrl->fea_results = fea_results;
+    optimizer.densities.copy_from(&ctrl->densities2d);
+
+    if (verbose) optimizer.densities.print();
+
+    return optimizer;
+}
+
+void Tester::do_teardown() {
     ctrl->input = _input;
+    ctrl->dim_x = _dim_x;
+    ctrl->dim_y = _dim_y;
+    ctrl->densities2d.flush_edit_memory();
+    ctrl->output_folder = _output_folder;
+}
+
+bool Tester::do_individual_is_single_piece_test(string type, string path) {
+    OptimizerBase optimizer = do_setup(type, path);
+    bool output = optimizer.densities.is_single_piece();
+    do_teardown();
 
     return output;
 }
 
+bool Tester::do_individual_init_pieces_test(string type, string path, int expected_result, int dim_x, int dim_y, bool verbose) {
+    OptimizerBase optimizer = do_setup(type, path, verbose, dim_x, dim_y);
+    optimizer.densities.init_pieces();
+    do_teardown();
+
+    bool success = true;
+    if (optimizer.densities.pieces.size() != expected_result) {
+        success = false;
+        cout << "Test failed because found number of pieces (" << optimizer.densities.pieces.size() << ") is unequal to expected number (" <<
+            expected_result << ")\n";
+        for (auto& piece : optimizer.densities.pieces) {
+            for (auto& cell : piece.cells) optimizer.densities.set(cell, 5);
+        }
+        if (verbose) optimizer.densities.print();
+    }
+
+    return optimizer.densities.pieces.size() == expected_result;
+}
+
+bool Tester::do_individual_remove_smaller_pieces_test(string type, string path, bool expected_result, bool verbose) {
+    // Setup
+    OptimizerBase optimizer = do_setup(type, path);
+    optimizer.densities.init_pieces();
+    int initial_no_pieces = optimizer.densities.pieces.size();
+    optimizer.densities.flush_edit_memory();
+    optimizer.densities.remove_and_remember(820);
+    optimizer.densities.init_pieces();
+
+    // Test
+    optimizer.densities.remove_smaller_pieces(optimizer.densities.pieces, &optimizer.densities.removed_cells);
+    optimizer.densities.restore(820);
+
+    // Check success
+    bool success = true;
+    if (optimizer.densities.is_single_piece() != expected_result) {
+        success = false; cout << "Test failed because shape removal was expected to " << (expected_result ? "succeed." : "fail.") << endl;
+    }
+    if (verbose) { cout << "Densities after piece removal:\n"; optimizer.densities.print(); }
+    
+    // Teardown
+    ctrl->input = _input;
+    optimizer.densities.flush_edit_memory();
+
+    return success;
+}
+
+bool Tester::do_individual_restore_pieces_test(string type, string path, bool verbose) {
+    // Setup
+    OptimizerBase optimizer = do_setup(type, path, verbose);
+    int initial_count = optimizer.densities.count();
+    optimizer.densities.init_pieces();
+    optimizer.densities.remove_smaller_pieces(optimizer.densities.pieces, &optimizer.densities.removed_cells);
+    int initial_no_pieces = optimizer.densities.pieces.size();
+    int initial_no_removed_pieces = optimizer.densities.removed_pieces.size();
+
+    // Test
+    optimizer.densities.restore_removed_pieces(optimizer.densities.removed_pieces);
+
+    // Check success
+    bool success = true;
+    if (initial_count != optimizer.densities.count()) {
+        success = false; cout << "Test failed because count (" << optimizer.densities.count() << ") is unequal to count from before piece removal (" <<
+            initial_count << ")\n";
+    }
+    if (optimizer.densities.pieces.size() != initial_no_removed_pieces + initial_no_pieces) {
+        success = false; cout << "Test failed because the number of pieces, namely " <<
+            optimizer.densities.pieces.size() << " is not what was expected (" << initial_no_removed_pieces + initial_no_pieces << ")\n";
+    }
+    if (optimizer.densities.removed_pieces.size() > 0) {
+        success = false; cout << "Test failed because the number of removed pieces, namely " <<
+            optimizer.densities.removed_pieces.size() << " is larger than 0.\n";
+    }
+    if (verbose) { cout << "Densities after piece restoration:\n"; optimizer.densities.print(); }
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
+bool Tester::do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose) {
+    // Setup
+    OptimizerBase optimizer = do_setup(type, path);
+    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+    if (verbose) optimizer.densities.visualize_bound_cells();
+
+    // Test
+    bool valid = individual.remove_isolated_material();
+    bool success = valid == expected_validity;
+    if (success && valid) {
+        success = success && individual.is_single_piece();
+        if (!success) {
+            individual.init_pieces();
+            cout << "Test failed because 'remove isolated material' function reported valid removal, but the shape is composed of " <<
+                individual.pieces.size() << " pieces.\n";
+        }
+    }
+    else cout << "Test failed because function reported " << (valid ? "valid" : "invalid") << " removal, but " <<
+        (expected_validity ? "validity" : "invalidity") << " was expected.\n";
+    if (verbose) cout << "distribution after isolated material removal: \n"; individual.print();
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
+bool Tester::do_individual_feasibility_filtering_test(string type, string path, bool verbose) {
+    // Setup
+    OptimizerBase optimizer = do_setup(type, path);
+    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+    if (verbose) optimizer.densities.visualize_bound_cells();
+
+    // Test
+    individual.do_feasibility_filtering();
+    individual.print();
+
+    // Evaluate
+    bool success = true;
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
+// Do multi-piece and single-piece tests
 bool Tester::test_is_single_piece() {
-    // Do multi-piece and single-piece tests
     bool success = true;
     success = success && !do_individual_is_single_piece_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1.dens");
     success = success && !do_individual_is_single_piece_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens");
     success = success && do_individual_is_single_piece_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
 
-    cout << "TESTING: is_single_piece(). Test " << (success ? "succeeded." : "failed.") << endl;
+    cout << "\nTESTING: is_single_piece(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
 
-void Tester::run_tests() {
-    cout << "Running tests...\n";
-    int successes = 0;
-    int failures = 0;
+// Test 'get_pieces' function
+bool Tester::test_init_pieces() {
+    bool success = true;
+    success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1.dens", 5);
+    success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens", 2);
+    success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", 1);
+    //success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_teapot200elements.dens", 6, 200, 200);
 
-    bool is_single_piece_success = test_is_single_piece();
-    successes += is_single_piece_success;
-    failures += !is_single_piece_success;
+    cout << "\nTESTING: init_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
-    cout << "ALL TESTS FINISHED. " << successes << " / " << (failures + successes) << " tests successful.\n";
+    return success;
 }
 
+// Test 'remove_smaller_pieces' function
+bool Tester::test_remove_smaller_pieces() {
+    bool success = true;
+    success = success && do_individual_remove_smaller_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1.dens", false);
+    success = success && do_individual_remove_smaller_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens", true);
+    success = success && do_individual_remove_smaller_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", true);
+
+    cout << "\nTESTING: remove_smaller_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+// Test 'restore_pieces' function
+bool Tester::test_restore_removed_pieces() {
+    bool success = true;
+    success = success && do_individual_restore_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1.dens");
+    success = success && do_individual_restore_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens");
+    success = success && do_individual_restore_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
+    
+    cout << "\nTESTING: restore_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+// Test 'remove isolated material' function
+bool Tester::test_remove_isolated_material() {
+    bool success = true;
+    success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1.dens", false);
+    success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens", true);
+    success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", true);
+
+    cout << "\nTESTING: remove_isolated_material(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+// Test 'feasibility filtering' function
+bool Tester::test_feasibility_filtering() {
+    bool success = true;
+    success = success && do_individual_feasibility_filtering_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1_mutated.dens");
+    success = success && do_individual_feasibility_filtering_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2_mutated.dens");
+    
+    cout << "\nTESTING: test_feasibility_filtering(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
 
 /*
 Create 2 parent slices from the 3d binary density distribution for 2d test
@@ -89,8 +345,8 @@ void Tester::create_parents(grd::Densities2d parent1, grd::Densities2d parent2) 
 Test 2-point crossover of two 2d parent solutions. Print parents and children to console
 */
 bool Tester::test_2d_crossover() {
-    evo::Individual2d parent1(ctrl->dim_x, ctrl->dim_y, ctrl->mesh.diagonal);
-    evo::Individual2d parent2(ctrl->dim_x, ctrl->dim_y, ctrl->mesh.diagonal);
+    evo::Individual2d parent1(ctrl->densities2d, ctrl->mesh.diagonal);
+    evo::Individual2d parent2(ctrl->densities2d, ctrl->mesh.diagonal);
     double max_stress = 1e9; // arbitrary maximum stress
     int max_iterations = 100;
     bool export_msh = false;
@@ -106,8 +362,8 @@ bool Tester::test_2d_crossover() {
     string output_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
-    evo::Individual2d child1(ctrl->dim_x, ctrl->dim_y, ctrl->mesh.diagonal);
-    evo::Individual2d child2(ctrl->dim_x, ctrl->dim_y, ctrl->mesh.diagonal);
+    evo::Individual2d child1(ctrl->densities2d, ctrl->mesh.diagonal);
+    evo::Individual2d child2(ctrl->densities2d, ctrl->mesh.diagonal);
     Evolver evolver = Evolver(
         msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2,
         max_stress, parent1, max_iterations
