@@ -24,8 +24,7 @@ bool fessga::evo::Individual2d::remove_isolated_material() {
 	return is_single_piece();
 }
 
-void fessga::evo::Individual2d::fill_voids(int _target_no_neighbors) {
-	int target_no_neighbors = _target_no_neighbors;
+void fessga::evo::Individual2d::fill_voids(int target_no_neighbors) {
 	save_internal_snapshot();
 	vector<int> x_bounds = { 0, dim_x - 1 };
 	vector<int> y_bounds = { 0, dim_y - 1 };
@@ -35,20 +34,6 @@ void fessga::evo::Individual2d::fill_voids(int _target_no_neighbors) {
 
 			// If the cell is already filled, continue to the next cell
 			if (values[cell]) continue;
-
-			// Determine the required number of neighbors for the cell to qualify for a fill operation.
-			// This is dependent on whether the cell lies on the boundary of the design domain or not.
-			target_no_neighbors = _target_no_neighbors;
-			bool on_x_bound = help::is_in(&x_bounds, x);
-			bool on_y_bound = help::is_in(&y_bounds, y);
-			if (on_x_bound != on_y_bound) {
-				target_no_neighbors -= 1;
-			}
-			else if (on_x_bound && on_y_bound) {
-				// Only allow a minimum of 2 true neighbors
-				if (_target_no_neighbors == 4) target_no_neighbors = 2;
-				else continue;
-			}
 
 			// Fill the cell if the number of neighbors is equal to the required number computed earlier.
 			vector<int> neighbors = get_true_neighbors(x, y, snapshot_internal);
