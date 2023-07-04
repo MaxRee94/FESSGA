@@ -36,7 +36,8 @@ namespace fessga {
 				if (_phenotype_count == -1) redo_count();
 				return _phenotype_count;
 			}
-			bool update_phenotype();
+			void update_phenotype();
+			void repair();
 			bool remove_isolated_material();
 			void do_single_feasibility_filtering_pass();
 			void do_feasibility_filtering(bool verbose = false);

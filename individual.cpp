@@ -6,12 +6,14 @@ void fessga::evo::Individual2d::copy_from_individual(Individual2d* source) {
 	_count = source->count();
 }
 
-bool fessga::evo::Individual2d::update_phenotype() {
+void fessga::evo::Individual2d::update_phenotype() {
 	_copy(values, phenotype, _count, _phenotype_count);
+	do_ground_element_filtering();
+}
+
+void fessga::evo::Individual2d::repair() {
 	do_feasibility_filtering();
 	remove_isolated_material();
-	do_ground_element_filtering();
-	return true;
 }
 
 bool fessga::evo::Individual2d::remove_isolated_material() {

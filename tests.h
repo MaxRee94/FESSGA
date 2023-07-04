@@ -16,6 +16,7 @@ public:
     bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = false);
     bool do_individual_fill_voids_test(string type, string path, bool verbose = false);
     bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = true);
+    bool do_individual_repair_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
@@ -25,6 +26,7 @@ public:
     bool test_remove_isolated_material();
     bool test_fill_voids();
     bool test_feasibility_filtering();
+    bool test_repair();
     void do_teardown();
     OptimizerBase do_setup(string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = "");
 
@@ -64,6 +66,10 @@ void Tester::run_tests() {
     failures += !_success;
 
     _success = test_feasibility_filtering();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_repair();
     successes += _success;
     failures += !_success;
 
@@ -291,6 +297,25 @@ bool Tester::do_individual_feasibility_filtering_test(string type, string path, 
     return success;
 }
 
+bool Tester::do_individual_repair_test(string type, string path, bool verbose) {
+    // Setup
+    OptimizerBase optimizer = do_setup(type, path, verbose);
+    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+
+    // Test
+    individual.repair();
+    cout << endl;
+    if (verbose) individual.print();
+
+    // Evaluate
+    bool success = true;
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
 // Do multi-piece and single-piece tests
 bool Tester::test_is_single_piece() {
     bool success = true;
@@ -298,7 +323,7 @@ bool Tester::test_is_single_piece() {
     success = success && !do_individual_is_single_piece_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens");
     success = success && do_individual_is_single_piece_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
 
-    cout << "\nTESTING: is_single_piece(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: densities.is_single_piece(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -311,7 +336,7 @@ bool Tester::test_init_pieces() {
     success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", 1);
     //success = success && do_individual_init_pieces_test("distribution2d", "../data/unit_tests/distribution2d_teapot200elements.dens", 6, 200, 200);
 
-    cout << "\nTESTING: init_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: densities.init_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -323,7 +348,7 @@ bool Tester::test_remove_smaller_pieces() {
     success = success && do_individual_remove_smaller_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens", true);
     success = success && do_individual_remove_smaller_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", true);
 
-    cout << "\nTESTING: remove_smaller_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: densities.remove_smaller_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -335,7 +360,7 @@ bool Tester::test_restore_removed_pieces() {
     success = success && do_individual_restore_pieces_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens");
     success = success && do_individual_restore_pieces_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
     
-    cout << "\nTESTING: restore_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: individual.restore_pieces(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -347,7 +372,7 @@ bool Tester::test_remove_isolated_material() {
     success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2.dens", true);
     success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", true);
 
-    cout << "\nTESTING: remove_isolated_material(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: individual.remove_isolated_material(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -359,7 +384,7 @@ bool Tester::test_fill_voids() {
     success = success && do_individual_fill_voids_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1_mutated.dens");
     success = success && do_individual_fill_voids_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2_mutated.dens");
 
-    cout << "\nTESTING: test_fill_voids(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: individual.fill_voids(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
@@ -370,7 +395,18 @@ bool Tester::test_feasibility_filtering() {
     success = success && do_individual_feasibility_filtering_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1_mutated.dens");
     success = success && do_individual_feasibility_filtering_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2_mutated.dens");
     
-    cout << "\nTESTING: test_feasibility_filtering(). Test " << (success ? "passed." : "failed.") << "\n\n";
+    cout << "\nTESTING: individual.feasibility_filtering(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+// Test 'repair' function
+bool Tester::test_repair() {
+    bool success = true;
+    success = success && do_individual_repair_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1_mutated.dens");
+    success = success && do_individual_repair_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2_mutated.dens");
+
+    cout << "\nTESTING: individual.repair(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
