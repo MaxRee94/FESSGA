@@ -25,15 +25,24 @@ namespace fessga {
 			) {
 				copy_from(&densities);
 			};
+			Individual2d(Individual2d* individual) {
+				construct_grid(individual->dim_x, individual->dim_y);
+				cell_size = individual->cell_size;
+				fea_results = individual->fea_results;
+				fea_case = individual->fea_case;
+				copy_from_individual(individual);
+			}
 			int phenotype_count() {
 				if (_phenotype_count == -1) redo_count();
 				return _phenotype_count;
 			}
 			bool update_phenotype();
 			bool remove_isolated_material();
-			void do_feasibility_filtering();
+			void do_single_feasibility_filtering_pass();
+			void do_feasibility_filtering(bool verbose = false);
 			void do_ground_element_filtering();
-			void fill_voids(int no_true_neighbors);
+			void fill_voids(int no_true_neighbors = 4);
+			void copy_from_individual(Individual2d* source);
 		protected:
 			uint* phenotype = 0;
 			int _phenotype_count = -1;

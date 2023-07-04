@@ -6,32 +6,24 @@
 
 
 // Remove floating cells (i.e. cells that have no direct neighbors)
-void fessga::grd::Densities2d::filter(int min_no_neighbors) {
-    cout << "Filtering 2d floating cells..." << endl;
-    update_count();
-#pragma omp parallel for
+void fessga::grd::Densities2d::filter(int no_neighbors) {
+    save_internal_snapshot();
+    vector<int> x_bounds = { 0, dim_x - 1 };
+    vector<int> y_bounds = { 0, dim_y - 1 };
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
-            int filled = values[x * dim_y + y];
-            if (!filled) continue;
-            int neighbor = 0;
-            for (int _x = -1; _x <= 1; _x++) {
-                for (int _y = -1; _y <= 1; _y++) {
-                    if (_y == 0 && _x == 0) continue;
-                    if (x + _x == dim_x || y + _y == dim_y) continue;
-                    if (x + _x <= 0 || y + _y <= 0) continue;
-                    neighbor = values[(x + _x) * dim_y + (y + _y)];
-                    if (neighbor) break;
-                }
-                if (neighbor) break;
-            }
-            if (!neighbor) {
-                cout << "floating cell detected. Setting to 0" << endl;
-                del(x * dim_y + y); // Remove the cell if it has no neighbors
+            int cell = x * dim_y + y;
+
+            // If the cell is already filled, continue to the next cell
+            if (values[cell]) continue;
+
+            // Delete the cell if the number of neighbors is equal to the given number
+            vector<int> neighbors = get_true_neighbors(x, y, snapshot_internal);
+            if (neighbors.size() == no_neighbors) {
+                del(cell);
             }
         }
     }
-    cout << "Finished filtering floating cells." << endl;
 }
 
 /*

@@ -1,6 +1,10 @@
 #include "individual.h"
 
 
+void fessga::evo::Individual2d::copy_from_individual(Individual2d* source) {
+	for (int i = 0; i < size; i++) values[i] = source->at(i);
+	_count = source->count();
+}
 
 bool fessga::evo::Individual2d::update_phenotype() {
 	_copy(values, phenotype, _count, _phenotype_count);
@@ -53,19 +57,37 @@ void fessga::evo::Individual2d::fill_voids(int _target_no_neighbors) {
 	}
 }
 
-void fessga::evo::Individual2d::do_feasibility_filtering() {
-	// Step 1: Fill all void elements that are surrounded on all sides by solid elements
+void fessga::evo::Individual2d::do_feasibility_filtering(bool verbose) {
+	grd::Densities2d previous_state(this);
+	bool filtering_had_effect = true;
+	int i = 1;
+	while (filtering_had_effect) {
+		do_single_feasibility_filtering_pass();
+		filtering_had_effect = !previous_state.is_identical_to(values);
+		previous_state.copy_from(this);
+		i++;
+	}
+	if (verbose) cout << "Performed feasibility filtering (" << i << " passes).\n";
+}
+
+void fessga::evo::Individual2d::do_single_feasibility_filtering_pass() {
+	// Step 1: Fill void elements that are surrounded on all sides by solid elements
 	fill_voids(4);
 
-	// Step 2: Remove all solid elements that have no true neighbors
+	// Step 2: Remove solid elements that have no true neighbors
+	filter(0);
 
 	// Restore boundary cell elements
+	for (auto& cell : fea_case->boundary_cells) fill(cell);
 
-	// Step 3: Fill all void elements that are surrounded on all but one side by solid elements
+	// Step 3: Fill void elements that are surrounded on all but one side by solid elements
+	fill_voids(3);
 
-	// Step 4: Remove all solid elements that have exactly one true neighbor
+	// Step 4: Remove solid elements that have exactly one true neighbor
+	filter(1);
 
 	// Restore boundary cell elements
+	for (auto& cell : fea_case->boundary_cells) fill(cell);
 }
 
 void fessga::evo::Individual2d::do_ground_element_filtering() {

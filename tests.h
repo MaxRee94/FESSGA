@@ -14,8 +14,8 @@ public:
     bool do_individual_remove_smaller_pieces_test(string type, string path, bool expected_result, bool verbose = false);
     bool do_individual_restore_pieces_test(string type, string path, bool verbose = false);
     bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = false);
-    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = false);
     bool do_individual_fill_voids_test(string type, string path, bool verbose = false);
+    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
@@ -277,7 +277,6 @@ bool Tester::do_individual_feasibility_filtering_test(string type, string path, 
     // Setup
     OptimizerBase optimizer = do_setup(type, path, verbose);
     evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
-    if (verbose) optimizer.densities.visualize_bound_cells();
 
     // Test
     individual.do_feasibility_filtering();

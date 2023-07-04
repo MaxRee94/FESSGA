@@ -49,6 +49,12 @@ namespace fessga {
                 fea_results = _fea_results;
                 fea_case = _fea_case;
             }
+            Densities2d(Densities2d* densities) {
+                construct_grid(densities->dim_x, densities->dim_y);
+                cell_size = densities->cell_size;
+                fea_results = densities->fea_results;
+                fea_case = densities->fea_case;
+            }
             int get_idx(int x, int y) {
                 return x * dim_y + y;
             }
@@ -162,6 +168,12 @@ namespace fessga {
                 }
                 throw("ERROR: piece not found\n");
             }
+            bool is_identical_to(uint* _values) {
+                for (int cell = 0; cell < size; cell++) {
+                    if (values[cell] != _values[cell]) return false;
+                }
+                return true;
+            }
 
             void move_piece_to_trash(Piece* piece);
             void move_piece_from_trash(Piece* piece);
@@ -181,7 +193,7 @@ namespace fessga {
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
             void do_import(string path, Vector3d diagonal);
-            void filter(int min_no_neighbors);
+            void filter(int no_neighbors = 0);
             void init_pieces(int _start_cell = -1);
             void load_snapshot();
             bool remove_floating_piece(grd::Piece* piece);
