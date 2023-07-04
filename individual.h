@@ -33,6 +33,7 @@ namespace fessga {
 			bool remove_isolated_material();
 			void do_feasibility_filtering();
 			void do_ground_element_filtering();
+			void fill_voids(int no_true_neighbors);
 		protected:
 			uint* phenotype = 0;
 			int _phenotype_count = -1;

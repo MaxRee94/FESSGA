@@ -77,6 +77,10 @@ namespace fessga {
                     _count++;
                 }
             }
+            void fill(int x, int y) {
+                int cell = x * dim_y + y;
+                fill(cell);
+            }
             void fill(vector<int> cells) {
                 update_count();
                 for (auto& cell : cells) fill(cell);
@@ -170,14 +174,14 @@ namespace fessga {
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_path);
             vector<int> get_true_neighbors(int idx);
-            vector<int> get_true_neighbors(int x, int y);
+            vector<int> get_true_neighbors(int x, int y, uint* _values = 0);
             void remove_smaller_pieces(
                 vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true, bool check_if_single_piece = false
             );
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
             void do_import(string path, Vector3d diagonal);
-            void filter();
+            void filter(int min_no_neighbors);
             void init_pieces(int _start_cell = -1);
             void load_snapshot();
             bool remove_floating_piece(grd::Piece* piece);
@@ -205,9 +209,13 @@ namespace fessga {
         protected:
             uint* values = 0;
             uint* snapshot = 0;
+            uint* snapshot_internal = 0;
             int _count = 0;
             int _snapshot_count = 0;
+            int _snapshot_internal_count = 0;
 
+            void save_internal_snapshot();
+            void load_internal_snapshot();
             void init_pieces(vector<int>* visited_cells, int cells_left, int _start_cell);
             virtual void construct_grid(int _dim_x, int _dim_y, int _ = 0) {
                 dim_x = _dim_x;
@@ -215,6 +223,7 @@ namespace fessga {
                 size = dim_x * dim_y;
                 values = new uint[size];
                 snapshot = new uint[size];
+                snapshot_internal = new uint[size];
                 delete_all(); // Initialize all values to zero
             }
             virtual void compute_cellsize(Vector3d diagonal) {
@@ -251,6 +260,7 @@ namespace fessga {
                 size = dim_x * dim_y * dim_z;
                 values = new uint[size];
                 snapshot = new uint[size];
+                snapshot_internal = new uint[size];
                 delete_all(); // Initialize all values to zero
             }
             void compute_cellsize(Vector3d diagonal) override {

@@ -6,7 +6,7 @@
 
 
 // Remove floating cells (i.e. cells that have no direct neighbors)
-void fessga::grd::Densities2d::filter() {
+void fessga::grd::Densities2d::filter(int min_no_neighbors) {
     cout << "Filtering 2d floating cells..." << endl;
     update_count();
 #pragma omp parallel for
@@ -103,15 +103,16 @@ void fessga::grd::Densities2d::do_import(string path, Vector3d diagonal) {
 
 // Return the indices of the 'true neighbors' of the cell at the given coordinates.
 // True neighbors are here defined as filled neighbor cells that share a line with the given cell
-vector<int> fessga::grd::Densities2d::get_true_neighbors(int x, int y) {
+vector<int> fessga::grd::Densities2d::get_true_neighbors(int x, int y, uint* _values) {
     vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
     vector<int> true_neighbors;
+    if (_values == 0) _values = values;
     for (auto& offset : offsets) {
         int _x = x + offset.first;
         int _y = y + offset.second;
         if (_x == dim_x || _y == dim_y || _x < 0 || _y < 0) continue;
         int neighbor_coord = _x * dim_y + _y;
-        if (values[neighbor_coord] == 1) true_neighbors.push_back(neighbor_coord);
+        if (_values[neighbor_coord] == 1) true_neighbors.push_back(neighbor_coord);
     }
     return true_neighbors;
 }
@@ -636,10 +637,22 @@ void fessga::grd::Densities2d::save_snapshot() {
     _snapshot_count = _count;
 }
 
+// Save a copy of the current state of the density distribution, to be used only internally
+void fessga::grd::Densities2d::save_internal_snapshot() {
+    for (int i = 0; i < size; i++) snapshot_internal[i] = values[i];
+    _snapshot_internal_count = _count;
+}
+
 // Load the previously saved state (i.e. the snapshot)
 void fessga::grd::Densities2d::load_snapshot() {
     for (int i = 0; i < size; i++) values[i] = snapshot[i];
     _count = _snapshot_count;
+}
+
+// Load the previously saved state (i.e. the snapshot). Only for internal use.
+void fessga::grd::Densities2d::load_internal_snapshot() {
+    for (int i = 0; i < size; i++) values[i] = snapshot_internal[i];
+    _count = _snapshot_internal_count;
 }
 
 // Copy the density values from the given Densities2d-object to the current object

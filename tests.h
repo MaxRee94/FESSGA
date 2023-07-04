@@ -13,8 +13,9 @@ public:
     bool do_individual_init_pieces_test(string type, string path, int expected_result, int dim_x = -1, int dim_y = -1, bool verbose = false);
     bool do_individual_remove_smaller_pieces_test(string type, string path, bool expected_result, bool verbose = false);
     bool do_individual_restore_pieces_test(string type, string path, bool verbose = false);
-    bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = true);
-    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = true);
+    bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = false);
+    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = false);
+    bool do_individual_fill_voids_test(string type, string path, bool verbose = false);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
@@ -22,6 +23,7 @@ public:
     bool test_remove_smaller_pieces();
     bool test_restore_removed_pieces();
     bool test_remove_isolated_material();
+    bool test_fill_voids();
     bool test_feasibility_filtering();
     void do_teardown();
     OptimizerBase do_setup(string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = "");
@@ -54,6 +56,10 @@ void Tester::run_tests() {
     failures += !_success;
 
     _success = test_remove_isolated_material();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_fill_voids();
     successes += _success;
     failures += !_success;
 
@@ -101,12 +107,6 @@ OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x
     ctrl->input.path = path;
     ctrl->input.type = type;
     ctrl->init_densities();
-
-    //// repair (temp)
-    //for (auto& cell : fea_case.boundary_cells) {
-    //    optimizer.densities.fill(cell);
-    //}
-    //optimizer.densities.do_export(path);
 
     ctrl->fea_case = fea_case;
     ctrl->fea_results = fea_results;
@@ -240,15 +240,48 @@ bool Tester::do_individual_remove_isolated_material_test(string type, string pat
     return success;
 }
 
+bool Tester::do_individual_fill_voids_test(string type, string path, bool verbose) {
+    // Setup
+    if (verbose) cout << "Test 1 (target no neighbors = 4):\n";
+    OptimizerBase optimizer = do_setup(type, path, verbose);
+    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+
+    // Test 1 (target no neighbors = 4)
+    individual.save_snapshot();
+    individual.fill_voids(4);
+    if (verbose) {
+        cout << endl; individual.print();
+    }
+
+    // Test 2 (target no neighbors = 3)
+    individual.load_snapshot();
+    individual.save_snapshot();
+    if (verbose) {
+        cout << "\nTest 2 (target no neighbors = 3):\n";
+        individual.print();
+        cout << endl;
+    }
+    individual.fill_voids(3);
+    if (verbose) individual.print();
+
+    // Evaluate
+    bool success = true;
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
 bool Tester::do_individual_feasibility_filtering_test(string type, string path, bool verbose) {
     // Setup
-    OptimizerBase optimizer = do_setup(type, path);
+    OptimizerBase optimizer = do_setup(type, path, verbose);
     evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
     if (verbose) optimizer.densities.visualize_bound_cells();
 
     // Test
     individual.do_feasibility_filtering();
-    individual.print();
+    if (verbose) individual.print();
 
     // Evaluate
     bool success = true;
@@ -316,6 +349,18 @@ bool Tester::test_remove_isolated_material() {
     success = success && do_individual_remove_isolated_material_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens", true);
 
     cout << "\nTESTING: remove_isolated_material(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+
+// Test 'fill voids' function
+bool Tester::test_fill_voids() {
+    bool success = true;
+    success = success && do_individual_fill_voids_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_1_mutated.dens");
+    success = success && do_individual_fill_voids_test("distribution2d", "../data/unit_tests/distribution2d_multi_piece_2_mutated.dens");
+
+    cout << "\nTESTING: test_fill_voids(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
