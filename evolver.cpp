@@ -52,7 +52,7 @@ void Evolver::do_2d_crossover(evo::Individual2d parent1, evo::Individual2d paren
 /*
 Mutate the given solution according to the set mutation rate
 */
-void Evolver::do_2d_mutation(evo::Individual2d individual, float _mutation_rate = -1) {
+void Evolver::do_2d_mutation(evo::Individual2d& individual, float _mutation_rate = -1) {
 	for (int i = 0; i < no_cells; i++) {
 		// Probability of a bit flip is equal to the mutation rate
 		float rand_val = fessga::help::get_rand_float(0.0, 1.0);
@@ -68,20 +68,28 @@ void Evolver::do_2d_mutation(evo::Individual2d individual, float _mutation_rate 
 Initialize a population of unique density distributions. Each differs slightly from the distribution loaded from file.
 */
 void Evolver::init_population() {
-	// Create uint buffer to store the binary density distributions of each individual, concatenated into a single array
-	population;
-
-	// Fill the buffer with (mutated) copies of the base densities
+	// Fill the population vector with (mutated) copies of the base densities
 	evo::Individual2d _individual(densities, mesh.diagonal);
-	for (int indiv = 0; indiv < pop_size; indiv++) {
+	_individual.print();
+	int i = 0;
+	while (population.size() < pop_size) {
+		if (i == pop_size * 2 && population.size() == 0) {
+			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
+		}
+
 		// Make a copy of the base individual
-		evo::Individual2d individual = _individual;
+		evo::Individual2d individual(densities, mesh.diagonal);
 
 		// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 		do_2d_mutation(individual, initial_perturbation_size);
-		population->push_back(individual);
 
-		// Run the genotype-phenotype mapping pipeline on each individual, to ensure feasibility.
+		// Run the repair pipeline on each individual, to ensure feasibility.
+		bool is_valid = individual.repair();
+		if (!is_valid) { i--; continue; } // If the repaired shape is not valid, re-try generating an individual
+
+		// Add the individual to the population
+		population.push_back(individual);
+		i++;
 	}
 }
 

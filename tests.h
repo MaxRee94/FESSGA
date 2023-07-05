@@ -8,6 +8,7 @@ public:
     Tester(Controller* _ctrl) : ctrl(_ctrl) {};
     void run_tests();
     void init_dummy_optimizer(OptimizerBase& optimizer);
+    void init_dummy_evolver(Evolver& evolver);
     bool test_is_single_piece();
     bool do_individual_is_single_piece_test(string type, string path);
     bool do_individual_init_pieces_test(string type, string path, int expected_result, int dim_x = -1, int dim_y = -1, bool verbose = false);
@@ -15,8 +16,9 @@ public:
     bool do_individual_restore_pieces_test(string type, string path, bool verbose = false);
     bool do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose = false);
     bool do_individual_fill_voids_test(string type, string path, bool verbose = false);
-    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = true);
-    bool do_individual_repair_test(string type, string path, bool verbose = true);
+    bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = false);
+    bool do_individual_repair_test(string type, string path, bool verbose = false);
+    bool do_individual_init_population_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
@@ -27,8 +29,14 @@ public:
     bool test_fill_voids();
     bool test_feasibility_filtering();
     bool test_repair();
+    bool test_init_population();
     void do_teardown();
-    OptimizerBase do_setup(string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = "");
+    OptimizerBase do_setup(
+        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = ""
+    );
+    Evolver do_evolver_setup(
+        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = ""
+    );
 
     Controller* ctrl = 0;
     Input _input;
@@ -73,6 +81,10 @@ void Tester::run_tests() {
     successes += _success;
     failures += !_success;
 
+    _success = test_init_population();
+    successes += _success;
+    failures += !_success;
+
     cout << "ALL TESTS FINISHED. " << successes << " / " << (failures + successes) << " tests passed.\n";
 }
 
@@ -89,6 +101,26 @@ void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
     bool verbose = true;
     bool maintain_boundary_connection = true;
     optimizer = OptimizerBase(msh_file, fea_case, ctrl->mesh, ctrl->output_folder, max_stress, ctrl->densities2d, max_iterations, export_msh, verbose);
+}
+
+void Tester::init_dummy_evolver(Evolver& evolver) {
+    // Parameters
+    double max_stress = 1.5e9;
+    string msh_file = ctrl->output_folder + "/mesh.msh";
+    string fea_case = ctrl->output_folder + "/case.sif";
+    int max_iterations = 100;
+    bool export_msh = true;
+    float greediness = 0.1;
+    bool verbose = true;
+    bool maintain_boundary_connection = true;
+    float initial_perturbation_size = 0.1;
+    int pop_size = 20;
+    int tournament_size = 5;
+    float mutation_rate = 0.001;
+    evolver = Evolver(
+        msh_file, fea_case, ctrl->mesh, ctrl->output_folder, pop_size, mutation_rate, tournament_size, max_stress, ctrl->densities2d, max_iterations,
+        export_msh, verbose, initial_perturbation_size
+    );
 }
 
 OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x, int dim_y, string output_folder) {
@@ -121,6 +153,38 @@ OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x
     if (verbose) optimizer.densities.print();
 
     return optimizer;
+}
+
+Evolver Tester::do_evolver_setup(string type, string path, bool verbose, int dim_x, int dim_y, string output_folder) {
+    _input = ctrl->input;
+    _dim_x = ctrl->dim_x; _dim_y = ctrl->dim_y;
+    if (dim_x > 0 && dim_y > 0) {
+        ctrl->dim_x = dim_x;
+        ctrl->dim_y = dim_y;
+    }
+    // Init optimizer with base teapot distribution
+    _output_folder = ctrl->output_folder;
+    if (output_folder != "") ctrl->output_folder = output_folder;
+    ctrl->input.path = ctrl->output_folder + "/distribution2d.dens";
+    ctrl->input.type = "distribution2d";
+    ctrl->init_densities();
+    Evolver evolver;
+    init_dummy_evolver(evolver);
+
+    // Update input and distribution with given type and path
+    phys::FEACase fea_case = ctrl->fea_case;
+    phys::FEAResults2D fea_results = ctrl->fea_results;
+    ctrl->input.path = path;
+    ctrl->input.type = type;
+    ctrl->init_densities();
+
+    ctrl->fea_case = fea_case;
+    ctrl->fea_results = fea_results;
+    evolver.densities.copy_from(&ctrl->densities2d);
+
+    if (verbose) evolver.densities.print();
+
+    return evolver;
 }
 
 void Tester::do_teardown() {
@@ -316,6 +380,28 @@ bool Tester::do_individual_repair_test(string type, string path, bool verbose) {
     return success;
 }
 
+bool Tester::do_individual_init_population_test(string type, string path, bool verbose) {
+    // Setup
+    Evolver evolver = do_evolver_setup(type, path, verbose);
+
+    // Test
+    evolver.init_population();
+    if (verbose) {
+        for (int i = 0; i < evolver.population.size(); i++) {
+            cout << "Individual " + to_string(i) + ":\n";
+            evolver.population[i].print();
+        }
+    }
+
+    // Evaluate
+    bool success = true;
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
 // Do multi-piece and single-piece tests
 bool Tester::test_is_single_piece() {
     bool success = true;
@@ -411,6 +497,16 @@ bool Tester::test_repair() {
     return success;
 }
 
+// Test 'init_population' function
+bool Tester::test_init_population() {
+    bool success = true;
+    success = success && do_individual_init_population_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
+
+    cout << "\nTESTING: evolver.init_population(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
 /*
 Create 2 parent slices from the 3d binary density distribution for 2d test
 */
@@ -445,7 +541,7 @@ bool Tester::test_2d_crossover() {
     evo::Individual2d child1(ctrl->densities2d, ctrl->mesh.diagonal);
     evo::Individual2d child2(ctrl->densities2d, ctrl->mesh.diagonal);
     Evolver evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, &variation_minimum_passed, 2,
+        msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, 2,
         max_stress, parent1, max_iterations
     );
     evolver.do_2d_crossover(parent1, parent2, child1, child2);

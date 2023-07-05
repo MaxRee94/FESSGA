@@ -14,8 +14,8 @@ void fessga::grd::Densities2d::filter(int no_neighbors) {
         for (int y = 0; y < dim_y; y++) {
             int cell = x * dim_y + y;
 
-            // If the cell is already filled, continue to the next cell
-            if (values[cell]) continue;
+            // If the cell is already empty, continue to the next cell
+            if (!values[cell]) continue;
 
             // Delete the cell if the number of neighbors is equal to the given number
             vector<int> neighbors = get_true_neighbors(x, y, snapshot_internal);

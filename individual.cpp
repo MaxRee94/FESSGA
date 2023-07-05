@@ -11,9 +11,12 @@ void fessga::evo::Individual2d::update_phenotype() {
 	do_ground_element_filtering();
 }
 
-void fessga::evo::Individual2d::repair() {
+bool fessga::evo::Individual2d::repair() {
 	do_feasibility_filtering();
 	remove_isolated_material();
+	bool is_single_piece = pieces.size() == 1;
+	bool is_valid = is_single_piece;
+	return is_valid;
 }
 
 bool fessga::evo::Individual2d::remove_isolated_material() {
