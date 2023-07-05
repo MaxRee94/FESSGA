@@ -36,6 +36,8 @@ namespace fessga{
 		};
 
 		static void load_distribution_from_image(grd::Densities2d densities, const char* filename) {
+			if (!IO::file_exists(string(filename))) throw std::runtime_error("Error: image file " + string(filename) + " does not exist");
+			
 			// Load image
 			int width, height, numChannels;
 			unsigned char* image = stbi_load(filename, &width, &height, &numChannels, 0);
@@ -45,33 +47,60 @@ namespace fessga{
 
 			// Extract red values
 			int numPixels = width * height;
-			int pixels_per_cell = height / densities.dim_y;
+			int pixels_per_cell_x = width / densities.dim_x;
+			int pixels_per_cell_y = height / densities.dim_y;
 			int* redValues = new int[numPixels];
 			for (int i = 0; i < numPixels; ++i) {
 				int index = i * numChannels;
 				redValues[i] = image[index];
 			}
+
+			// Extract green values
+			int* greenValues = new int[numPixels];
+			for (int i = 0; i < numPixels; ++i) {
+				int index = i * numChannels + 1;
+				greenValues[i] = image[index];
+			}
 			stbi_image_free(image);
 
-			// Sample red values with intervals
+			// Sample green values with intervals to derive which cells should be filled and which should be void
 			int x_offset = (densities.dim_x / 2);
+			x_offset = 0;
 			for (int y = 0; y < densities.dim_y; y++) {
 				for (int x = 0; x < densities.dim_x; x++) {
-					int img_idx = y * width * pixels_per_cell + (x) * pixels_per_cell;
+					int img_idx = y * width * pixels_per_cell_y + (x - x_offset) * pixels_per_cell_x;
 					int pixel_count = 0;
 					// Count all pixel values in the cell
-					for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
-						int _y = i / pixels_per_cell;
-						int _x = i % pixels_per_cell;
+					for (int i = 0; i < pixels_per_cell_x * pixels_per_cell_y; i++) {
+						int _y = i / pixels_per_cell_x;
+						int _x = i % pixels_per_cell_x;
 						int _img_idx = img_idx + _y * width + _x;
-						pixel_count += redValues[_img_idx];
+						pixel_count += greenValues[_img_idx];
 					}
-					int cell_value = pixel_count / 255 / (pixels_per_cell * pixels_per_cell);
+					int cell_value = pixel_count / 255 / (pixels_per_cell_x * pixels_per_cell_y);
 					densities.set((x + 1) * densities.dim_y - y - 1, cell_value);
 				}
 			}
 			densities.update_count();
 			densities.filter();
+
+			// Sample red values with intervals to derive which cells are cutout cells that are not allowed to become filled
+			for (int y = 0; y < densities.dim_y; y++) {
+				for (int x = 0; x < densities.dim_x; x++) {
+					int img_idx = y * width * pixels_per_cell_y + (x - x_offset) * pixels_per_cell_x;
+					int pixel_count = 0;
+					// Count all pixel values in the cell
+					for (int i = 0; i < pixels_per_cell_x * pixels_per_cell_y; i++) {
+						int _y = i / pixels_per_cell_x;
+						int _x = i % pixels_per_cell_x;
+						int _img_idx = img_idx + _y * width + _x;
+						pixel_count += redValues[_img_idx];
+					}
+					int cell_value = pixel_count / 255 / (pixels_per_cell_x * pixels_per_cell_y);
+					bool is_cutout = cell_value;
+					if (is_cutout) densities.fea_case->cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
+				}
+			}
 		}
 
 		static void convert_distribution_to_single_channel_image(grd::Densities2d densities, unsigned char* single_channel, Image* image) {

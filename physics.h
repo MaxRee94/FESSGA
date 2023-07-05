@@ -42,7 +42,7 @@ namespace fessga {
             string path;
             vector<string> names, sections;
             vector<int> boundary_cells;
-            vector<int> whitelisted_cells;
+            vector<int> cutout_cells;
             string content;
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;

@@ -70,7 +70,6 @@ Initialize a population of unique density distributions. Each differs slightly f
 void Evolver::init_population() {
 	// Fill the population vector with (mutated) copies of the base densities
 	evo::Individual2d _individual(densities, mesh.diagonal);
-	_individual.print();
 	int i = 0;
 	while (population.size() < pop_size) {
 		if (i == pop_size * 2 && population.size() == 0) {

@@ -151,7 +151,7 @@ bool fessga::grd::Densities2d::cell_is_safe_to_delete(
         // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
         if (sub_neighbors.size() <= 1) {
             // If the cell has a line on which a boundary condition was applied, skip deletion
-            if (help::is_in(&fea_case->boundary_cells, neighbor) || help::is_in(&fea_case->whitelisted_cells, neighbor)) {
+            if (help::is_in(&fea_case->boundary_cells, neighbor)) {
                 return false;
             }
             no_deleted_neighbors++;
@@ -324,7 +324,6 @@ void fessga::grd::Densities2d::remove_largest_piece_from_vector(vector<grd::Piec
 
 void fessga::grd::Densities2d::flush_edit_memory() {
     removed_cells.clear();
-    fea_case->whitelisted_cells.clear();
     removed_pieces.clear();
     main_piece = grd::Piece();
 }
@@ -424,9 +423,7 @@ bool fessga::grd::Densities2d::remove_floating_piece(
     vector<int> _removed_cells;
     for (auto& cell : piece->cells) {
         // TODO: The last two conditions of the following if-statement should not be necessary, but they are. Figure out why.
-        bool cell_cannot_be_removed = fea_results->data_map[cell] > fea_case->max_stress_threshold ||
-            (help::is_in(&fea_case->boundary_cells, cell) || help::is_in(&fea_case->whitelisted_cells, cell)
-                );
+        bool cell_cannot_be_removed = fea_results->data_map[cell] > fea_case->max_stress_threshold || help::is_in(&fea_case->boundary_cells, cell);
         if (cell_cannot_be_removed) {
             if (fea_case->maintain_boundary_connection) {
                 fill(_removed_cells);

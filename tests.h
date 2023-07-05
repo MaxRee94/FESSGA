@@ -18,7 +18,8 @@ public:
     bool do_individual_fill_voids_test(string type, string path, bool verbose = false);
     bool do_individual_feasibility_filtering_test(string type, string path, bool verbose = false);
     bool do_individual_repair_test(string type, string path, bool verbose = false);
-    bool do_individual_init_population_test(string type, string path, bool verbose = true);
+    bool do_individual_init_population_test(string type, string path, bool verbose = false);
+    bool do_individual_image_loader_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
     bool test_2d_crossover();
     bool test_evolution();
@@ -30,6 +31,7 @@ public:
     bool test_feasibility_filtering();
     bool test_repair();
     bool test_init_population();
+    bool test_image_loader();
     void do_teardown();
     OptimizerBase do_setup(
         string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = ""
@@ -82,6 +84,10 @@ void Tester::run_tests() {
     failures += !_success;
 
     _success = test_init_population();
+    successes += _success;
+    failures += !_success;
+
+    _success = test_image_loader();
     successes += _success;
     failures += !_success;
 
@@ -402,6 +408,29 @@ bool Tester::do_individual_init_population_test(string type, string path, bool v
     return success;
 }
 
+bool Tester::do_individual_image_loader_test(string type, string path, bool verbose) {
+    // Setup
+    Evolver evolver = do_evolver_setup(type, path, verbose);
+    cout << "evolver setup done.\n";
+
+    // Test
+    evolver.init_population();
+    if (verbose) {
+        for (int i = 0; i < evolver.population.size(); i++) {
+            cout << "Individual " + to_string(i) + ":\n";
+            evolver.population[i].print();
+        }
+    }
+
+    // Evaluate
+    bool success = true;
+
+    // Teardown
+    do_teardown();
+
+    return success;
+}
+
 // Do multi-piece and single-piece tests
 bool Tester::test_is_single_piece() {
     bool success = true;
@@ -503,6 +532,16 @@ bool Tester::test_init_population() {
     success = success && do_individual_init_population_test("distribution2d", "../data/unit_tests/distribution2d_single_piece.dens");
 
     cout << "\nTESTING: evolver.init_population(). Test " << (success ? "passed." : "failed.") << "\n\n";
+
+    return success;
+}
+
+// Test void loader
+bool Tester::test_image_loader() {
+    bool success = true;
+    success = success && do_individual_image_loader_test("image", "../data/images/t_rex_including_cutouts.jpg");
+
+    cout << "\nTESTING: img::load_distribution_from_image(). Test " << (success ? "passed." : "failed.") << "\n\n";
 
     return success;
 }
