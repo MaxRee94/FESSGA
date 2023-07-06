@@ -42,6 +42,14 @@ namespace fessga {
                 cout << "diagonal: " << diagonal.transpose() << endl;
                 cout << "offset: " << offset.transpose() << endl;
             }
+            SurfaceMesh(Vector2d size) {
+                diagonal = Vector3d(size(0), size(1), 0);
+                offset = -0.5 * diagonal;
+                bounding_box.row(0) = 0.5 * diagonal;
+                bounding_box.row(1) = -0.5 * diagonal;
+                cout << "diagonal: " << diagonal.transpose() << endl;
+                cout << "offset: " << offset.transpose() << endl;
+            }
             Vector3d offset;
             Vector3d diagonal;
             MatrixXd bounding_box = MatrixXd(2, 3);
@@ -349,7 +357,7 @@ namespace fessga {
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_conditions(boundary_id_lookup, densities.fea_case);
+            read_boundary_conditions(boundary_id_lookup, &densities.fea_case);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
@@ -365,12 +373,12 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = (line.id - 1) >> 2;
-                    densities.fea_case->boundary_cells.push_back(cell_coord);
+                    densities.fea_case.boundary_cells.push_back(cell_coord);
                     q++;
                 }
                 bound_conds[bound_name] = bound_lines;
             }
-            cout << "no boundary cells: " << densities.fea_case->boundary_cells.size() << endl;
+            cout << "no boundary cells: " << densities.fea_case.boundary_cells.size() << endl;
             cout << "no boundary lines: " << q << endl;
         }
 

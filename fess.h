@@ -24,7 +24,7 @@ public:
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
-		densities.fea_case->maintain_boundary_connection = _maintain_boundary_connection;
+		densities.fea_case.maintain_boundary_connection = _maintain_boundary_connection;
 	}
 	double min_stress_threshold = 1.0;
 	float greediness;
@@ -58,7 +58,7 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 		//densities.print();
 
 		densities.remove_smaller_pieces(
-			densities.pieces, &densities.removed_cells, densities.fea_results);
+			densities.pieces, &densities.removed_cells);
 
 		// Check if all pieces were removed
 		int total_no_cells;
@@ -134,6 +134,11 @@ void FESS::run() {
 			img::write_distribution_to_image(densities, image_folder + "/" + cur_iteration_name + ".jpg", 1000, 1000, true);
 		}
 
+		// Reset densities object (keeping only the density values themselves)
+		grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, cur_output_folder);
+		_densities.copy_from(&densities);
+		densities = _densities;
+
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
 		msh::FEMesh2D fe_mesh;
@@ -143,8 +148,8 @@ void FESS::run() {
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
 		msh::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
-		msh::assemble_fea_case(densities.fea_case, &bound_id_lookup);
-		IO::write_text_to_file(densities.fea_case->content, cur_output_folder + "/case.sif");
+		msh::assemble_fea_case(&densities.fea_case, &bound_id_lookup);
+		IO::write_text_to_file(densities.fea_case.content, cur_output_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";
 
 		// Export newly generated FE mesh
@@ -172,7 +177,7 @@ void FESS::run() {
 			exit(1);
 		}
 		bool physics_loaded = fessga::phys::load_2d_physics_data(
-			cur_case_output_file, densities.fea_results, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset, "Vonmises"
+			cur_case_output_file, &densities.fea_results, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset, "Vonmises"
 		);
 		if (physics_loaded) cout << "FESS: Finished reading stress distribution from .vtk file." << endl;
 		else {
@@ -180,8 +185,8 @@ void FESS::run() {
 		}
 
 		// Get minimum and maximum stress values
-		max_stress = densities.fea_results->max;
-		min_stress = densities.fea_results->min;
+		max_stress = densities.fea_results.max;
+		min_stress = densities.fea_results.min;
 		cout << "FESS: Current maximum stress: " << std::setprecision(3) << std::scientific << max_stress << endl;
 		cout << "FESS: Current minimum stress: " << std::setprecision(3) << std::scientific << min_stress << endl;
 
@@ -218,11 +223,6 @@ void FESS::run() {
 			final_valid_iteration = i;
 			densities.save_snapshot();
 		}
-
-		// Prepare densities for next iteration by performing a reset
-		grd::Densities2d _densities = grd::Densities2d(densities.dim_x, densities.dim_y, mesh.diagonal, densities.fea_results, densities.fea_case);
-		_densities.copy_from(&densities);
-		densities = _densities;
 
 		i++;
 	}

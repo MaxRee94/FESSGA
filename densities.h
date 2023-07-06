@@ -43,15 +43,21 @@ namespace fessga {
         class Densities2d {
         public:
             Densities2d() = default;
-            Densities2d(int _dim_x, int _dim_y, Vector3d diagonal, phys::FEAResults2D* _fea_results, phys::FEACase* _fea_case) {
-                construct_grid(_dim_x, _dim_y);
-                compute_cellsize(diagonal);
-                fea_results = _fea_results;
-                fea_case = _fea_case;
+            Densities2d(int _dim_x, Vector2d _diagonal, string _output_folder) {
+                dim_x = _dim_x;
+                diagonal = _diagonal;
+                compute_cellsize();
+                construct_grid();
+                output_folder = _output_folder;
+                fea_results = phys::FEAResults2D(dim_x, dim_y);
+                fea_case = phys::FEACase(output_folder + "/case.sif");
             }
+            Densities2d(int _dim_x, Vector3d _diagonal, string _output_folder) : Densities2d(_dim_x, Vector2d(_diagonal(0), _diagonal(1)), _output_folder) {};
             Densities2d(Densities2d* densities) {
-                construct_grid(densities->dim_x, densities->dim_y);
                 cell_size = densities->cell_size;
+                diagonal = densities->diagonal;
+                dim_x = densities->dim_x;
+                construct_grid();
                 fea_results = densities->fea_results;
                 fea_case = densities->fea_case;
             }
@@ -177,10 +183,10 @@ namespace fessga {
 
             void move_piece_to_trash(Piece* piece);
             void move_piece_from_trash(Piece* piece);
-            bool cell_is_safe_to_delete(int cell_coord, vector<int>* removed_cells, int& no_deleted_neighbors, phys::FEACase* fea_case);
+            bool cell_is_safe_to_delete(int cell_coord, int& no_deleted_neighbors);
             bool is_single_piece(int _start_cell = -1, bool verbose = false);
             int get_cell_not_in_vector(vector<int>* cells_vector);
-            int get_no_connected_cells(int cell_coord, Piece& piece, phys::FEACase* fea_case = 0, bool verbose = false);
+            int get_no_connected_cells(int cell_coord, Piece& piece, bool verbose = false);
             int get_unvisited_cell(vector<int>* visited_cells);
             bool is_in(vector<Piece>* pieces, Piece* piece);
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
@@ -192,7 +198,7 @@ namespace fessga {
             );
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
-            void do_import(string path, Vector3d diagonal);
+            void do_import(string path, float width);
             void filter(int no_neighbors = 0);
             void init_pieces(int _start_cell = -1);
             void load_snapshot();
@@ -205,14 +211,21 @@ namespace fessga {
             void flush_edit_memory();
             int get_no_cells_in_removed_pieces();
             void visualize_bound_cells();
+            bool repair();
+            bool remove_isolated_material();
+            void do_single_feasibility_filtering_pass();
+            void do_feasibility_filtering(bool verbose = false);
+            void fill_voids(int no_true_neighbors = 4);
 
             int dim_x = 0;
             int dim_y = 0;
             int size = 0;
             int no_dimensions = 2;
             Vector2d cell_size;
-            phys::FEACase* fea_case = 0;
-            phys::FEAResults2D* fea_results = 0;
+            string output_folder;
+            Vector2d diagonal;
+            phys::FEACase fea_case;
+            phys::FEAResults2D fea_results;
             vector<int> removed_cells = {};
             vector<Piece> pieces;
             vector<Piece> removed_pieces;
@@ -229,20 +242,24 @@ namespace fessga {
             void save_internal_snapshot();
             void load_internal_snapshot();
             void init_pieces(vector<int>* visited_cells, int cells_left, int _start_cell);
-            virtual void construct_grid(int _dim_x, int _dim_y, int _ = 0) {
-                dim_x = _dim_x;
-                dim_y = _dim_y;
+            virtual void compute_cellsize() {
+                float width = diagonal(0); // Width determines cell size
+                cell_size = Vector2d(width / (float)dim_x, width / (float)dim_x);
+            }
+            // Compute diagonal when only width is known in advance (used when importing the density distribution)
+            virtual void compute_diagonal_and_cellsize(float _width, int _dim_x, int _dim_y, int _ = 0) {
+                dim_x = _dim_x; dim_y = _dim_y;
+                float _cell_size = _width / (float)dim_x;
+                cell_size = Vector2d(_cell_size, _cell_size);
+                diagonal = Vector2d(diagonal(0), _cell_size * (float)dim_y);
+            }
+            virtual void construct_grid() {
+                dim_y = round(diagonal(1) / cell_size(1));
                 size = dim_x * dim_y;
                 values = new uint[size];
                 snapshot = new uint[size];
                 snapshot_internal = new uint[size];
                 delete_all(); // Initialize all values to zero
-            }
-            virtual void compute_cellsize(Vector3d diagonal) {
-                Vector2d _diagonal2d = Vector2d(diagonal(0), diagonal(1));
-                cell_size = _diagonal2d.cwiseProduct(
-                    Vector2d(1.0 / (double)dim_x, 1.0 / (double)dim_y)
-                );
             }
             void _copy(uint* source, uint* target, int source_count, int target_count);
         };
@@ -250,11 +267,13 @@ namespace fessga {
         class Densities3d : public Densities2d {
         public:
             Densities3d(){ no_dimensions = 3; };
-            Densities3d(int _dim_x, int _dim_y, int _dim_z, Vector3d diagonal, phys::FEAResults2D* _fea_results, phys::FEACase* _fea_case) {
-                construct_grid(_dim_x, _dim_y, _dim_z);
-                compute_cellsize(diagonal);
-                fea_results = _fea_results;
-                fea_case = _fea_case;
+            Densities3d(int _dim_x, Vector3d _diagonal, string _output_folder) {
+                output_folder = _output_folder;
+                dim_x = _dim_x;
+                diagonal = _diagonal;
+                construct_grid();
+                compute_cellsize();
+                no_dimensions = 3;
             }
             string do_export(string output_path);
             void generate(Vector3d offset, MatrixXd* V, MatrixXi* F);
@@ -262,23 +281,30 @@ namespace fessga {
             void create_slice(Densities2d& densities2d, int dimension, int offset);
 
             Vector3d cell_size;
+            Vector3d diagonal;
             int dim_z = 0;
 
         protected:
-            void construct_grid(int _dim_x, int _dim_y, int _dim_z) override {
-                dim_x = _dim_x;
-                dim_y = _dim_y;
-                dim_z = _dim_z;
+            void construct_grid() override {
+                dim_y = round(diagonal(1) / cell_size(1));
+                dim_z = round(diagonal(2) / cell_size(2));
                 size = dim_x * dim_y * dim_z;
                 values = new uint[size];
                 snapshot = new uint[size];
                 snapshot_internal = new uint[size];
                 delete_all(); // Initialize all values to zero
             }
-            void compute_cellsize(Vector3d diagonal) override {
-                cell_size = diagonal.cwiseProduct(
-                    Vector3d(1.0 / (double)dim_x, 1.0 / (double)dim_y, 1.0 / (double)dim_z)
-                );
+            void compute_cellsize() override {
+                float width = diagonal(0); // Width determines cell size
+                float _cell_size = width / (float)dim_x;
+                cell_size = Vector3d(_cell_size, _cell_size, _cell_size);
+            }
+            // Compute diagonal when only width is known in advance (used when importing the density distribution)
+            virtual void compute_diagonal_and_cellsize(float _width, int _dim_x, int _dim_y, int _dim_z) override {
+                dim_x = _dim_x; dim_y = _dim_y; dim_y = _dim_y;
+                float _cell_size = _width / dim_x;
+                diagonal = Vector3d(diagonal(0), _cell_size * (float)dim_y, _cell_size * (float)dim_z);
+                cell_size = Vector3d(_cell_size, _cell_size, _cell_size);
             }
             void fill_cells_inside_mesh(Vector3d offset, MatrixXd* V, MatrixXi* F);
             void create_x_slice(grd::Densities2d& densities2d, int x);

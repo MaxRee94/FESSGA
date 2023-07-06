@@ -26,7 +26,6 @@ public:
 		_msh_file, _fea_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
 		pop_size = _pop_size;
-		cout << "pop size:  " << pop_size << endl;
 		mutation_rate = _mutation_rate;
 		tournament_size = _tournament_size;
 		initial_perturbation_size = _initial_perturbation_size;

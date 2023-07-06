@@ -35,7 +35,7 @@ namespace fessga{
 			char path[300];
 		};
 
-		static void load_distribution_from_image(grd::Densities2d densities, const char* filename) {
+		static void load_distribution_from_image(grd::Densities2d& densities, msh::SurfaceMesh& mesh, const char* filename) {
 			if (!IO::file_exists(string(filename))) throw std::runtime_error("Error: image file " + string(filename) + " does not exist");
 			
 			// Load image
@@ -45,10 +45,17 @@ namespace fessga{
 				std::cerr << "Failed to load image." << std::endl;
 			}
 
+			// Get size of design domain
+			int pixels_per_cell = width / densities.dim_x; // The width is leading in determining the size of the cells
+			densities.dim_y = height / pixels_per_cell;
+			float mesh_width = mesh.diagonal.maxCoeff();
+			float width_per_cell = mesh_width / densities.dim_x;
+			Vector3d mesh_size = Vector3d(mesh_width, width_per_cell * densities.dim_y, 0);
+			mesh = msh::SurfaceMesh(mesh_size);
+			densities = grd::Densities2d(densities.dim_x, mesh.diagonal, densities.output_folder);
+
 			// Extract red values
 			int numPixels = width * height;
-			int pixels_per_cell_x = width / densities.dim_x;
-			int pixels_per_cell_y = height / densities.dim_y;
 			int* redValues = new int[numPixels];
 			for (int i = 0; i < numPixels; ++i) {
 				int index = i * numChannels;
@@ -68,37 +75,37 @@ namespace fessga{
 			x_offset = 0;
 			for (int y = 0; y < densities.dim_y; y++) {
 				for (int x = 0; x < densities.dim_x; x++) {
-					int img_idx = y * width * pixels_per_cell_y + (x - x_offset) * pixels_per_cell_x;
+					int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
 					int pixel_count = 0;
 					// Count all pixel values in the cell
-					for (int i = 0; i < pixels_per_cell_x * pixels_per_cell_y; i++) {
-						int _y = i / pixels_per_cell_x;
-						int _x = i % pixels_per_cell_x;
+					for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
+						int _y = i / pixels_per_cell;
+						int _x = i % pixels_per_cell;
 						int _img_idx = img_idx + _y * width + _x;
 						pixel_count += greenValues[_img_idx];
 					}
-					int cell_value = pixel_count / 255 / (pixels_per_cell_x * pixels_per_cell_y);
+					int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 					densities.set((x + 1) * densities.dim_y - y - 1, cell_value);
 				}
 			}
 			densities.update_count();
-			densities.filter();
+			densities.do_feasibility_filtering();
 
 			// Sample red values with intervals to derive which cells are cutout cells that are not allowed to become filled
 			for (int y = 0; y < densities.dim_y; y++) {
 				for (int x = 0; x < densities.dim_x; x++) {
-					int img_idx = y * width * pixels_per_cell_y + (x - x_offset) * pixels_per_cell_x;
+					int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
 					int pixel_count = 0;
 					// Count all pixel values in the cell
-					for (int i = 0; i < pixels_per_cell_x * pixels_per_cell_y; i++) {
-						int _y = i / pixels_per_cell_x;
-						int _x = i % pixels_per_cell_x;
+					for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
+						int _y = i / pixels_per_cell;
+						int _x = i % pixels_per_cell;
 						int _img_idx = img_idx + _y * width + _x;
 						pixel_count += redValues[_img_idx];
 					}
-					int cell_value = pixel_count / 255 / (pixels_per_cell_x * pixels_per_cell_y);
+					int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 					bool is_cutout = cell_value;
-					if (is_cutout) densities.fea_case->cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
+					if (is_cutout) densities.fea_case.cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
 				}
 			}
 		}

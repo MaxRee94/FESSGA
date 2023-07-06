@@ -72,7 +72,8 @@ void Evolver::init_population() {
 	evo::Individual2d _individual(densities, mesh.diagonal);
 	int i = 0;
 	while (population.size() < pop_size) {
-		if (i == pop_size * 2 && population.size() == 0) {
+		i++;
+		if (i > pop_size * 2 && population.size() == 0) {
 			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
 		}
 
@@ -84,11 +85,10 @@ void Evolver::init_population() {
 
 		// Run the repair pipeline on each individual, to ensure feasibility.
 		bool is_valid = individual.repair();
-		if (!is_valid) { i--; continue; } // If the repaired shape is not valid, re-try generating an individual
+		if (!is_valid) continue; // If the repaired shape is not valid, re-try generating an individual
 
 		// Add the individual to the population
 		population.push_back(individual);
-		i++;
 	}
 }
 

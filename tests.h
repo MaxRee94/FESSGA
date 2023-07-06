@@ -411,7 +411,6 @@ bool Tester::do_individual_init_population_test(string type, string path, bool v
 bool Tester::do_individual_image_loader_test(string type, string path, bool verbose) {
     // Setup
     Evolver evolver = do_evolver_setup(type, path, verbose);
-    cout << "evolver setup done.\n";
 
     // Test
     evolver.init_population();

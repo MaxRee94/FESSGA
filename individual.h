@@ -17,16 +17,13 @@ namespace fessga {
 		public:
 			Individual2d() = default;
 			Individual2d(
-				int _dim_x, int _dim_y, Vector3d diagonal, phys::FEAResults2D* _fea_results,
-				phys::FEACase* _fea_case) : grd::Densities2d(_dim_x, _dim_y, diagonal, _fea_results, _fea_case
-			) {};
-			Individual2d(grd::Densities2d densities, Vector3d diagonal) : grd::Densities2d(
-				densities.dim_x, densities.dim_y, diagonal, densities.fea_results, densities.fea_case
-			) {
+				int _dim_x, Vector3d _diagonal, string _output_folder) : grd::Densities2d(_dim_x, _diagonal, _output_folder)
+			{};
+			Individual2d(grd::Densities2d densities, Vector3d diagonal) : grd::Densities2d(&densities) {
 				copy_from(&densities);
 			};
 			Individual2d(Individual2d* individual) {
-				construct_grid(individual->dim_x, individual->dim_y);
+				construct_grid();
 				cell_size = individual->cell_size;
 				fea_results = individual->fea_results;
 				fea_case = individual->fea_case;
@@ -37,12 +34,7 @@ namespace fessga {
 				return _phenotype_count;
 			}
 			void update_phenotype();
-			bool repair();
-			bool remove_isolated_material();
-			void do_single_feasibility_filtering_pass();
-			void do_feasibility_filtering(bool verbose = false);
 			void do_ground_element_filtering();
-			void fill_voids(int no_true_neighbors = 4);
 			void copy_from_individual(Individual2d* source);
 		protected:
 			uint* phenotype = 0;
