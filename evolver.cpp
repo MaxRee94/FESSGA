@@ -92,7 +92,30 @@ void Evolver::init_population() {
 	}
 }
 
-void Evolver::evolve() {
+void Evolver::create_iteration_folder_structure(int iteration) {
+	// Create iteration folder
+	string iteration_folder = get_iteration_folder(iteration, true);
+	if (last_iteration_was_valid) {
+		final_valid_iteration_folder = iteration_folder;
+	}
+	
+	// Create individual folders
+	individual_folders.clear();
+	for (int i = 0; i < pop_size; i++) {
+		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1);
+		individual_folders.push_back(individual_folder);
+	}
+}
 
+void Evolver::do_setup() {
+	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
+	string image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
+	if (verbose) densities.print();
+	create_iteration_folder_structure(generation);
+	export_stats(iteration_name);
+}
+
+void Evolver::evolve() {
+	do_setup();
 }
 

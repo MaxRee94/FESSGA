@@ -8,8 +8,6 @@
 #include <functional>
 #include "helpers.h"
 #include "optimizerBase.h"
-#include "images.h"
-#include "meshing.h"
 
 
 
@@ -115,23 +113,20 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
 	double min_stress, max_stress;
-	string msh = msh_file;
 	string cur_output_folder = output_folder;
 	string final_valid_iteration_folder = cur_output_folder;
 	int final_valid_iteration = 1;
 	int i = 1;
 	bool last_iteration_was_valid = true;
-	string image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 	if (verbose) densities.print();
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
 		// Create new subfolder for output of current iteration
-		string cur_iteration_name;
-		string cur_output_folder = get_iteration_folder(i, cur_iteration_name, true);
+		string cur_output_folder = get_iteration_folder(i, true);
 		if (last_iteration_was_valid) {
 			final_valid_iteration_folder = cur_output_folder;
-			img::write_distribution_to_image(densities, image_folder + "/" + cur_iteration_name + ".jpg", 1000, 1000, true);
+			img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", 1000, 1000, true);
 		}
 
 		// Reset densities object (keeping only the density values themselves)
@@ -194,7 +189,7 @@ void FESS::run() {
 		if (max_stress > max_stress_threshold) {
 			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
 				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
-			final_valid_iteration_folder = get_iteration_folder(i - 1, cur_iteration_name);
+			final_valid_iteration_folder = get_iteration_folder(i - 1);
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}

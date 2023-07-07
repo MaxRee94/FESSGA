@@ -5,8 +5,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "io.h"
-#include "meshing.h"
+#include "images.h"
 
 using namespace fessga;
 
@@ -30,6 +29,7 @@ public:
 		max_iterations = _max_iterations;
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
+		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 		msh::derive_boundary_conditions(densities, bound_conds, mesh);
 	};
 	msh::SurfaceMesh mesh;
@@ -40,17 +40,23 @@ public:
 	bool verbose = true;
 	int max_iterations = 0;
 	bool export_msh = false;
+	double min_stress, max_stress;
 	map<string, vector<pair<int, int>>> bound_conds;
-	string msh_file, output_folder;
+	string msh_file, output_folder, image_folder, iteration_name;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
-	string get_iteration_folder(int iteration, string& cur_iteration_name, bool verbose = false) {
-		cur_iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
-		string cur_output_folder = output_folder + "/" + cur_iteration_name;
+	string get_iteration_folder(int iteration, bool verbose = false) {
+		iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+		string cur_output_folder = output_folder + "/" + iteration_name;
 		if (verbose) cout << "FESS: Creating folder " << cur_output_folder << " for current iteration if it does not exist yet...\n";
 		IO::create_folder_if_not_exists(cur_output_folder);
 
 		return cur_output_folder;
+	}
+
+	// Function to write statistics, images, and other generated data to files
+	void export_stats(string iteration_name) {
+		img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", 1000, 1000, true);
 	}
 };
 

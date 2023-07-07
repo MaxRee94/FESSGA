@@ -8,10 +8,7 @@
 #include <functional>
 #include "helpers.h"
 #include "optimizerBase.h"
-#include "meshing.h"
 #include "individual.h"
-
-using namespace fessga;
 
 
 class Evolver : public OptimizerBase {
@@ -34,10 +31,17 @@ public:
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate);
 	void init_population();
 	void evolve();
+	void do_setup();
+	void create_iteration_folder_structure(int iteration);
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;
 	float mutation_rate = 0;
 	float initial_perturbation_size = 0;
 	int tournament_size = 1;
+	bool last_iteration_was_valid = true;
+	int generation = 1;
+	int final_valid_iteration = 1;
+	string final_valid_iteration_folder = "";
+	vector<string> individual_folders;
 };

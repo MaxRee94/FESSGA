@@ -7,7 +7,6 @@
 #include <map>
 #include "io.h"
 #include "gui.h"
-#include "meshing.h"
 #include "evolver.h"
 #include "fess.h"
 
@@ -72,7 +71,7 @@ public:
             cout << "Finished exporting FE mesh. Continuing to post actions.." << endl;
         }
         else if (action == "evolve") {
-            // Run evolutionary algorithm
+            run_evoma();
         }
         else if (action == "fess") {
             // Run FESS
@@ -88,7 +87,8 @@ public:
         }
     };
     void init_densities();
-    bool run_fess();
+    void run_fess();
+    void run_evoma();
 
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
@@ -157,7 +157,7 @@ void Controller::init_densities() {
 }
 
 
-bool Controller::run_fess() {
+void Controller::run_fess() {
     // Parameters
     double max_stress = 1.5e9;
     double min_stress = 7e3;
@@ -176,8 +176,26 @@ bool Controller::run_fess() {
         maintain_boundary_connection, export_msh, verbose
     );
     fess.run();
-
-    return true;
 }
 
+void Controller::run_evoma() {
+    // Parameters
+    double max_stress = 1.5e9;
+    string msh_file = output_folder + "/mesh.msh";
+    string fea_case = output_folder + "/case.sif";
+    int max_iterations = 100;
+    bool export_msh = true;
+    float greediness = 0.1;
+    bool verbose = true;
+    bool maintain_boundary_connection = true;
+    float initial_perturbation_size = 0.1;
+    int pop_size = 20;
+    int tournament_size = 5;
+    float mutation_rate = 0.001;
+    Evolver evolver(
+        msh_file, fea_case, mesh, output_folder, pop_size, mutation_rate, tournament_size, max_stress, densities2d, max_iterations,
+        export_msh, verbose, initial_perturbation_size
+    );
+    evolver.evolve();
+}
 

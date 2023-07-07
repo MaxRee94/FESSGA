@@ -1,8 +1,5 @@
 #include "densities.h"
-#include "raytracing.h"
 
-
-#define VERBOSE false
 
 
 // Remove floating cells (i.e. cells that have no direct neighbors)

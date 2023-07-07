@@ -1,0 +1,115 @@
+Header
+  CHECK KEYWORDS Warn
+  Mesh DB "." "."
+  Include Path ""
+  Results Directory ""
+End
+
+Simulation
+  Max Output Level = 5
+  Coordinate System = Cartesian
+  Coordinate Mapping(3) = 1 2 3
+  Simulation Type = Steady state
+  Steady State Max Iterations = 1
+  Output Intervals(1) = 1
+  Solver Input File = case.sif
+  Post File = case.vtu
+End
+
+Constants
+  Gravity(4) = 0 -1 0 9.82
+  Stefan Boltzmann = 5.670374419e-08
+  Permittivity of Vacuum = 8.85418781e-12
+  Permeability of Vacuum = 1.25663706e-6
+  Boltzmann Constant = 1.380649e-23
+  Unit Charge = 1.6021766e-19
+End
+
+Body 1
+  Target Bodies(1) = 1
+  Name = "Body 1"
+  Equation = 1
+  Material = 1
+End
+
+Solver 1
+  Equation = Linear elasticity
+  Procedure = "StressSolve" "StressSolver"
+  Exec Solver = Always
+  Stabilize = True
+  Optimize Bandwidth = True
+  Steady State Convergence Tolerance = 1.0e-5
+  Nonlinear System Convergence Tolerance = 1.0e-7
+  Nonlinear System Max Iterations = 20
+  Nonlinear System Newton After Iterations = 3
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Nonlinear System Relaxation Factor = 1
+  Linear System Solver = Iterative
+  Linear System Iterative Method = BiCGStab
+  Linear System Max Iterations = 500
+  Linear System Convergence Tolerance = 1.0e-10
+  BiCGstabl polynomial degree = 2
+  Linear System Preconditioning = ILU0
+  Linear System ILUT Tolerance = 1.0e-3
+  Linear System Abort Not Converged = False
+  Linear System Residual Output = 10
+  Linear System Precondition Recompute = 1
+End
+
+Solver 2
+Equation = Result Output VTK
+Single Precision = True
+Binary Output = True
+Procedure = "ResultOutputSolve" "ResultOutputSolver"
+Vector Field 1 = Stresses
+Output Format = vtk
+Scalar Field 1 = Displacement
+Output File Name = case
+End
+
+Equation 1
+  Name = "Linear Elasticity"
+  Calculate Stresses = True
+  Active Solvers(1) = 1
+End
+
+Material 1
+  Name = "Iron (generic)"
+  Density = 7870.0
+  Sound speed = 5000.0
+  Heat Conductivity = 80.2
+  Poisson ratio = 0.29
+  Youngs modulus = 193.053e9
+  Heat expansion Coefficient = 11.8e-6
+  Heat Capacity = 449.0
+End
+
+Boundary Condition 1
+  Target Boundaries(16) = 522 523 524 525 526 527 528 529 530 531 532 533 534 535 536 537
+  Name = "hinge"
+  Force 2 = 40e3
+  Displacement 1 = 0
+  Displacement 2 = 0
+  Force 3 = 0
+  Displacement 3 = 0
+  Force 1 = 0
+End
+
+Boundary Condition 2
+  Target Boundaries(75) = 306 307 308 309 310 311 312 313 317 318 319 320 321 322 323 324 325 326 327 328 333 334 335 336 337 338 339 340 341 342 347 348 349 350 351 352 353 354 355 359 360 361 362 363 364 365 366 367 370 371 372 373 374 375 376 379 380 381 382 383 384 385 388 389 390 391 392 393 396 397 398 399 400 401 402 
+  Name = "force_bite"
+  Displacement 2 = 0
+  Force 3 = 0
+  Displacement 1 = 0
+  Force 2 = 50e3
+  Displacement 3 = 0
+  Force 1 = 0
+End
+
+Boundary Condition 3
+  Target Boundaries(28) = 619 620 621 622 623 624 625 626 627 628 629 630 631 632 633 634 635 636 637 638 639 640 641 642 643 644 645 646
+  Name = "muscle"
+  Force 3 = 0
+  Force 1 = 0
+  Force 2 = -90e3
+End

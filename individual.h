@@ -5,7 +5,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "helpers.h"
 #include "densities.h"
 
 
