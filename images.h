@@ -30,6 +30,6 @@ namespace fessga{
 		static void load_distribution_from_image(grd::Densities2d& densities, msh::SurfaceMesh& mesh, const char* filename);
 		static void convert_distribution_to_single_channel_image(grd::Densities2d densities, unsigned char* single_channel, Image* image);
 		static void singlechannel_to_rgb(unsigned char* single_channel, Image* image);
-		static void write_distribution_to_image(grd::Densities2d densities, string path, int x, int y, bool verbose = false);
+		static void write_distribution_to_image(grd::Densities2d densities, string path, bool verbose = false);
 	};
 }

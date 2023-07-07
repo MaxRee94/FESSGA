@@ -92,6 +92,17 @@ void Evolver::init_population() {
 	}
 }
 
+void Evolver::write_densities_to_image() {
+	string image_iteration_folder = image_folder + "/" + iteration_name;
+	IO::create_folder_if_not_exists(image_iteration_folder);
+	cout << "pop size: " << population.size() << endl;
+	for (int i = 0; i < pop_size; i++) {
+		cout << "name: " << help::add_padding("/individual_", i + 1) << endl;
+		img::write_distribution_to_image(
+			population[i], image_iteration_folder + help::add_padding("/individual_", i+1) + to_string(i+1) + ".jpg", true);
+	}
+}
+
 void Evolver::create_iteration_folder_structure(int iteration) {
 	// Create iteration folder
 	string iteration_folder = get_iteration_folder(iteration, true);
@@ -102,16 +113,18 @@ void Evolver::create_iteration_folder_structure(int iteration) {
 	// Create individual folders
 	individual_folders.clear();
 	for (int i = 0; i < pop_size; i++) {
-		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1);
+		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
+		IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
 	}
 }
 
 void Evolver::do_setup() {
 	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
-	string image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
+	image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 	if (verbose) densities.print();
 	create_iteration_folder_structure(generation);
+	init_population();
 	export_stats(iteration_name);
 }
 

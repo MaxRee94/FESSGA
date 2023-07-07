@@ -126,7 +126,7 @@ void FESS::run() {
 		string cur_output_folder = get_iteration_folder(i, true);
 		if (last_iteration_was_valid) {
 			final_valid_iteration_folder = cur_output_folder;
-			img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", 1000, 1000, true);
+			export_stats(iteration_name);
 		}
 
 		// Reset densities object (keeping only the density values themselves)

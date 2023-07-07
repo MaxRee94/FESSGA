@@ -108,7 +108,7 @@ void fessga::img::singlechannel_to_rgb(unsigned char* single_channel, Image* ima
 	}
 }
 
-void fessga::img::write_distribution_to_image(grd::Densities2d densities, string path, int x, int y, bool verbose) {
+void fessga::img::write_distribution_to_image(grd::Densities2d densities, string path, bool verbose) {
 	img::Image image = img::Image(path, densities.dim_x, densities.dim_y, 3, densities);
 	unsigned char* single_channel = new unsigned char[image.width * image.height];
 	convert_distribution_to_single_channel_image(densities, single_channel, &image);

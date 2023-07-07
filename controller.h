@@ -152,7 +152,7 @@ void Controller::init_densities() {
         cout << "FESS: Exported 2d density distribution to file: " << densities2d_file << endl;
 
         // Write 2d distribution to image
-        img::write_distribution_to_image(densities2d, output_folder + "/" + input.name + ".jpg", 1000, 1000);
+        img::write_distribution_to_image(densities2d, output_folder + "/" + input.name + ".jpg");
     }
 }
 

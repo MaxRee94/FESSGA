@@ -33,6 +33,7 @@ public:
 	void evolve();
 	void do_setup();
 	void create_iteration_folder_structure(int iteration);
+	virtual void write_densities_to_image();
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;

@@ -54,9 +54,14 @@ public:
 		return cur_output_folder;
 	}
 
+	// Write densities to image file
+	virtual void write_densities_to_image() {
+		img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", true);
+	}
+
 	// Function to write statistics, images, and other generated data to files
 	void export_stats(string iteration_name) {
-		img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", 1000, 1000, true);
+		write_densities_to_image();
 	}
 };
 
