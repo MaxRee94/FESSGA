@@ -188,8 +188,8 @@ void Controller::run_evoma() {
     float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_connection = true;
-    float initial_perturbation_size = 0.1;
-    int pop_size = 20;
+    float initial_perturbation_size = 0.3;
+    int pop_size = 6;
     int tournament_size = 5;
     float mutation_rate = 0.001;
     Evolver evolver(

@@ -29,11 +29,19 @@ public:
 	}
 	void do_2d_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate);
-	void init_population();
+	void create_valid_child_densities(vector<evo::Individual2d>* parents, vector<evo::Individual2d>& children);
+	void init_population(bool verbose = true);
 	void evolve();
 	void do_setup();
+	void generate_children();
+	void evaluate_children(bool verbose = false);
+	void do_selection();
 	void create_iteration_folder_structure(int iteration);
 	virtual void write_densities_to_image();
+	bool termination_condition_reached();
+	void choose_parents(vector<evo::Individual2d>& parents, vector<evo::Individual2d>* _population);
+	void create_individual_mesh(evo::Individual2d* individual, bool verbose = false);
+	void create_sif_file(evo::Individual2d* individual, bool verbose = false);
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;
@@ -41,8 +49,8 @@ private:
 	float initial_perturbation_size = 0;
 	int tournament_size = 1;
 	bool last_iteration_was_valid = true;
-	int generation = 1;
 	int final_valid_iteration = 1;
 	string final_valid_iteration_folder = "";
 	vector<string> individual_folders;
+	PairSet fitnesses;
 };

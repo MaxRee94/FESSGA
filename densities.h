@@ -65,6 +65,9 @@ namespace fessga {
             int get_idx(int x, int y) {
                 return x * dim_y + y;
             }
+            int get_idx(pair<int, int> cell_coords) {
+                return get_idx(cell_coords.first, cell_coords.second);
+            }
             pair<int, int> get_coords(int cell) {
                 pair<int, int> coords(cell / dim_y, cell % dim_y);
                 return coords;
@@ -80,7 +83,7 @@ namespace fessga {
                 for (int i = 0; i < size; i++) _count += values[i];
             }
             void update_count() {
-                if (_count == -2) redo_count(); // Values have been set using the set() function and can be safely recounted.
+                if (_count == -2) redo_count(); // Values have been set using the set() function (which does not update the count) and should be recounted.
                 else if (_count == -1) cerr << "Cannot count density values because the array has not been completely filled.\n" << endl;
             }
             void fill(int cell) {
@@ -192,15 +195,17 @@ namespace fessga {
             bool is_in(vector<Piece>* pieces, Piece* piece);
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_path);
-            vector<int> get_true_neighbors(int idx);
-            vector<int> get_true_neighbors(int x, int y, uint* _values = 0);
+            vector<int> get_neighbors(int idx);
+            vector<int> get_neighbors(int x, int y, uint* _values = 0);
+            vector<int> get_empty_neighbors(int x, int y);
+            vector<int> get_empty_neighbors(int idx);
             void remove_smaller_pieces(
                 vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true, bool check_if_single_piece = false
             );
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
             void do_import(string path, float width);
-            void filter(int no_neighbors = 0);
+            void filter(int no_neighbors = 0, bool restore_bound_cells = false);
             void init_pieces(int _start_cell = -1);
             void load_snapshot();
             bool remove_floating_piece(grd::Piece* piece);
@@ -211,12 +216,14 @@ namespace fessga {
             void save_snapshot();
             void flush_edit_memory();
             int get_no_cells_in_removed_pieces();
-            void visualize_bound_cells();
+            void visualize_keep_cells();
+            void visualize_cutout_cells();
             bool repair();
             bool remove_isolated_material();
             void do_single_feasibility_filtering_pass();
             void do_feasibility_filtering(bool verbose = false);
             void fill_voids(int no_true_neighbors = 4);
+            int get_empty_neighbor_cell_of_line(int cell_coord, int local_line_idx);
 
             int dim_x = 0;
             int dim_y = 0;

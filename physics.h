@@ -41,7 +41,7 @@ namespace fessga {
             FEACase(string _path) : path(_path) {}
             string path;
             vector<string> names, sections;
-            vector<int> boundary_cells;
+            vector<int> cells_to_keep;
             vector<int> cutout_cells;
             string content;
             double max_stress_threshold = INFINITY;

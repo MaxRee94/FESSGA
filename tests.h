@@ -292,8 +292,8 @@ bool Tester::do_individual_restore_pieces_test(string type, string path, bool ve
 bool Tester::do_individual_remove_isolated_material_test(string type, string path, bool expected_validity, bool verbose) {
     // Setup
     OptimizerBase optimizer = do_setup(type, path);
-    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
-    if (verbose) optimizer.densities.visualize_bound_cells();
+    evo::Individual2d individual(&optimizer.densities);
+    if (verbose) optimizer.densities.visualize_keep_cells();
 
     // Test
     bool valid = individual.remove_isolated_material();
@@ -320,7 +320,7 @@ bool Tester::do_individual_fill_voids_test(string type, string path, bool verbos
     // Setup
     if (verbose) cout << "Test 1 (target no neighbors = 4):\n";
     OptimizerBase optimizer = do_setup(type, path, verbose);
-    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+    evo::Individual2d individual(&optimizer.densities);
 
     // Test 1 (target no neighbors = 4)
     individual.save_snapshot();
@@ -352,7 +352,7 @@ bool Tester::do_individual_fill_voids_test(string type, string path, bool verbos
 bool Tester::do_individual_feasibility_filtering_test(string type, string path, bool verbose) {
     // Setup
     OptimizerBase optimizer = do_setup(type, path, verbose);
-    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+    evo::Individual2d individual(&optimizer.densities);
 
     // Test
     individual.do_feasibility_filtering();
@@ -370,7 +370,7 @@ bool Tester::do_individual_feasibility_filtering_test(string type, string path, 
 bool Tester::do_individual_repair_test(string type, string path, bool verbose) {
     // Setup
     OptimizerBase optimizer = do_setup(type, path, verbose);
-    evo::Individual2d individual(optimizer.densities, optimizer.mesh.diagonal);
+    evo::Individual2d individual(&optimizer.densities);
 
     // Test
     individual.repair();
@@ -559,8 +559,8 @@ void Tester::create_parents(grd::Densities2d parent1, grd::Densities2d parent2) 
 Test 2-point crossover of two 2d parent solutions. Print parents and children to console
 */
 bool Tester::test_2d_crossover() {
-    evo::Individual2d parent1(ctrl->densities2d, ctrl->mesh.diagonal);
-    evo::Individual2d parent2(ctrl->densities2d, ctrl->mesh.diagonal);
+    evo::Individual2d parent1(&ctrl->densities2d);
+    evo::Individual2d parent2(&ctrl->densities2d);
     double max_stress = 1e9; // arbitrary maximum stress
     int max_iterations = 100;
     bool export_msh = false;
@@ -576,8 +576,8 @@ bool Tester::test_2d_crossover() {
     string output_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
-    evo::Individual2d child1(ctrl->densities2d, ctrl->mesh.diagonal);
-    evo::Individual2d child2(ctrl->densities2d, ctrl->mesh.diagonal);
+    evo::Individual2d child1(&ctrl->densities2d);
+    evo::Individual2d child2(&ctrl->densities2d);
     Evolver evolver = Evolver(
         msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, 2,
         max_stress, parent1, max_iterations

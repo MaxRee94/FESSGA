@@ -5,7 +5,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <map>
-#include "densities.h"
+#include "meshing.h"
 
 
 namespace fessga {
@@ -18,8 +18,8 @@ namespace fessga {
 			Individual2d(
 				int _dim_x, Vector3d _diagonal, string _output_folder) : grd::Densities2d(_dim_x, _diagonal, _output_folder)
 			{};
-			Individual2d(grd::Densities2d densities, Vector3d diagonal) : grd::Densities2d(&densities) {
-				copy_from(&densities);
+			Individual2d(grd::Densities2d* densities) : grd::Densities2d(densities) {
+				copy_from(densities);
 			};
 			Individual2d(Individual2d* individual) {
 				construct_grid();
@@ -35,6 +35,7 @@ namespace fessga {
 			void update_phenotype();
 			void do_ground_element_filtering();
 			void copy_from_individual(Individual2d* source);
+			msh::FEMesh2D fe_mesh;
 		protected:
 			uint* phenotype = 0;
 			int _phenotype_count = -1;

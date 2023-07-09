@@ -39,10 +39,11 @@ public:
 	grd::Densities2d densities;
 	bool verbose = true;
 	int max_iterations = 0;
+	int iteration_number = 1;
 	bool export_msh = false;
 	double min_stress, max_stress;
 	map<string, vector<pair<int, int>>> bound_conds;
-	string msh_file, output_folder, image_folder, iteration_name;
+	string msh_file, output_folder, image_folder, iteration_name, iteration_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
 	string get_iteration_folder(int iteration, bool verbose = false) {
