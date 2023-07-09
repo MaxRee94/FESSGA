@@ -75,7 +75,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 				int _y = i / pixels_per_cell;
 				int _x = i % pixels_per_cell;
 				int _img_idx = img_idx + _y * width + _x;
-				pixel_count += redValues[_img_idx];
+				pixel_count += redValues[_img_idx] - greenValues[_img_idx];
 			}
 			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			bool is_cutout = cell_value;
