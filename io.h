@@ -34,5 +34,7 @@ namespace fessga {
 		static bool is_empty(std::string folder);
 
 		static std::string get_fullpath(std::string relative_path);
+
+		static void append_to_file(std::string fpath, std::string text);
 	};
 };

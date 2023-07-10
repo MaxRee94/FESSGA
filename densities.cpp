@@ -284,6 +284,16 @@ bool fessga::grd::Densities2d::is_in(vector<grd::Piece>* _pieces, grd::Piece* pi
     return false;
 }
 
+// Get the fraction (#no_filled_cells / #total_no_cells)
+double fessga::grd::Densities2d::get_relative_volume() {
+    return (double)count() / (double)size;
+}
+
+// Get the fraction (#total_no_cells / #no_filled_cells)
+double fessga::grd::Densities2d::get_inverse_relative_volume() {
+    return (double)size / (double)count();
+}
+
 // Restore all cells that were removed
 void fessga::grd::Densities2d::restore_removed_cells(vector<int> _removed_cells) {
     for (auto& cell : _removed_cells) {

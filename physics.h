@@ -59,7 +59,7 @@ namespace fessga {
             double min, max;
         };
 
-        static void call_elmer(string bat_file, bool verbose = false) {
+        static void call_elmer(string bat_file, bool verbose = false, bool wait = true) {
             std::string command = bat_file;
             std::array<char, 80> buffer;
             FILE* pipe = _popen(command.c_str(), "r");

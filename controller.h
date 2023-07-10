@@ -180,7 +180,7 @@ void Controller::run_fess() {
 
 void Controller::run_evoma() {
     // Parameters
-    double max_stress = 1.5e9;
+    double max_stress = 2e6;
     string msh_file = output_folder + "/mesh.msh";
     string fea_case = output_folder + "/case.sif";
     int max_iterations = 100;
@@ -190,10 +190,10 @@ void Controller::run_evoma() {
     bool maintain_boundary_connection = true;
     float initial_perturbation_size = 0.3;
     int pop_size = 6;
-    int tournament_size = 5;
     float mutation_rate = 0.001;
+    int max_iterations_without_change = 10;
     Evolver evolver(
-        msh_file, fea_case, mesh, output_folder, pop_size, mutation_rate, tournament_size, max_stress, densities2d, max_iterations,
+        msh_file, fea_case, mesh, output_folder, pop_size, mutation_rate, max_stress, densities2d, max_iterations, max_iterations_without_change,
         export_msh, verbose, initial_perturbation_size
     );
     evolver.evolve();

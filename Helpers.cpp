@@ -89,6 +89,12 @@ string fessga::help::join_as_string(vector<pair<int, int>> numbers, string separ
     return result;
 }
 
+string fessga::help::join(vector<string>* strings, string separator) {
+    string result = "";
+    for (auto& string : (*strings)) result += separator + string;
+    return result;
+}
+
 void fessga::help::print_vector(std::vector<int>* vec) {
     for (int i = 0; i < vec->size(); i++) {
         if (i > 0) cout << ", ";
@@ -262,6 +268,7 @@ void fessga::help::sort(std::map<int, double>& _map, PairSet& _set)
     // function comp()
     auto beginning = _map.end();
     _set = PairSet(_map.begin(), _map.end());
+
 }
 
 double fessga::help::max(double val1, double val2) {

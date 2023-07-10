@@ -37,7 +37,7 @@ void fessga::IO::read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixX
 string fessga::IO::create_folder_if_not_exists(std::string folder_path) {
     std::filesystem::path dir_path = std::filesystem::path(folder_path);
     if (!std::filesystem::is_directory(dir_path)) {
-        cout << "Creating directory " << folder_path << endl;
+        //cout << "Creating directory " << folder_path << endl;
         std::filesystem::create_directories(folder_path);
     }
     return folder_path;
@@ -188,4 +188,13 @@ void fessga::IO::read_file_content(std::string fpath, std::vector<std::string>& 
             content.push_back(line);
         }
     }
+}
+
+void fessga::IO::append_to_file(std::string fpath, std::string text) {
+    vector<string> existing_content;
+    if (IO::file_exists(fpath)) {
+        IO::read_file_content(fpath, existing_content);
+    }
+    existing_content.push_back(text);
+    IO::write_text_to_file(help::join(&existing_content, "\n"), fpath);
 }

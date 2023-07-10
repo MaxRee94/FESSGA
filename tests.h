@@ -121,11 +121,11 @@ void Tester::init_dummy_evolver(Evolver& evolver) {
     bool maintain_boundary_connection = true;
     float initial_perturbation_size = 0.1;
     int pop_size = 20;
-    int tournament_size = 5;
+    int max_iterations_without_change = 10;
     float mutation_rate = 0.001;
     evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, ctrl->output_folder, pop_size, mutation_rate, tournament_size, max_stress, ctrl->densities2d, max_iterations,
-        export_msh, verbose, initial_perturbation_size
+        msh_file, fea_case, ctrl->mesh, ctrl->output_folder, pop_size, mutation_rate, max_stress,
+        ctrl->densities2d, max_iterations, max_iterations_without_change, export_msh, verbose, initial_perturbation_size
     );
 }
 
@@ -563,6 +563,7 @@ bool Tester::test_2d_crossover() {
     evo::Individual2d parent2(&ctrl->densities2d);
     double max_stress = 1e9; // arbitrary maximum stress
     int max_iterations = 100;
+    int max_iterations_without_change = 10;
     bool export_msh = false;
 
     create_parents(parent1, parent2);
@@ -579,8 +580,8 @@ bool Tester::test_2d_crossover() {
     evo::Individual2d child1(&ctrl->densities2d);
     evo::Individual2d child2(&ctrl->densities2d);
     Evolver evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, 2,
-        max_stress, parent1, max_iterations
+        msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, 
+        max_stress, parent1, max_iterations, max_iterations_without_change
     );
     evolver.do_2d_crossover(parent1, parent2, child1, child2);
 

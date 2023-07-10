@@ -31,6 +31,9 @@ public:
 	int FESS::handle_floating_pieces(
 		msh::FEMesh2D* fe_mesh, int no_cells_to_remove, int no_cells_removed, bool recurse = true
 	);
+	void export_stats(string iteration_name) {
+		export_base_stats(iteration_name);
+	}
 };
 
 
@@ -164,7 +167,6 @@ void FESS::run() {
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
 		// Obtain vonmises stress distribution from the .vtk file
-		double* vonmises = new double[(densities.dim_x) * (densities.dim_y)]; // Nodes grid has +1 width along each dimension
 		string cur_case_output_file = cur_output_folder + "/case0001.vtk";
 		if (!IO::file_exists(cur_case_output_file)) {
 			cout << "\nFESS: ERROR: Elmer did not produce a .vtk file (expected path " << cur_case_output_file << ")\n";

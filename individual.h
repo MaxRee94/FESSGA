@@ -36,6 +36,7 @@ namespace fessga {
 			void do_ground_element_filtering();
 			void copy_from_individual(Individual2d* source);
 			msh::FEMesh2D fe_mesh;
+			double fitness = 0;
 		protected:
 			uint* phenotype = 0;
 			int _phenotype_count = -1;

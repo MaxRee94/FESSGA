@@ -224,6 +224,8 @@ namespace fessga {
             void do_feasibility_filtering(bool verbose = false);
             void fill_voids(int no_true_neighbors = 4);
             int get_empty_neighbor_cell_of_line(int cell_coord, int local_line_idx);
+            double get_relative_volume();
+            double get_inverse_relative_volume();
 
             int dim_x = 0;
             int dim_y = 0;
