@@ -197,8 +197,8 @@ namespace fessga {
             string do_export(string output_path);
             vector<int> get_neighbors(int idx);
             vector<int> get_neighbors(int x, int y, uint* _values = 0);
-            vector<int> get_empty_neighbors(int x, int y);
-            vector<int> get_empty_neighbors(int idx);
+            vector<int> get_empty_neighbors(int x, int y, bool get_diagonal_neighbors = false);
+            vector<int> get_empty_neighbors(int idx, bool get_diagonal_neighbors = false);
             void remove_smaller_pieces(
                 vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true, bool check_if_single_piece = false
             );

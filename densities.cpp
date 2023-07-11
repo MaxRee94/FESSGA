@@ -119,8 +119,11 @@ vector<int> fessga::grd::Densities2d::get_neighbors(int idx) {
 }
 
 // Return the indices of the cells neighboring the given cell that are currently void
-vector<int> fessga::grd::Densities2d::get_empty_neighbors(int x, int y) {
+vector<int> fessga::grd::Densities2d::get_empty_neighbors(int x, int y, bool get_diagonal_neighbors) {
     vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
+    if (get_diagonal_neighbors) {
+        help::append_vector(offsets, { pair(-1,-1), pair(-1, 1), pair(1,1), pair(1,-1) });
+    }
     vector<int> void_neighbors;
     for (auto& offset : offsets) {
         int _x = x + offset.first;
@@ -133,9 +136,9 @@ vector<int> fessga::grd::Densities2d::get_empty_neighbors(int x, int y) {
 }
 
 // Return the indices of the cells neighboring the given cell that are currently void
-vector<int> fessga::grd::Densities2d::get_empty_neighbors(int idx) {
+vector<int> fessga::grd::Densities2d::get_empty_neighbors(int idx, bool get_diagonal_neighbors) {
     pair<int, int> coords = get_coords(idx);
-    return get_empty_neighbors(coords.first, coords.second);
+    return get_empty_neighbors(coords.first, coords.second, get_diagonal_neighbors);
 }
 
 // Get number of connected cells of the given cell using a version of floodfill

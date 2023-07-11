@@ -378,7 +378,7 @@ namespace fessga {
 
                     // Store the void cells adjacent to the boundary cell; these should remain empty so that the boundary line is maintained
                     int local_line_idx = line.id % 4;
-                    vector<int> void_neighbors = densities.get_empty_neighbors(cell_coord);
+                    vector<int> void_neighbors = densities.get_empty_neighbors(cell_coord, true);
                     for (auto& void_neighbor : void_neighbors) {
                         if (!help::is_in(&densities.fea_case.cutout_cells, void_neighbor))
                             densities.fea_case.cutout_cells.push_back(void_neighbor);

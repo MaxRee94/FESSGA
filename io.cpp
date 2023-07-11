@@ -191,10 +191,13 @@ void fessga::IO::read_file_content(std::string fpath, std::vector<std::string>& 
 }
 
 void fessga::IO::append_to_file(std::string fpath, std::string text) {
-    vector<string> existing_content;
+    vector<string> content;
     if (IO::file_exists(fpath)) {
-        IO::read_file_content(fpath, existing_content);
+        IO::read_file_content(fpath, content);
     }
-    existing_content.push_back(text);
-    IO::write_text_to_file(help::join(&existing_content, "\n"), fpath);
+    content.push_back(text);
+    for (int i = 0; i < content.size(); i++) {
+        if (content[i] == "\n" || content[i] == " " || content[i] == "") content.erase(content.begin() + i);
+    }
+    IO::write_text_to_file(help::join(&content, "\n"), fpath);
 }

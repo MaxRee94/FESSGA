@@ -110,8 +110,10 @@ void Evolver::init_population(bool verbose) {
 		if (help::have_overlap(&individual.fea_case.cutout_cells, &individual.fea_case.cells_to_keep))
 			cout << "Error: some cutout cells are also marked as keep cells.\n";
 
-		//individual.visualize_keep_cells();
-		//individual.visualize_cutout_cells();
+		/*cout << "keep cells:\n";
+		individual.visualize_keep_cells();
+		cout << "cutout cells:\n";
+		individual.visualize_cutout_cells();*/
 
 		// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 		do_2d_mutation(individual, initial_perturbation_size);
@@ -248,8 +250,8 @@ void Evolver::generate_children(bool verbose) {
 			export_individual(&children[j], individual_folders[i * 2 + j]);
 			population.push_back(children[j]);
 		}
-		if (verbose && (population.size() < 20 || i % (pop_size / 10) == 0))
-			cout << "- Created child " << i*2 << " / " << pop_size << "\n";
+		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 10) == 0))
+			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating children.\n";
 }
@@ -268,8 +270,8 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 			pipes.erase(pipes.begin());
 		}
 		fessga::phys::call_elmer(population[i].output_folder + "/run_elmer.bat", &pipes, false);
-		if (verbose && (population.size() < 20 || i % (pop_size / 5) == 0))
-			cout << "- Finished FEA for individual " << i - offset << " / " << pop_size << "\n";
+		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 5) == 0))
+			cout << "- Finished FEA for individual " << i+1 - offset << " / " << pop_size << "\n";
 	}
 	for (auto& pipe : pipes) {
 		std::array<char, 80> buffer;
@@ -296,19 +298,22 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 			iterations_since_fitness_change = 0;
 		}
 
-		if (fitness == best_fitness) best_individual = i - offset + 1;
-
-		if (verbose && (population.size() < 20 || i % (pop_size / 5) == 0))
-			cout << "- Evaluated individual " << i - offset << " / " << pop_size << "\n";
+		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 5) == 0))
+			cout << "- Evaluated individual " << i - offset + 1 << " / " << pop_size << "\n";
 	}
 	if (iterations_since_fitness_change == 0) {
 		cout << "EVOMA: New best fitness: " << best_fitness << endl;
+	}
+	else {
+		cout << "EVOMA: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
+			"EVOMA will terminate when fitness has not changed for " << max_iterations_without_change << ".\n";
 	}
 }
 
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
 	help::sort(fitnesses_map, fitnesses_pairset);
+	best_individual = population[0].output_folder;
 	vector<evo::Individual2d> new_population;
 	map<int, double> new_fitnesses_map;
 	for (auto& [pop_idx, fitness] : fitnesses_pairset) {

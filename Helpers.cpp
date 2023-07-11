@@ -332,3 +332,20 @@ bool fessga::help::have_overlap(vector<int>* larger_vector, vector<int>* smaller
     return false;
 }
 
+void fessga::help::append_vector(vector<int>& result, vector<int>* vec2) {
+    for (auto& item : *vec2) result.push_back(item);
+}
+
+void fessga::help::append_vector(vector<int>& result, vector<int> vec2) {
+    append_vector(result, &vec2);
+}
+
+void fessga::help::append_vector(vector<pair<int, int>>& result, vector<pair<int, int>>* vec2) {
+    for (auto& item : *vec2) result.push_back(item);
+}
+
+void fessga::help::append_vector(vector<pair<int, int>>& result, vector<pair<int, int>> vec2) {
+    append_vector(result, &vec2);
+}
+
+
