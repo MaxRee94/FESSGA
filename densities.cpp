@@ -250,13 +250,20 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
         for (int i = 0; i < piece_size; i++) visited_cells->push_back(piece.cells[i]);
 
         // Recurse if there are still unvisited cells left
-        if (cells_left > 0) {
+        if (cells_left > 0 && visited_cells->size() < count()) {
             int unvisited_cell = get_unvisited_cell(visited_cells);
             //cout << "unvisited cell (" << unvisited_cell << ")\n";
             /*set(unvisited_cell, 5);
             print();*/
             if (unvisited_cell == -1) {
-                throw("Error: No unvisited cell found, but there are still cells left that haven't been visited (" + to_string(cells_left) + ")\n");
+                redo_count();
+                if (visited_cells->size() >= count()) return;
+                for (auto& cell : *visited_cells) set(cell, 5);
+                cout << "Error: No unvisited cell found, but there are still cells left that haven't been visited (" + to_string(cells_left) + ")\n";
+                print();
+                for (auto& cell : *visited_cells) set(cell, 1);
+                //throw("Error: No unvisited cell found, but there are still cells left that haven't been visited (" + to_string(cells_left) + ")\n");
+                return;
             }
             init_pieces(visited_cells, cells_left, unvisited_cell);
         }
