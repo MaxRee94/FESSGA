@@ -32,8 +32,8 @@ public:
 	void init_population(bool verbose = true);
 	void evolve();
 	void do_setup();
-	void generate_children();
-	void evaluate_fitnesses(int offset, bool verbose = false);
+	void generate_children(bool verbose = true);
+	void evaluate_fitnesses(int offset, bool verbose = true);
 	void do_selection();
 	void create_iteration_directories(int iteration);
 	virtual void write_densities_to_image();
@@ -55,8 +55,10 @@ private:
 	vector<string> individual_folders;
 	map<int, double> fitnesses_map;
 	PairSet fitnesses_pairset;
+	vector<FILE*> pipes;
 	double best_fitness = INFINITY;
 	float variation = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
+	int best_individual;
 };

@@ -43,12 +43,12 @@ void Evolver::export_stats(string iteration_name, bool initialize) {
 	cout << "Exporting statistics to " << statistics_file << endl;
 	export_base_stats(iteration_name);
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Best fitness, Variation",
+		"Iteration, Best fitness, Variation, Best individual",
 		statistics_file
 	);
 	IO::append_to_file(
 		statistics_file,
-		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation)
+		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + to_string(best_individual)
 	);
 }
 
@@ -211,7 +211,7 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 	msh::generate_FE_mesh(mesh, *individual, individual->fe_mesh);
 	msh::export_as_elmer_files(&individual->fe_mesh, individual->output_folder);
 	if (export_msh) msh::export_as_msh_file(&individual->fe_mesh, individual->output_folder);
-	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh to " << individual->output_folder << endl;
+	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout << "EVOMA: Exported new FE mesh to " << individual->output_folder << endl;
 	else if (verbose) cout << "EVOMA: ERROR: Failed to export new FE mesh.\n";
 	string densities_file = individual->do_export(individual->output_folder + "/distribution2d.dens");
 	string batch_file = msh::create_batch_file(individual->output_folder);
@@ -232,7 +232,7 @@ void Evolver::export_individual(evo::Individual2d* individual, string folder) {
 	create_sif_file(individual);
 }
 
-void Evolver::generate_children() {
+void Evolver::generate_children(bool verbose) {
 	cout << "Generating children...\n";
 	vector<int> parent_indices;
 	vector<evo::Individual2d> previous_population = population;
@@ -245,6 +245,8 @@ void Evolver::generate_children() {
 			export_individual(&children[j], individual_folders[i * 2 + j]);
 			population.push_back(children[j]);
 		}
+		if (verbose && (population.size() < 20 || i % (pop_size / 10) == 0))
+			cout << "- Created child " << i*2 << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating children.\n";
 }
@@ -252,6 +254,8 @@ void Evolver::generate_children() {
 void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 	cout << "Evaluating individual fitnesses...\n";
 	iterations_since_fitness_change++;
+
+	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	for (int i = offset; i < (pop_size + offset); i++) {
 		// Run FEA
 		if (verbose) cout << "EVOMA: Calling Elmer .bat file...\n";
@@ -272,8 +276,15 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 			best_fitness = fitness;
 			iterations_since_fitness_change = 0;
 		}
+
+		if (fitness == best_fitness) best_individual = i - offset + 1;
+
+		if (verbose && (population.size() < 20 || i % (pop_size / 5) == 0))
+			cout << "- Evaluated individual " << i - offset << " / " << pop_size << "\n";
 	}
-	if (iterations_since_fitness_change == 0) cout << "EVOMA: New best fitness: " << best_fitness << endl;
+	if (iterations_since_fitness_change == 0) {
+		cout << "EVOMA: New best fitness: " << best_fitness << endl;
+	}
 }
 
 void Evolver::do_selection() {
@@ -291,6 +302,7 @@ void Evolver::evolve() {
 	do_setup();
 	while (!termination_condition_reached()) {
 		iteration_number++;
+		cout << "\nStarting iteration " << iteration_number << "...\n";
 		create_iteration_directories(iteration_number);
 		generate_children();
 		evaluate_fitnesses(pop_size);

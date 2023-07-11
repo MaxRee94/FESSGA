@@ -163,6 +163,7 @@ void FESS::run() {
 		// Call Elmer to run FEA on new FE mesh
 		string batch_file = msh::create_batch_file(cur_output_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
+		FILE* pipe;
 		fessga::phys::call_elmer(batch_file);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 

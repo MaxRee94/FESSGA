@@ -11,7 +11,7 @@ using namespace std;
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void msh::generate_FE_mesh(
-    SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh
+    SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose
 ) {
     // Create nodes and surfaces
     vector<vector<double>> nodes;
@@ -269,9 +269,11 @@ void msh::generate_FE_mesh(
     if (ordered_boundary_node_coords.back() != (start_x * (densities.dim_y + 1) + start_y))
         ordered_boundary_node_coords.push_back((start_x * (densities.dim_y + 1) + start_y));
 
-    cout << "   no perimeter components: " << no_components << endl;
-    cout << "   no unordered bound nodes: " << boundary_node_coords.size() << endl;
-    cout << "   no ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
+    if (verbose) {
+        cout << "   no perimeter components: " << no_components << endl;
+        cout << "   no unordered bound nodes: " << boundary_node_coords.size() << endl;
+        cout << "   no ordered bound nodes: " << ordered_boundary_node_coords.size() << endl;
+    }
 
     // ---- Generate boundary lines ---- //
     int tag = 1;

@@ -120,7 +120,7 @@ namespace fessga {
         /* Generate a grid-based description of a FE mesh
         */
         static void generate_FE_mesh(
-            SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh
+            SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose = false
         );
 
         static string get_msh_element_description(Element element) {
