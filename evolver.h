@@ -60,5 +60,5 @@ private:
 	float variation = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
-	int best_individual;
+	string best_individual;
 };

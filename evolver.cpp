@@ -9,6 +9,7 @@ of solutions).
 */
 float get_variation(vector<evo::Individual2d>* population) {
 	float sum_of_sq_diffs = 0;
+	int cumulative_count = 0;
 	for (int i = 0; i < population->size(); i++) {
 		int individual_diff = 0;
 		int other_indiv_idx = i;
@@ -19,8 +20,10 @@ float get_variation(vector<evo::Individual2d>* population) {
 			individual_diff += population->at(i)[c] != population->at(other_indiv_idx)[c];
 		}
 		sum_of_sq_diffs += individual_diff * individual_diff;
+		cumulative_count += population->at(i).count();
 	}
-	float variation = sqrt(sum_of_sq_diffs) / (float)(population->size() * population->at(0).size);
+	cumulative_count = cumulative_count / population->size();
+	float variation = sqrt(sum_of_sq_diffs) / (float)cumulative_count;
 
 	return variation;
 }
@@ -48,7 +51,7 @@ void Evolver::export_stats(string iteration_name, bool initialize) {
 	);
 	IO::append_to_file(
 		statistics_file,
-		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + to_string(best_individual)
+		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + best_individual
 	);
 }
 
