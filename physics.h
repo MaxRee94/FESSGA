@@ -59,14 +59,21 @@ namespace fessga {
             double min, max;
         };
 
-        static void call_elmer(string bat_file, bool verbose = false, bool wait = true) {
+        static void call_elmer(string bat_file, vector<FILE*>* pipes = 0, bool wait = true, bool verbose = false) {
             std::string command = bat_file;
-            std::array<char, 80> buffer;
-            FILE* pipe = _popen(command.c_str(), "r");
-            while (fgets(buffer.data(), 80, pipe) != NULL) {
-                if (verbose) std::cout << buffer.data();
+            if (wait) {
+                std::array<char, 80> buffer;
+                FILE* pipe = _popen(command.c_str(), "r");
+                while (fgets(buffer.data(), 80, pipe) != NULL) {
+                    if (verbose) std::cout << buffer.data();
+                }
+                _pclose(pipe);
             }
-            _pclose(pipe);
+            else {
+                // If a pipe is provided as a parameter, don't wait for it to finish
+                FILE* pipe = _popen(command.c_str(), "r");
+                pipes->push_back(pipe);
+            }
         }
 
         static bool load_2d_physics_data(

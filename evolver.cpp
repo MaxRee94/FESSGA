@@ -257,10 +257,26 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	for (int i = offset; i < (pop_size + offset); i++) {
-		// Run FEA
-		if (verbose) cout << "EVOMA: Calling Elmer .bat file...\n";
-		fessga::phys::call_elmer(population[i].output_folder + "/run_elmer.bat");
+		if (pipes.size() >= 6) {
+			// If at least 6 pipes are running, wait for the first one to complete before starting a new one
+			std::array<char, 80> buffer;
+			while (fgets(buffer.data(), 80, pipes[0]) != NULL) {}
+			_pclose(pipes[0]);
+			pipes.erase(pipes.begin());
+		}
+		fessga::phys::call_elmer(population[i].output_folder + "/run_elmer.bat", &pipes, false);
+		if (verbose && (population.size() < 20 || i % (pop_size / 5) == 0))
+			cout << "- Finished FEA for individual " << i - offset << " / " << pop_size << "\n";
+	}
+	for (auto& pipe : pipes) {
+		std::array<char, 80> buffer;
+		while (fgets(buffer.data(), 80, pipe) != NULL) {}
+		_pclose(pipe);
+	}
 
+	// Obtain FEA results and compute fitnesses
+#pragma omp parallel for
+	for (int i = offset; i < (pop_size + offset); i++) {
 		// Obtain FEA results
 		load_physics(&population[i]);
 		max_stress = population[i].fea_results.max;
