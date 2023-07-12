@@ -189,7 +189,7 @@ void Controller::run_evoma() {
     bool verbose = true;
     bool maintain_boundary_connection = true;
     float initial_perturbation_size = 0.3;
-    int pop_size = 100;
+    int pop_size = 16; // NOTE: must be even number
     float mutation_rate = 0.07;
     int max_iterations_without_change = 100;
     Evolver evolver(

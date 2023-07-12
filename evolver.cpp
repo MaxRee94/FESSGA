@@ -1,5 +1,21 @@
 #include "evolver.h"
 #include <iostream>
+#include <thread>
+
+
+/*
+* Method to run a batch of FEA jobs on all given output folders
+*/
+void run_FEA_batch(vector<string> individual_folders, int pop_size, bool verbose) {
+	cout << "Starting FEA batch" << endl;
+	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
+	int i = 0;
+	for (int i = 0; i < pop_size; i++) {
+		fessga::phys::call_elmer(individual_folders[i] + "/run_elmer.bat");
+		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 10) == 0))
+			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+	}
+}
 
 /*
 Get variation within the given population.
@@ -189,7 +205,7 @@ void Evolver::do_setup() {
 	create_iteration_directories(iteration_number);
 	if (verbose) densities.print();
 	init_population();
-	evaluate_fitnesses(0);
+	evaluate_fitnesses(0, true);
 	help::sort(fitnesses_map, fitnesses_pairset);
 	best_individual_idx = (*fitnesses_pairset.begin()).first;
 	current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
@@ -254,7 +270,22 @@ void Evolver::generate_children(bool verbose) {
 	cout << "Generating children...\n";
 	vector<int> parent_indices;
 	vector<evo::Individual2d> previous_population = population;
-	for (int i = 0; i < (pop_size / 2); i++) {
+
+
+	// first two children and start of FEA batch
+	vector<evo::Individual2d> parents;
+	choose_parents(parents, &previous_population);
+	vector<evo::Individual2d> children;
+	create_valid_child_densities(&parents, children);
+	for (int j = 0; j < 2; j++) {
+		export_individual(&children[j], individual_folders[j]);
+		population.push_back(children[j]);
+	}
+	cout << "starting fea thread..." << endl;
+	thread fea_thread(run_FEA_batch, individual_folders, pop_size, verbose);
+
+
+	for (int i = 1; i < (pop_size / 2); i++) {
 		vector<evo::Individual2d> parents;
 		choose_parents(parents, &previous_population);
 		vector<evo::Individual2d> children;
@@ -265,8 +296,11 @@ void Evolver::generate_children(bool verbose) {
 		}
 		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
+		
 	}
 	cout << "Finished generating children.\n";
+	fea_thread.join();
+	cout << "Finished FEA for all children.\n";
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
@@ -279,27 +313,12 @@ void Evolver::export_meta_parameters(vector<string>* _) {
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }
 
-void Evolver::evaluate_fitnesses(int offset, bool verbose) {
+void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	cout << "Evaluating individual fitnesses...\n";
 	iterations_since_fitness_change++;
 
-	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
-	for (int i = offset; i < (pop_size + offset); i++) {
-		if (pipes.size() >= 6) {
-			// If at least 6 pipes are running, wait for the first one to complete before starting a new one
-			std::array<char, 80> buffer;
-			while (fgets(buffer.data(), 80, pipes[0]) != NULL) {}
-			_pclose(pipes[0]);
-			pipes.erase(pipes.begin());
-		}
-		fessga::phys::call_elmer(population[i].output_folder + "/run_elmer.bat", &pipes, false);
-		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 5) == 0))
-			cout << "- Started FEA for individual " << i+1 - offset << " / " << pop_size << "\n";
-	}
-	for (auto& pipe : pipes) {
-		std::array<char, 80> buffer;
-		while (fgets(buffer.data(), 80, pipe) != NULL) {}
-		_pclose(pipe);
+	if (do_FEA) {
+		run_FEA_batch(individual_folders, pop_size, verbose);
 	}
 
 	// Obtain FEA results and compute fitnesses

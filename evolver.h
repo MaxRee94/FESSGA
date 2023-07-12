@@ -38,7 +38,7 @@ public:
 	void evolve();
 	void do_setup();
 	void generate_children(bool verbose = true);
-	void evaluate_fitnesses(int offset, bool verbose = true);
+	void evaluate_fitnesses(int offset, bool do_FEA = false, bool verbose = true);
 	void do_selection();
 	void create_iteration_directories(int iteration);
 	virtual void write_densities_to_image();
