@@ -34,16 +34,16 @@ public:
     bool test_image_loader();
     void do_teardown();
     OptimizerBase do_setup(
-        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = ""
+        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string base_folder = ""
     );
     Evolver do_evolver_setup(
-        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string output_folder = ""
+        string type, string path, bool verbose = false, int dim_x = -1, int dim_y = -1, string base_folder = ""
     );
 
     Controller* ctrl = 0;
     Input _input;
     int _dim_x, _dim_y;
-    string _output_folder;
+    string _base_folder;
 };
 
 void Tester::run_tests() {
@@ -99,21 +99,21 @@ void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
     // Parameters
     double max_stress = 1.5e9;
     double min_stress = 7e3;
-    string msh_file = ctrl->output_folder + "/mesh.msh";
-    string fea_case = ctrl->output_folder + "/case.sif";
+    string msh_file = ctrl->base_folder + "/mesh.msh";
+    string fea_case = ctrl->base_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_connection = true;
-    optimizer = OptimizerBase(msh_file, fea_case, ctrl->mesh, ctrl->output_folder, max_stress, ctrl->densities2d, max_iterations, export_msh, verbose);
+    optimizer = OptimizerBase(msh_file, fea_case, ctrl->mesh, ctrl->base_folder, max_stress, ctrl->densities2d, max_iterations, export_msh, verbose);
 }
 
 void Tester::init_dummy_evolver(Evolver& evolver) {
     // Parameters
     double max_stress = 1.5e9;
-    string msh_file = ctrl->output_folder + "/mesh.msh";
-    string fea_case = ctrl->output_folder + "/case.sif";
+    string msh_file = ctrl->base_folder + "/mesh.msh";
+    string fea_case = ctrl->base_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.1;
@@ -124,12 +124,12 @@ void Tester::init_dummy_evolver(Evolver& evolver) {
     int max_iterations_without_change = 10;
     float mutation_rate = 0.001;
     evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, ctrl->output_folder, pop_size, mutation_rate, max_stress,
+        msh_file, fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate, max_stress,
         ctrl->densities2d, max_iterations, max_iterations_without_change, export_msh, verbose, initial_perturbation_size
     );
 }
 
-OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x, int dim_y, string output_folder) {
+OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x, int dim_y, string base_folder) {
     _input = ctrl->input;
     _dim_x = ctrl->dim_x; _dim_y = ctrl->dim_y;
     if (dim_x > 0 && dim_y > 0) {
@@ -137,9 +137,9 @@ OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x
         ctrl->dim_y = dim_y;
     }
     // Init optimizer with base teapot distribution
-    _output_folder = ctrl->output_folder;
-    if (output_folder != "") ctrl->output_folder = output_folder;
-    ctrl->input.path = ctrl->output_folder + "/distribution2d.dens";
+    _base_folder = ctrl->base_folder;
+    if (base_folder != "") ctrl->base_folder = base_folder;
+    ctrl->input.path = ctrl->base_folder + "/distribution2d.dens";
     ctrl->input.type = "distribution2d";
     ctrl->init_densities();
     OptimizerBase optimizer;
@@ -161,7 +161,7 @@ OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x
     return optimizer;
 }
 
-Evolver Tester::do_evolver_setup(string type, string path, bool verbose, int dim_x, int dim_y, string output_folder) {
+Evolver Tester::do_evolver_setup(string type, string path, bool verbose, int dim_x, int dim_y, string base_folder) {
     _input = ctrl->input;
     _dim_x = ctrl->dim_x; _dim_y = ctrl->dim_y;
     if (dim_x > 0 && dim_y > 0) {
@@ -169,9 +169,9 @@ Evolver Tester::do_evolver_setup(string type, string path, bool verbose, int dim
         ctrl->dim_y = dim_y;
     }
     // Init optimizer with base teapot distribution
-    _output_folder = ctrl->output_folder;
-    if (output_folder != "") ctrl->output_folder = output_folder;
-    ctrl->input.path = ctrl->output_folder + "/distribution2d.dens";
+    _base_folder = ctrl->base_folder;
+    if (base_folder != "") ctrl->base_folder = base_folder;
+    ctrl->input.path = ctrl->base_folder + "/distribution2d.dens";
     ctrl->input.type = "distribution2d";
     ctrl->init_densities();
     Evolver evolver;
@@ -198,7 +198,7 @@ void Tester::do_teardown() {
     ctrl->dim_x = _dim_x;
     ctrl->dim_y = _dim_y;
     ctrl->densities2d.flush_edit_memory();
-    ctrl->output_folder = _output_folder;
+    ctrl->base_folder = _base_folder;
 }
 
 bool Tester::do_individual_is_single_piece_test(string type, string path) {
@@ -574,13 +574,13 @@ bool Tester::test_2d_crossover() {
 
     string fea_case = "../data/msh_output/case.sif";
     string msh_file = "../data/msh_output/test.msh";
-    string output_folder = "../data/msh_output/FESSGA_test_output";
+    string base_folder = "../data/msh_output/FESSGA_test_output";
 
     // Do crossover
     evo::Individual2d child1(&ctrl->densities2d);
     evo::Individual2d child2(&ctrl->densities2d);
     Evolver evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, output_folder, 4, (float)0.01, 
+        msh_file, fea_case, ctrl->mesh, base_folder, 4, (float)0.01, 
         max_stress, parent1, max_iterations, max_iterations_without_change
     );
     evolver.do_2d_crossover(parent1, parent2, child1, child2);

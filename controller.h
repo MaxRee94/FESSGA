@@ -19,10 +19,10 @@ struct Input {
 
 class Controller {
 public:
-    Controller(Input _input, string _output_folder, string action, int _dim_x, int size)
+    Controller(Input _input, string _base_folder, string action, int _dim_x, int size)
     {
         // Initialize member variables
-        input = _input; output_folder = _output_folder;
+        input = _input; base_folder = _base_folder;
         dim_x = _dim_x;
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
@@ -46,7 +46,7 @@ public:
         }
 
         // Create output folder
-        IO::create_folder_if_not_exists(output_folder);
+        IO::create_folder_if_not_exists(base_folder);
 
         // Load density distribution from a file or generate it on the fly
         init_densities();
@@ -54,17 +54,17 @@ public:
         // Execute action
         if (action == "export_mesh") {
             densities2d.print();
-            densities2d.do_export(output_folder + "/distribution2d.dens");
+            densities2d.do_export(base_folder + "/distribution2d.dens");
 
             // Obtain a grid-based FE representation based on the chosen mesh
             msh::FEMesh2D fe_mesh;
             msh::generate_FE_mesh(mesh, densities2d, fe_mesh);
 
             // Export the FE mesh in .msh format
-            msh::export_as_msh_file(&fe_mesh, output_folder);
+            msh::export_as_msh_file(&fe_mesh, base_folder);
 
             // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
-            msh::export_as_elmer_files(&fe_mesh, output_folder);
+            msh::export_as_elmer_files(&fe_mesh, base_folder);
 
             // TODO: Update the case.sif file to fill in missing target boundary edges
 
@@ -78,7 +78,7 @@ public:
             run_fess();
         }
         else if (action == "export_distribution") {
-            string densities_file = densities2d.do_export(output_folder + "/distribution2d.dens");
+            string densities_file = densities2d.do_export(base_folder + "/distribution2d.dens");
             cout << "Exported density distribution to " << densities_file << endl;
         }
         else if (action == "test") cout << "Test mode; controller remains passive." << endl;
@@ -106,7 +106,7 @@ public:
     int dim_y = 1;
     int dim_z = 1;
     float cell_size = 0;
-    string output_folder;
+    string base_folder;
     Vector3d offset;
     Input input;
     vector<grd::Piece> pieces;
@@ -114,7 +114,7 @@ public:
 
 // Load distribution from file or generate it on the fly
 void Controller::init_densities() {
-    densities2d = grd::Densities2d(dim_x, mesh.diagonal, output_folder);
+    densities2d = grd::Densities2d(dim_x, mesh.diagonal, base_folder);
     if (input.type == "distribution2d") {
         cout << "Importing 2d density distribution from location " << input.path << "\n";
         densities2d.do_import(input.path, mesh.diagonal(0));
@@ -133,7 +133,7 @@ void Controller::init_densities() {
     }
     else {
         // Init 3d density distribution
-        densities3d = grd::Densities3d(dim_x, mesh.diagonal, output_folder);
+        densities3d = grd::Densities3d(dim_x, mesh.diagonal, base_folder);
 
         // Generate grid-based binary density distribution based on the given (unstructured) mesh file
         densities3d.generate(mesh.offset, mesh.V, mesh.F);
@@ -144,15 +144,15 @@ void Controller::init_densities() {
         densities2d.filter();
 
         // Export 3d density distribution
-        string densities3d_file = densities3d.do_export(output_folder);
+        string densities3d_file = densities3d.do_export(base_folder);
         cout << "FESS: Exported 3d density distribution to file: " << densities3d_file << endl;
 
         // Export 2d density distribution
-        string densities2d_file = densities2d.do_export(output_folder);
+        string densities2d_file = densities2d.do_export(base_folder);
         cout << "FESS: Exported 2d density distribution to file: " << densities2d_file << endl;
 
         // Write 2d distribution to image
-        img::write_distribution_to_image(densities2d, output_folder + "/" + input.name + ".jpg");
+        img::write_distribution_to_image(densities2d, base_folder + "/" + input.name + ".jpg");
     }
 }
 
@@ -161,8 +161,8 @@ void Controller::run_fess() {
     // Parameters
     double max_stress = 1.5e9;
     double min_stress = 7e3;
-    string msh_file = output_folder + "/mesh.msh";
-    string fea_case = output_folder + "/case.sif";
+    string msh_file = base_folder + "/mesh.msh";
+    string fea_case = base_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.05;
@@ -172,7 +172,7 @@ void Controller::run_fess() {
     
     // Run optimization
     FESS fess = FESS(
-        msh_file, fea_case, mesh, output_folder, min_stress, max_stress, densities2d, max_iterations, greediness,
+        msh_file, fea_case, mesh, base_folder, min_stress, max_stress, densities2d, max_iterations, greediness,
         maintain_boundary_connection, export_msh, verbose
     );
     fess.run();
@@ -180,20 +180,20 @@ void Controller::run_fess() {
 
 void Controller::run_evoma() {
     // Parameters
-    double max_stress = 2e6;
-    string msh_file = output_folder + "/mesh.msh";
-    string fea_case = output_folder + "/case.sif";
-    int max_iterations = 100;
+    double max_stress = 1e6;
+    string msh_file = base_folder + "/mesh.msh";
+    string fea_case = base_folder + "/case.sif";
+    int max_iterations = 10000;
     bool export_msh = true;
     float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_connection = true;
     float initial_perturbation_size = 0.3;
-    int pop_size = 6;
-    float mutation_rate = 0.001;
-    int max_iterations_without_change = 10;
+    int pop_size = 100;
+    float mutation_rate = 0.07;
+    int max_iterations_without_change = 100;
     Evolver evolver(
-        msh_file, fea_case, mesh, output_folder, pop_size, mutation_rate, max_stress, densities2d, max_iterations, max_iterations_without_change,
+        msh_file, fea_case, mesh, base_folder, pop_size, mutation_rate, max_stress, densities2d, max_iterations, max_iterations_without_change,
         export_msh, verbose, initial_perturbation_size
     );
     evolver.evolve();

@@ -15,16 +15,21 @@ class Evolver : public OptimizerBase {
 public:
 	Evolver() = default;
 	Evolver(
-		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _output_folder, int _pop_size, float _mutation_rate,
+		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, float _mutation_rate,
 		double _max_stress_threshold, grd::Densities2d _starting_densities, int _max_iterations, int _max_iterations_without_change,
 		bool _export_msh = false, bool _verbose = true, float _initial_perturbation_size = 0.5
 	) : OptimizerBase(
-		_msh_file, _fea_case, _mesh, _output_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
+		_msh_file, _fea_case, _mesh, _base_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
 		pop_size = _pop_size;
 		mutation_rate = _mutation_rate;
 		initial_perturbation_size = _initial_perturbation_size;
 		max_iterations_without_change = _max_iterations_without_change;
+		best_solutions_folder = output_folder + "/best_solutions";
+		best_individuals_images_folder = image_folder + "/best_individuals";
+		IO::create_folder_if_not_exists(best_individuals_images_folder);
+		IO::create_folder_if_not_exists(best_solutions_folder);
+		img::write_distribution_to_image(densities, image_folder + "/starting_shape.jpg");
 	}
 	void do_2d_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate);
@@ -44,6 +49,8 @@ public:
 	void export_individual(evo::Individual2d* individual, string folder);
 	void export_stats(string iteration_name, bool initialize = false);
 	void collect_stats();
+	void cleanup();
+	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;
@@ -61,4 +68,8 @@ private:
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
 	string best_individual;
+	int best_individual_idx = 0;
+	string current_best_solution_folder;
+	string best_solutions_folder;
+	string best_individuals_images_folder;
 };

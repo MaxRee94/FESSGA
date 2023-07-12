@@ -23,8 +23,10 @@ namespace fessga {
 
 		static void write_to_csv(std::string csv_path, std::vector<std::string> data, std::string headers);
 
-		static std::string get_unique_path(std::string fpath);
+		static std::string get_unique_file_path(std::string fpath);
 
+		static std::string get_unique_path(std::string templ);
+		
 		static std::string get_latest_path(std::string templ);
 
 		static void write_text_to_file(std::string text, std::string path);
@@ -36,5 +38,11 @@ namespace fessga {
 		static std::string get_fullpath(std::string relative_path);
 
 		static void append_to_file(std::string fpath, std::string text);
+
+		static void get_files_in_directory(std::vector<std::string>& filepaths, std::string source_dir);
+
+		static void remove_files(std::vector<std::string>* files);
+
+		static void remove_directory_incl_contents(std::string dir);
 	};
 };

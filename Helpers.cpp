@@ -91,7 +91,10 @@ string fessga::help::join_as_string(vector<pair<int, int>> numbers, string separ
 
 string fessga::help::join(vector<string>* strings, string separator) {
     string result = "";
-    for (auto& string : (*strings)) result += separator + string;
+    for (int i = 0; i < strings->size(); i++) {
+        result += strings->at(i);
+        if (i < strings->size() - 1) result += separator;
+    }
     return result;
 }
 
@@ -348,4 +351,7 @@ void fessga::help::append_vector(vector<pair<int, int>>& result, vector<pair<int
     append_vector(result, &vec2);
 }
 
+void fessga::help::append_vector(vector<string>& result, vector<string>* vec2) {
+    for (auto& item : *vec2) result.push_back(item);
+}
 

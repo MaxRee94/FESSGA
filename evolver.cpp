@@ -51,8 +51,13 @@ void Evolver::export_stats(string iteration_name, bool initialize) {
 	);
 	IO::append_to_file(
 		statistics_file,
-		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + best_individual
+		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + current_best_solution_folder
 	);
+	vector<string> stats = {
+		"Current variation: " + to_string(variation),
+		"current best individual (folder location): " + current_best_solution_folder
+	};
+	cout << help::join(&stats, ", ") << endl;
 }
 
 void Evolver::do_2d_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2) {
@@ -142,6 +147,9 @@ void Evolver::write_densities_to_image() {
 		img::write_distribution_to_image(
 			population[i], image_iteration_folder + help::add_padding("/individual_", i+1) + to_string(i+1) + ".jpg");
 	}
+	img::write_distribution_to_image(
+		population[best_individual_idx], best_individuals_images_folder + "/" + iteration_name + ".jpg"
+	);
 }
 
 void Evolver::create_iteration_directories(int iteration) {
@@ -176,15 +184,20 @@ bool Evolver::termination_condition_reached() {
 }
 
 void Evolver::do_setup() {
-	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
+	cout << "Beginning Evolver run. Saving results to " << base_folder << endl;
+	export_meta_parameters();
 	create_iteration_directories(iteration_number);
-	image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 	if (verbose) densities.print();
-	img::write_distribution_to_image(densities, image_folder + "/starting_shape.jpg");
 	init_population();
 	evaluate_fitnesses(0);
+	help::sort(fitnesses_map, fitnesses_pairset);
+	best_individual_idx = (*fitnesses_pairset.begin()).first;
+	current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
+	IO::create_folder_if_not_exists(current_best_solution_folder);
+	copy_solution_files(population[best_individual_idx].output_folder, current_best_solution_folder);
 	collect_stats();
 	export_stats(iteration_name, true);
+	cleanup();
 }
 
 // Choose a pair of parents randomly
@@ -256,6 +269,16 @@ void Evolver::generate_children(bool verbose) {
 	cout << "Finished generating children.\n";
 }
 
+void Evolver::export_meta_parameters(vector<string>* _) {
+	vector<string> additional_metaparameters = {
+		"population size = " + to_string(pop_size),
+		"initial perturbation size = " + to_string(initial_perturbation_size),
+		"mutation rate = " + to_string(mutation_rate),
+		"max iterations since fitness change = " + to_string(max_iterations_without_change),
+	};
+	OptimizerBase::export_meta_parameters(&additional_metaparameters);
+}
+
 void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 	cout << "Evaluating individual fitnesses...\n";
 	iterations_since_fitness_change++;
@@ -271,7 +294,7 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 		}
 		fessga::phys::call_elmer(population[i].output_folder + "/run_elmer.bat", &pipes, false);
 		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 5) == 0))
-			cout << "- Finished FEA for individual " << i+1 - offset << " / " << pop_size << "\n";
+			cout << "- Started FEA for individual " << i+1 - offset << " / " << pop_size << "\n";
 	}
 	for (auto& pipe : pipes) {
 		std::array<char, 80> buffer;
@@ -313,8 +336,8 @@ void Evolver::evaluate_fitnesses(int offset, bool verbose) {
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
 	help::sort(fitnesses_map, fitnesses_pairset);
-	best_individual = population[0].output_folder;
 	vector<evo::Individual2d> new_population;
+	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
 	for (auto& [pop_idx, fitness] : fitnesses_pairset) {
 		new_fitnesses_map.insert(pair(new_population.size(), fitness));
@@ -323,6 +346,18 @@ void Evolver::do_selection() {
 	}
 	population = new_population;
 	fitnesses_map = new_fitnesses_map;
+
+	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
+	if (iterations_since_fitness_change == 0) {
+		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
+		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
+		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
+	}
+}
+
+void Evolver::cleanup() {
+	cout << "Removed iteration directory and all contained files (directory path: " << iteration_folder << ")\n";
+	IO::remove_directory_incl_contents(iteration_folder);
 }
 
 void Evolver::evolve() {
@@ -336,6 +371,7 @@ void Evolver::evolve() {
 		do_selection();
 		collect_stats();
 		export_stats(iteration_name);
+		cleanup();
 	}
 }
 

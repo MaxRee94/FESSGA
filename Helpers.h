@@ -112,5 +112,8 @@ namespace fessga {
 		// Push back the items in vec2 to the vector <result>
 		static void append_vector(vector<pair<int, int>>& result, vector<pair<int, int>> vec2);
 
+		// Push back the items in vec2 to the vector <result>
+		static void append_vector(vector<string>& result, vector<string>* vec2);
+
 	};
 };

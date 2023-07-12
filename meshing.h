@@ -188,29 +188,29 @@ namespace fessga {
         }
 
         // Encode the given FE mesh in a Gmesh .msh format and export it to the given output folder
-        static void export_as_msh_file(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_as_msh_file(FEMesh2D* fe_mesh, string base_folder) {
             // Encode the FE mesh in a .msh format
             string msh_description;
             msh::generate_msh_description(fe_mesh, msh_description);
 
             // Export the .msh description to a .msh file
-            string msh_output_path = output_folder + "/mesh.msh";
+            string msh_output_path = base_folder + "/mesh.msh";
             IO::write_text_to_file(msh_description, msh_output_path);
         }
 
         // Generate a file description for an Elmer header file, based on the given FE mesh
-        static void export_elmer_header(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_elmer_header(FEMesh2D* fe_mesh, string base_folder) {
             string header_description = {
                 to_string(fe_mesh->nodes.size()) + " " + to_string(fe_mesh->surfaces.size()) + " " + to_string(fe_mesh->lines.size()) + "\n"
                 + "2\n"
                 + "404 " + to_string(fe_mesh->surfaces.size()) + "\n" // Number of surfaces
                 + "202 " + to_string(fe_mesh->lines.size()) + "\n" // Number of lines
             };
-            IO::write_text_to_file(header_description, output_folder + "/mesh.header");
+            IO::write_text_to_file(header_description, base_folder + "/mesh.header");
         }
 
         // Generate a file description for an Elmer nodes file, based on the given FE mesh
-        static void export_elmer_nodes(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_elmer_nodes(FEMesh2D* fe_mesh, string base_folder) {
             string nodes_description = "";
             for (int i = 0; i < fe_mesh->nodes.size(); i++) { // List of nodes, with each node encoded as <node_idx> <x> <y> <z>
                 vector<double> node = fe_mesh->nodes[i];
@@ -221,11 +221,11 @@ namespace fessga {
                 }
                 nodes_description += _node + "\n";
             }
-            IO::write_text_to_file(nodes_description, output_folder + "/mesh.nodes");
+            IO::write_text_to_file(nodes_description, base_folder + "/mesh.nodes");
         }
 
         // Generate a file description for an Elmer elements file, based on the given FE mesh
-        static void export_elmer_elements(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_elmer_elements(FEMesh2D* fe_mesh, string base_folder) {
             string elements_description = "";
             for (int i = 0; i < fe_mesh->surfaces.size(); i++) {
                 Element surface = fe_mesh->surfaces[i];
@@ -240,11 +240,11 @@ namespace fessga {
 
                 elements_description += _surface + "\n";
             }
-            IO::write_text_to_file(elements_description, output_folder + "/mesh.elements");
+            IO::write_text_to_file(elements_description, base_folder + "/mesh.elements");
         }
 
         // Generate a file description for an Elmer boundary elements file, based on the given FE mesh
-        static void export_elmer_boundary(FEMesh2D* fe_mesh, string output_folder) {
+        static void export_elmer_boundary(FEMesh2D* fe_mesh, string base_folder) {
             string elements_description = "";
             for (int i = 0; i < fe_mesh->lines.size(); i++) {
                 Element line = fe_mesh->lines[i];
@@ -260,23 +260,23 @@ namespace fessga {
 
                 elements_description += _line + "\n";
             }
-            IO::write_text_to_file(elements_description, output_folder + "/mesh.boundary");
+            IO::write_text_to_file(elements_description, base_folder + "/mesh.boundary");
         }
 
         // Export FE mesh as elmer files (.header, .boundaries, .nodes, .elements)
-        static void export_as_elmer_files(FEMesh2D* fe_mesh, string output_folder) {
-            export_elmer_header(fe_mesh, output_folder);
-            export_elmer_nodes(fe_mesh, output_folder);
-            export_elmer_elements(fe_mesh, output_folder);
-            export_elmer_boundary(fe_mesh, output_folder);
-            IO::write_text_to_file("case.sif\n1", output_folder + "/ELMERSOLVER_STARTINFO");
+        static void export_as_elmer_files(FEMesh2D* fe_mesh, string base_folder) {
+            export_elmer_header(fe_mesh, base_folder);
+            export_elmer_nodes(fe_mesh, base_folder);
+            export_elmer_elements(fe_mesh, base_folder);
+            export_elmer_boundary(fe_mesh, base_folder);
+            IO::write_text_to_file("case.sif\n1", base_folder + "/ELMERSOLVER_STARTINFO");
         }
 
         // Create batch file for running elmer and return its absolute path
-        static string create_batch_file(string output_folder) {
-            string batch_file = IO::get_fullpath(output_folder);
+        static string create_batch_file(string base_folder) {
+            string batch_file = IO::get_fullpath(base_folder);
             batch_file += "/run_elmer.bat";
-            IO::write_text_to_file("cd \"" + output_folder + "\"\nElmerSolver", batch_file);
+            IO::write_text_to_file("cd \"" + base_folder + "\"\nElmerSolver", batch_file);
 
             return batch_file;
         }

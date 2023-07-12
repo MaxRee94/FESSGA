@@ -98,7 +98,7 @@ void fessga::IO::write_text_to_file(string text, string path) {
     fileStream.close();
 }
 
-string fessga::IO::get_unique_path(string fpath) {
+string fessga::IO::get_unique_file_path(string fpath) {
     int vcount = 2;
     int padding = 2;
     while (IO::file_exists(fpath)) {
@@ -126,7 +126,7 @@ string fessga::IO::get_unique_path(string fpath) {
 }
 
 string fessga::IO::get_latest_path(string templ) {
-    std::string path = help::replace_occurrences(templ, "#", "_v002");
+    std::string path = help::replace_occurrences(templ, "#", "_v001");
     std::string _path = path;
     int vcount = 2;
     int padding = 2;
@@ -152,6 +152,35 @@ string fessga::IO::get_latest_path(string templ) {
     }
 
     return path;
+}
+
+string fessga::IO::get_unique_path(string templ) {
+    std::string path = help::replace_occurrences(templ, "#", "_v001");
+    std::string _path = path;
+    int vcount = 2;
+    int padding = 2;
+    while (IO::file_exists(_path)) {
+        path = _path;
+        if (vcount > 9) {
+            if (vcount > 99) {
+                padding = 0;
+            }
+            else {
+                padding = 1;
+            }
+        }
+        std::string suffix = "_v";
+        string pad = "";
+        for (int i = 0; i < padding; i++) {
+            pad += "0";
+        }
+        suffix += pad;
+        suffix += to_string(vcount);
+        _path = help::replace_occurrences(templ, "#", suffix);
+        vcount++;
+    }
+
+    return _path;
 }
 
 bool fessga::IO::is_empty(string folder) {
@@ -200,4 +229,19 @@ void fessga::IO::append_to_file(std::string fpath, std::string text) {
         if (content[i] == "\n" || content[i] == " " || content[i] == "") content.erase(content.begin() + i);
     }
     IO::write_text_to_file(help::join(&content, "\n"), fpath);
+}
+
+void fessga::IO::get_files_in_directory(vector<string>& filepaths, string source_dir) {
+    for (const auto& entry : filesystem::directory_iterator(source_dir))
+        filepaths.push_back(string(entry.path().u8string()));
+}
+
+void fessga::IO::remove_files(vector<string>* files) {
+    for (string _file : *files) {
+        remove(_file.c_str());
+    }
+}
+
+void fessga::IO::remove_directory_incl_contents(string dir) {
+    filesystem::remove_all(dir);
 }

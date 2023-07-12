@@ -15,10 +15,10 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _output_folder, double _min_stress_threshold,
+		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
 		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, float _greediness,
 		bool _maintain_boundary_connection, bool _export_msh = false, bool _verbose = true
-	) : OptimizerBase(_msh_file, _fea_case, _mesh, _output_folder, _max_stress_threshold, _densities, _max_iterations, _export_msh, _verbose)
+	) : OptimizerBase(_msh_file, _fea_case, _mesh, _base_folder, _max_stress_threshold, _densities, _max_iterations, _export_msh, _verbose)
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
@@ -116,8 +116,7 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
 	double min_stress, max_stress;
-	string cur_output_folder = output_folder;
-	string final_valid_iteration_folder = cur_output_folder;
+	string final_valid_iteration_folder;
 	int final_valid_iteration = 1;
 	int i = 1;
 	bool last_iteration_was_valid = true;
@@ -126,14 +125,14 @@ void FESS::run() {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
 		// Create new subfolder for output of current iteration
-		string cur_output_folder = get_iteration_folder(i, true);
+		iteration_folder = get_iteration_folder(i, true);
 		if (last_iteration_was_valid) {
-			final_valid_iteration_folder = cur_output_folder;
+			final_valid_iteration_folder = iteration_folder;
 			export_stats(iteration_name);
 		}
 
 		// Reset densities object (keeping only the density values themselves)
-		grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, cur_output_folder);
+		grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, iteration_folder);
 		_densities.copy_from(&densities);
 		densities = _densities;
 
@@ -147,28 +146,28 @@ void FESS::run() {
 		map<string, vector<int>> bound_id_lookup;
 		msh::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
 		msh::assemble_fea_case(&densities.fea_case, &bound_id_lookup);
-		IO::write_text_to_file(densities.fea_case.content, cur_output_folder + "/case.sif");
+		IO::write_text_to_file(densities.fea_case.content, iteration_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";
 
 		// Export newly generated FE mesh
-		msh::export_as_elmer_files(&fe_mesh, cur_output_folder);
-		if (export_msh) msh::export_as_msh_file(&fe_mesh, cur_output_folder);
-		if (IO::file_exists(cur_output_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh.\n";
+		msh::export_as_elmer_files(&fe_mesh, iteration_folder);
+		if (export_msh) msh::export_as_msh_file(&fe_mesh, iteration_folder);
+		if (IO::file_exists(iteration_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh.\n";
 		else cout << "FESS: ERROR: Failed to export new FE mesh.\n";
 
 		// Export density distribution
-		string densities_file = densities.do_export(cur_output_folder + "/distribution2d.dens");
+		string densities_file = densities.do_export(iteration_folder + "/distribution2d.dens");
 		cout << "FESS: Exported current density distribution.\n";
 
 		// Call Elmer to run FEA on new FE mesh
-		string batch_file = msh::create_batch_file(cur_output_folder);
+		string batch_file = msh::create_batch_file(iteration_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
 		FILE* pipe;
 		fessga::phys::call_elmer(batch_file);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
 		// Obtain vonmises stress distribution from the .vtk file
-		string cur_case_output_file = cur_output_folder + "/case0001.vtk";
+		string cur_case_output_file = iteration_folder + "/case0001.vtk";
 		if (!IO::file_exists(cur_case_output_file)) {
 			cout << "\nFESS: ERROR: Elmer did not produce a .vtk file (expected path " << cur_case_output_file << ")\n";
 			cout << "FESS: Terminating program." << endl;
