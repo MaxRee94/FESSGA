@@ -12,7 +12,7 @@ void run_FEA_batch(vector<string> individual_folders, int pop_size, bool verbose
 	int i = 0;
 	for (int i = 0; i < pop_size; i++) {
 		fessga::phys::call_elmer(individual_folders[i] + "/run_elmer.bat");
-		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 10) == 0))
+		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 	}
 }
@@ -113,11 +113,41 @@ void Evolver::do_2d_mutation(evo::Individual2d& individual, float _mutation_rate
 	// TODO: Test if having larger perturbations (flipping a group of multiple adjacent bits with low probability) is desirable
 }
 
+void Evolver::generate_single_individual(bool verbose) {
+	// Make a copy of the base individual
+	evo::Individual2d individual(&densities);
+
+	if (help::have_overlap(&individual.fea_case.cutout_cells, &individual.fea_case.cells_to_keep))
+		cout << "Error: some cutout cells are also marked as keep cells.\n";
+
+	/*cout << "keep cells:\n";
+	individual.visualize_keep_cells();
+	cout << "cutout cells:\n";
+	individual.visualize_cutout_cells();*/
+
+	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
+	do_2d_mutation(individual, initial_perturbation_size);
+
+	// Run the repair pipeline on each individual, to ensure feasibility.
+	bool is_valid = individual.repair();
+	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual, outside this function)
+
+	// Export the individual's FEA mesh and case.sif file
+	export_individual(&individual, individual_folders[population.size()]);
+
+	// Add the individual to the population
+	population.push_back(individual);
+}
+
 /*
 Initialize a population of unique density distributions. Each differs slightly from the distribution loaded from file.
 */
 void Evolver::init_population(bool verbose) {
-	int i = 0;
+	// Generate the first individual, and then start the FEA batch thread
+	while (population.size() == 0) generate_single_individual(verbose);
+	thread fea_thread(run_FEA_batch, individual_folders, pop_size, verbose);
+
+	int i = 1;
 	cout << "Generating initial population...\n";
 	while (population.size() < pop_size) {
 		i++;
@@ -125,34 +155,14 @@ void Evolver::init_population(bool verbose) {
 			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
 		}
 
-		// Make a copy of the base individual
-		evo::Individual2d individual(&densities);
-
-		if (help::have_overlap(&individual.fea_case.cutout_cells, &individual.fea_case.cells_to_keep))
-			cout << "Error: some cutout cells are also marked as keep cells.\n";
-
-		/*cout << "keep cells:\n";
-		individual.visualize_keep_cells();
-		cout << "cutout cells:\n";
-		individual.visualize_cutout_cells();*/
-
-		// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
-		do_2d_mutation(individual, initial_perturbation_size);
-
-		// Run the repair pipeline on each individual, to ensure feasibility.
-		bool is_valid = individual.repair();
-		if (!is_valid) continue; // If the repaired shape is not valid, re-try generating an individual
-
-		// Export the individual's FEA mesh and case.sif file
-		export_individual(&individual, individual_folders[population.size()]);
-		
-		// Add the individual to the population
-		population.push_back(individual);
+		generate_single_individual();
 
 		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
 	cout << "Generating initial population finished.\n";
+	fea_thread.join();
+	cout << "FEA of initial population finished.\n";
 }
 
 void Evolver::write_densities_to_image() {
@@ -205,7 +215,7 @@ void Evolver::do_setup() {
 	create_iteration_directories(iteration_number);
 	if (verbose) densities.print();
 	init_population();
-	evaluate_fitnesses(0, true);
+	evaluate_fitnesses(0);
 	help::sort(fitnesses_map, fitnesses_pairset);
 	best_individual_idx = (*fitnesses_pairset.begin()).first;
 	current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
@@ -281,7 +291,6 @@ void Evolver::generate_children(bool verbose) {
 		export_individual(&children[j], individual_folders[j]);
 		population.push_back(children[j]);
 	}
-	cout << "starting fea thread..." << endl;
 	thread fea_thread(run_FEA_batch, individual_folders, pop_size, verbose);
 
 
@@ -316,10 +325,6 @@ void Evolver::export_meta_parameters(vector<string>* _) {
 void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	cout << "Evaluating individual fitnesses...\n";
 	iterations_since_fitness_change++;
-
-	if (do_FEA) {
-		run_FEA_batch(individual_folders, pop_size, verbose);
-	}
 
 	// Obtain FEA results and compute fitnesses
 #pragma omp parallel for

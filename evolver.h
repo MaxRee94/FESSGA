@@ -50,6 +50,7 @@ public:
 	void export_stats(string iteration_name, bool initialize = false);
 	void collect_stats();
 	void cleanup();
+	void generate_single_individual(bool verbose = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	vector<evo::Individual2d> population;
 private:

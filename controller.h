@@ -183,15 +183,14 @@ void Controller::run_evoma() {
     double max_stress = 1e6;
     string msh_file = base_folder + "/mesh.msh";
     string fea_case = base_folder + "/case.sif";
-    int max_iterations = 10000;
+    int max_iterations = 100000;
     bool export_msh = true;
-    float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_connection = true;
     float initial_perturbation_size = 0.3;
-    int pop_size = 16; // NOTE: must be even number
-    float mutation_rate = 0.07;
-    int max_iterations_without_change = 100;
+    int pop_size = 400; // NOTE: must be even number
+    float mutation_rate = 0.03;
+    int max_iterations_without_change = 150;
     Evolver evolver(
         msh_file, fea_case, mesh, base_folder, pop_size, mutation_rate, max_stress, densities2d, max_iterations, max_iterations_without_change,
         export_msh, verbose, initial_perturbation_size
