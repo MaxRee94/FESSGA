@@ -2,18 +2,34 @@
 #include <iostream>
 #include <thread>
 
+int NO_FEA_THREADS = 4;
+
 
 /*
 * Method to run a batch of FEA jobs on all given output folders
 */
-void run_FEA_batch(vector<string> individual_folders, int pop_size, bool verbose) {
-	cout << "Starting FEA batch" << endl;
+void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_offset, bool verbose) {
+	cout << "Starting FEA batch thread " + to_string(thread_offset) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
-	for (int i = 0; i < pop_size; i++) {
-		fessga::phys::call_elmer(individual_folders[i] + "/run_elmer.bat");
+	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
+		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
+		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
+		fessga::phys::call_elmer(elmer_bat_file);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+	}
+}
+
+// Obtain FEA results
+void load_physics_batch(vector<evo::Individual2d>* population, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true) {
+	cout << "Starting results loader...\n";
+	for (int i = pop_size; i < pop_size * 2; i++) {
+		string vtk_file_path = population->at(i).output_folder + "/case0001.vtk";
+		while (!IO::file_exists(vtk_file_path)) {} // Wait for casefile to appear on disk
+		load_physics(&population->at(i), mesh);
+		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
+			cout << "- Read stress distribution for individual " << i - pop_size + 1 << " / " << pop_size << "\n";
 	}
 }
 
@@ -144,10 +160,13 @@ Initialize a population of unique density distributions. Each differs slightly f
 */
 void Evolver::init_population(bool verbose) {
 	// Generate the first individual, and then start the FEA batch thread
-	while (population.size() == 0) generate_single_individual(verbose);
-	thread fea_thread(run_FEA_batch, individual_folders, pop_size, verbose);
+	while (population.size() < NO_FEA_THREADS) generate_single_individual(verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, individual_folders, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, individual_folders, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, individual_folders, pop_size, 3, verbose);
 
-	int i = 1;
+	int i = NO_FEA_THREADS;
 	cout << "Generating initial population...\n";
 	while (population.size() < pop_size) {
 		i++;
@@ -161,7 +180,10 @@ void Evolver::init_population(bool verbose) {
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
 	cout << "Generating initial population finished.\n";
-	fea_thread.join();
+	fea_thread1.join();
+	fea_thread2.join();
+	fea_thread3.join();
+	fea_thread4.join();
 	cout << "FEA of initial population finished.\n";
 }
 
@@ -281,8 +303,7 @@ void Evolver::generate_children(bool verbose) {
 	vector<int> parent_indices;
 	vector<evo::Individual2d> previous_population = population;
 
-
-	// first two children and start of FEA batch
+	// First two children and start of FEA batch
 	vector<evo::Individual2d> parents;
 	choose_parents(parents, &previous_population);
 	vector<evo::Individual2d> children;
@@ -291,9 +312,12 @@ void Evolver::generate_children(bool verbose) {
 		export_individual(&children[j], individual_folders[j]);
 		population.push_back(children[j]);
 	}
-	thread fea_thread(run_FEA_batch, individual_folders, pop_size, verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, individual_folders, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, individual_folders, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, individual_folders, pop_size, 2, verbose);
 
-
+	// Generate rest of children
 	for (int i = 1; i < (pop_size / 2); i++) {
 		vector<evo::Individual2d> parents;
 		choose_parents(parents, &previous_population);
@@ -305,11 +329,20 @@ void Evolver::generate_children(bool verbose) {
 		}
 		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
-		
 	}
 	cout << "Finished generating children.\n";
-	fea_thread.join();
+
+	// Start a thread to read the results of the FEA
+	thread results_thread(load_physics_batch, &population, pop_size, &mesh, verbose);
+
+	// Join threads
+	fea_thread1.join();
+	fea_thread2.join();
+	fea_thread3.join();
+	fea_thread4.join();
 	cout << "Finished FEA for all children.\n";
+	results_thread.join();
+	cout << "Finished reading FEA results for all children.\n";
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
@@ -327,10 +360,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	iterations_since_fitness_change++;
 
 	// Obtain FEA results and compute fitnesses
-#pragma omp parallel for
 	for (int i = offset; i < (pop_size + offset); i++) {
-		// Obtain FEA results
-		load_physics(&population[i]);
 		max_stress = population[i].fea_results.max;
 
 		// Compute fitness
@@ -344,9 +374,6 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			best_fitness = fitness;
 			iterations_since_fitness_change = 0;
 		}
-
-		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 5) == 0))
-			cout << "- Evaluated individual " << i - offset + 1 << " / " << pop_size << "\n";
 	}
 	if (iterations_since_fitness_change == 0) {
 		cout << "EVOMA: New best fitness: " << best_fitness << endl;
