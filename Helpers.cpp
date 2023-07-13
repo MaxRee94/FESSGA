@@ -24,7 +24,7 @@ float fessga::help::get_rand_float(float min, float max) {
 
 uint fessga::help::get_rand_uint(float min, float max) {
     float float_rand_range = (float)rand() * INV_RAND_MAX * (max - min);
-    return (int)(min + float_rand_range);
+    return round(min + float_rand_range);
 }
 
 bool fessga::help::is_in(std::vector<int>* vec, int item) {

@@ -10,7 +10,7 @@ using namespace std;
 /* 
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
-void msh::generate_FE_mesh(
+void msh::create_FE_mesh(
     SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose
 ) {
     // Create nodes and surfaces

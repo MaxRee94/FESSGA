@@ -21,7 +21,7 @@ public:
     bool do_individual_init_population_test(string type, string path, bool verbose = false);
     bool do_individual_image_loader_test(string type, string path, bool verbose = true);
     void create_parents(grd::Densities2d parent1, grd::Densities2d parent2);
-    bool test_2d_crossover();
+    bool test_2x_crossover();
     bool test_evolution();
     bool test_init_pieces();
     bool test_remove_smaller_pieces();
@@ -111,21 +111,23 @@ void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
 
 void Tester::init_dummy_evolver(Evolver& evolver) {
     // Parameters
-    double max_stress = 1.5e9;
+    double max_stress = 1e6;
     string msh_file = ctrl->base_folder + "/mesh.msh";
     string fea_case = ctrl->base_folder + "/case.sif";
-    int max_iterations = 100;
+    int max_iterations = 100000;
     bool export_msh = true;
-    float greediness = 0.1;
     bool verbose = true;
     bool maintain_boundary_connection = true;
-    float initial_perturbation_size = 0.1;
-    int pop_size = 20;
-    int max_iterations_without_change = 10;
-    float mutation_rate = 0.001;
+    string crossover_method = "2x";
+    float initial_perturb_level0 = 0.1;
+    float initial_perturb_level1 = 0.2;
+    int pop_size = 200; // NOTE: must be divisible by 4
+    float mutation_rate_level0 = 0.0002;
+    float mutation_rate_level1 = 0.005;
+    int max_iterations_without_change = 150;
     evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate, max_stress,
-        ctrl->densities2d, max_iterations, max_iterations_without_change, export_msh, verbose, initial_perturbation_size
+        msh_file, fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, max_stress, ctrl->densities2d, max_iterations,
+        max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
 }
 
@@ -558,7 +560,7 @@ void Tester::create_parents(grd::Densities2d parent1, grd::Densities2d parent2) 
 /*
 Test 2-point crossover of two 2d parent solutions. Print parents and children to console
 */
-bool Tester::test_2d_crossover() {
+bool Tester::test_2x_crossover() {
     evo::Individual2d parent1(&ctrl->densities2d);
     evo::Individual2d parent2(&ctrl->densities2d);
     double max_stress = 1e9; // arbitrary maximum stress
@@ -579,11 +581,9 @@ bool Tester::test_2d_crossover() {
     // Do crossover
     evo::Individual2d child1(&ctrl->densities2d);
     evo::Individual2d child2(&ctrl->densities2d);
-    Evolver evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, base_folder, 4, (float)0.01, 
-        max_stress, parent1, max_iterations, max_iterations_without_change
-    );
-    evolver.do_2d_crossover(parent1, parent2, child1, child2);
+    Evolver evolver;
+    init_dummy_evolver(evolver);
+    evolver.do_2x_crossover(parent1, parent2, child1, child2);
 
     cout << "\Child 1: \n";
     child1.print();

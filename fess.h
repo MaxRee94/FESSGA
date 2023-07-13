@@ -139,7 +139,7 @@ void FESS::run() {
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
 		msh::FEMesh2D fe_mesh;
-		msh::generate_FE_mesh(mesh, densities, fe_mesh);
+		msh::create_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
 
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh

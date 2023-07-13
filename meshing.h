@@ -119,7 +119,7 @@ namespace fessga {
 
         /* Generate a grid-based description of a FE mesh
         */
-        static void generate_FE_mesh(
+        static void create_FE_mesh(
             SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose = false
         );
 
@@ -138,7 +138,7 @@ namespace fessga {
         }
 
         // Encode FE mesh data into .msh-description
-        static void generate_msh_description(FEMesh2D* fe_mesh, string& msh) {
+        static void create_msh_description(FEMesh2D* fe_mesh, string& msh) {
             // -- Format section
             msh = {
                 "$MeshFormat\n"
@@ -191,7 +191,7 @@ namespace fessga {
         static void export_as_msh_file(FEMesh2D* fe_mesh, string base_folder) {
             // Encode the FE mesh in a .msh format
             string msh_description;
-            msh::generate_msh_description(fe_mesh, msh_description);
+            msh::create_msh_description(fe_mesh, msh_description);
 
             // Export the .msh description to a .msh file
             string msh_output_path = base_folder + "/mesh.msh";
@@ -361,7 +361,7 @@ namespace fessga {
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
-            generate_FE_mesh(mesh, densities, fe_mesh);
+            create_FE_mesh(mesh, densities, fe_mesh);
             
             // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_conds map
             int q = 0;

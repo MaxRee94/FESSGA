@@ -58,7 +58,7 @@ public:
 
             // Obtain a grid-based FE representation based on the chosen mesh
             msh::FEMesh2D fe_mesh;
-            msh::generate_FE_mesh(mesh, densities2d, fe_mesh);
+            msh::create_FE_mesh(mesh, densities2d, fe_mesh);
 
             // Export the FE mesh in .msh format
             msh::export_as_msh_file(&fe_mesh, base_folder);
@@ -187,13 +187,16 @@ void Controller::run_evoma() {
     bool export_msh = true;
     bool verbose = true;
     bool maintain_boundary_connection = true;
-    float initial_perturbation_size = 0.3;
-    int pop_size = 20; // NOTE: must be multiple of 4
-    float mutation_rate = 0.03;
+    string crossover_method = "2x";
+    float initial_perturb_level0 = 0.1;
+    float initial_perturb_level1 = 0.2;
+    int pop_size = 200; // NOTE: must be divisible by 4
+    float mutation_rate_level0 = 0.0002;
+    float mutation_rate_level1 = 0.005;
     int max_iterations_without_change = 150;
     Evolver evolver(
-        msh_file, fea_case, mesh, base_folder, pop_size, mutation_rate, max_stress, densities2d, max_iterations, max_iterations_without_change,
-        export_msh, verbose, initial_perturbation_size
+        msh_file, fea_case, mesh, base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, max_stress, densities2d, max_iterations, 
+        max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
     evolver.evolve();
 }
