@@ -245,3 +245,9 @@ void fessga::IO::remove_files(vector<string>* files) {
 void fessga::IO::remove_directory_incl_contents(string dir) {
     filesystem::remove_all(dir);
 }
+
+bool fessga::IO::file_is_empty(string fpath) {
+    std::ifstream _file;
+    _file.open(fpath, ifstream::in);
+    return _file.peek() == std::ifstream::traits_type::eof();
+}

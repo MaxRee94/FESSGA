@@ -44,5 +44,7 @@ namespace fessga {
 		static void remove_files(std::vector<std::string>* files);
 
 		static void remove_directory_incl_contents(std::string dir);
+
+		static bool file_is_empty(std::string fpath);
 	};
 };

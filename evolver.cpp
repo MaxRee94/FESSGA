@@ -26,7 +26,8 @@ void load_physics_batch(vector<evo::Individual2d>* population, int pop_size, msh
 	cout << "Starting results loader...\n";
 	for (int i = pop_size; i < pop_size * 2; i++) {
 		string vtk_file_path = population->at(i).output_folder + "/case0001.vtk";
-		while (!IO::file_exists(vtk_file_path)) {} // Wait for casefile to appear on disk
+		while (!IO::file_exists(vtk_file_path)) {} // Wait for vtk file to appear on disk
+		while (IO::file_is_empty(vtk_file_path)) {} // Wait for full vtk file to finish writing
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Read stress distribution for individual " << i - pop_size + 1 << " / " << pop_size << "\n";
@@ -44,11 +45,11 @@ float get_variation(vector<evo::Individual2d>* population) {
 	int cumulative_count = 0;
 	for (int i = 0; i < population->size(); i++) {
 		int individual_diff = 0;
-		int other_indiv_idx = i;
-		while (other_indiv_idx == i) {
-			other_indiv_idx = fessga::help::get_rand_uint(0, population->size() - 1);
-		}
 		for (int c = 0; c < population->at(0).size; c++) {
+			int other_indiv_idx = i;
+			while (other_indiv_idx == i) {
+				other_indiv_idx = fessga::help::get_rand_uint(0, population->size() - 1);
+			}
 			individual_diff += population->at(i)[c] != population->at(other_indiv_idx)[c];
 		}
 		sum_of_sq_diffs += individual_diff * individual_diff;
