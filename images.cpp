@@ -26,7 +26,9 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	float width_per_cell = mesh_width / densities.dim_x;
 	Vector3d mesh_size = Vector3d(mesh_width, width_per_cell * densities.dim_y, 0);
 	mesh = msh::SurfaceMesh(mesh_size);
-	densities = grd::Densities2d(densities.dim_x, mesh.diagonal, densities.output_folder);
+	grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, densities.output_folder);
+	_densities.fea_case = densities.fea_case;
+	densities = _densities;
 
 	// Extract red values
 	int numPixels = width * height;
@@ -79,7 +81,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			}
 			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			bool is_cutout = cell_value;
-			if (is_cutout) densities.fea_case.cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
+			if (is_cutout) densities.fea_case->cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
 		}
 	}
 }

@@ -18,6 +18,7 @@ void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_o
 		fessga::phys::call_elmer(elmer_bat_file);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt"); // Communicate that FEA is finished and the .vtk file is ready to be read.
 	}
 }
 
@@ -25,9 +26,9 @@ void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_o
 void load_physics_batch(vector<evo::Individual2d>* population, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true) {
 	cout << "Starting results loader...\n";
 	for (int i = pop_size; i < pop_size * 2; i++) {
+		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		string vtk_file_path = population->at(i).output_folder + "/case0001.vtk";
-		while (!IO::file_exists(vtk_file_path)) {} // Wait for vtk file to appear on disk
-		while (IO::file_is_empty(vtk_file_path)) {} // Wait for full vtk file to finish writing
+		while (!IO::file_exists(fea_finish_confirmation_file)) {} // Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk file is ready.
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Read stress distribution for individual " << i - pop_size + 1 << " / " << pop_size << "\n";
@@ -173,9 +174,6 @@ void Evolver::create_single_individual(bool verbose) {
 	// Make a copy of the base individual
 	evo::Individual2d individual(&densities);
 
-	if (help::have_overlap(&individual.fea_case.cutout_cells, &individual.fea_case.cells_to_keep))
-		cout << "Error: some cutout cells are also marked as keep cells.\n";
-
 	/*cout << "keep cells:\n";
 	individual.visualize_keep_cells();
 	cout << "cutout cells:\n";
@@ -199,7 +197,8 @@ void Evolver::create_single_individual(bool verbose) {
 Initialize a population of unique density distributions. Each differs slightly from the distribution loaded from file.
 */
 void Evolver::init_population(bool verbose) {
-	// Generate the first individual, and then start the FEA batch thread
+	// Generate the first #no_threads individuals, and then start the FEA batch threads
+	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
 	thread fea_thread1(run_FEA_batch, individual_folders, pop_size, 0, verbose);
 	thread fea_thread2(run_FEA_batch, individual_folders, pop_size, 1, verbose);
@@ -207,7 +206,6 @@ void Evolver::init_population(bool verbose) {
 	thread fea_thread4(run_FEA_batch, individual_folders, pop_size, 3, verbose);
 
 	int i = NO_FEA_THREADS;
-	cout << "Generating initial population...\n";
 	while (population.size() < pop_size) {
 		i++;
 		if (i > pop_size * 2 && population.size() == 0) {
@@ -272,7 +270,7 @@ bool Evolver::termination_condition_reached() {
 }
 
 void Evolver::do_setup() {
-	cout << "Beginning Evolver run. Saving results to " << base_folder << endl;
+	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
 	export_meta_parameters();
 	create_iteration_directories(iteration_number);
 	if (verbose) densities.print();
@@ -327,9 +325,9 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 // Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 void Evolver::create_sif_file(evo::Individual2d* individual, bool verbose) {
 	map<string, vector<int>> bound_id_lookup;
-	msh::create_bound_id_lookup(&bound_conds, &individual->fe_mesh, bound_id_lookup);
-	msh::assemble_fea_case(&individual->fea_case, &bound_id_lookup);
-	IO::write_text_to_file(individual->fea_case.content, individual->output_folder + "/case.sif");
+	msh::create_bound_id_lookup(&fea_case.bound_conds, &individual->fe_mesh, bound_id_lookup);
+	msh::assemble_fea_case(individual->fea_case, &bound_id_lookup);
+	IO::write_text_to_file(individual->fea_case->content, individual->output_folder + "/case.sif");
 	if (verbose) cout << "EVOMA: Exported updated case.sif file.\n";
 }
 
@@ -414,7 +412,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 		// Compute fitness
 		double fitness;
-		if (max_stress > max_stress_threshold) fitness = INFINITY;
+		if (max_stress > fea_case.max_stress_threshold) fitness = INFINITY;
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));
 

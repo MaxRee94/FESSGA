@@ -18,35 +18,37 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _base_folder,
-		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
+		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder,
+		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
-		msh_file = _msh_file; base_folder = IO::get_fullpath(_base_folder);
+		base_folder = IO::get_fullpath(_base_folder);
 		output_folder = IO::get_unique_path(base_folder + "/run_#");
 		densities = _densities;
 		export_msh = _export_msh;
-		max_stress_threshold = _max_stress_threshold;
 		domain_2d = true;
 		no_cells = densities.size;
 		max_iterations = _max_iterations;
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
-		msh::derive_boundary_conditions(densities, bound_conds, mesh);
+		fea_case = _fea_case;
+		densities.fea_case = &fea_case;
+		msh::derive_boundary_conditions(fea_case, densities, mesh);
+		if (help::have_overlap(&fea_case.cutout_cells, &fea_case.cells_to_keep))
+			cout << "Error: some cutout cells are also marked as keep cells.\n";
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
 	int no_cells = 1;
-	double max_stress_threshold = 0.0;
 	grd::Densities2d densities;
 	bool verbose = true;
 	int max_iterations = 0;
 	int iteration_number = 0;
 	bool export_msh = false;
+	phys::FEACase fea_case;
 	double min_stress, max_stress;
-	map<string, vector<pair<int, int>>> bound_conds;
-	string msh_file, base_folder, image_folder, iteration_name, iteration_folder, output_folder;
+	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
 	string get_iteration_folder(int iteration, bool verbose = false) {
@@ -65,7 +67,7 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(max_stress_threshold),
+			"max stress threshold = " + to_string(fea_case.max_stress_threshold),
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");

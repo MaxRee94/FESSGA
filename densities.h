@@ -51,9 +51,10 @@ namespace fessga {
                 construct_grid();
                 output_folder = _output_folder;
                 fea_results = phys::FEAResults2D(dim_x, dim_y);
-                fea_case = phys::FEACase(output_folder + "/case.sif");
             }
-            Densities2d(int _dim_x, Vector3d _diagonal, string _output_folder) : Densities2d(_dim_x, Vector2d(_diagonal(0), _diagonal(1)), _output_folder) {};
+            Densities2d(int _dim_x, Vector3d _diagonal, string _output_folder) : Densities2d(
+                _dim_x, Vector2d(_diagonal(0), _diagonal(1)), _output_folder
+            ) {};
             Densities2d(Densities2d* densities) {
                 cell_size = densities->cell_size;
                 diagonal = densities->diagonal;
@@ -61,6 +62,14 @@ namespace fessga {
                 construct_grid();
                 fea_results = densities->fea_results;
                 fea_case = densities->fea_case;
+            }
+            virtual void construct_grid() {
+                dim_y = round(diagonal(1) / cell_size(1));
+                size = dim_x * dim_y;
+                values = new uint[size];
+                snapshot = new uint[size];
+                snapshot_internal = new uint[size];
+                delete_all(); // Initialize all values to zero
             }
             int get_idx(int x, int y) {
                 return x * dim_y + y;
@@ -234,7 +243,7 @@ namespace fessga {
             Vector2d cell_size;
             string output_folder;
             Vector2d diagonal;
-            phys::FEACase fea_case;
+            phys::FEACase* fea_case;
             phys::FEAResults2D fea_results;
             vector<int> removed_cells = {};
             vector<Piece> pieces;
@@ -263,14 +272,6 @@ namespace fessga {
                 cell_size = Vector2d(_cell_size, _cell_size);
                 diagonal = Vector2d(diagonal(0), _cell_size * (float)dim_y);
             }
-            virtual void construct_grid() {
-                dim_y = round(diagonal(1) / cell_size(1));
-                size = dim_x * dim_y;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
-                delete_all(); // Initialize all values to zero
-            }
             void _copy(uint* source, uint* target, int source_count, int target_count);
         };
 
@@ -285,6 +286,15 @@ namespace fessga {
                 compute_cellsize();
                 no_dimensions = 3;
             }
+            void construct_grid() override {
+                dim_y = round(diagonal(1) / cell_size(1));
+                dim_z = round(diagonal(2) / cell_size(2));
+                size = dim_x * dim_y * dim_z;
+                values = new uint[size];
+                snapshot = new uint[size];
+                snapshot_internal = new uint[size];
+                delete_all(); // Initialize all values to zero
+            }
             string do_export(string output_path);
             void generate(Vector3d offset, MatrixXd* V, MatrixXi* F);
             void filter();
@@ -295,15 +305,6 @@ namespace fessga {
             int dim_z = 0;
 
         protected:
-            void construct_grid() override {
-                dim_y = round(diagonal(1) / cell_size(1));
-                dim_z = round(diagonal(2) / cell_size(2));
-                size = dim_x * dim_y * dim_z;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
-                delete_all(); // Initialize all values to zero
-            }
             void compute_cellsize() override {
                 float width = diagonal(0); // Width determines cell size
                 float _cell_size = width / (float)dim_x;

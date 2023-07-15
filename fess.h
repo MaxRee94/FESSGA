@@ -15,14 +15,15 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
-		double _max_stress_threshold, grd::Densities2d _densities, int _max_iterations, float _greediness,
+		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
+		grd::Densities2d _densities, int _max_iterations, float _greediness,
 		bool _maintain_boundary_connection, bool _export_msh = false, bool _verbose = true
-	) : OptimizerBase(_msh_file, _fea_case, _mesh, _base_folder, _max_stress_threshold, _densities, _max_iterations, _export_msh, _verbose)
+	) : OptimizerBase(_fea_case, _mesh, _base_folder, _densities, _max_iterations, _export_msh, _verbose)
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
-		densities.fea_case.maintain_boundary_connection = _maintain_boundary_connection;
+		fea_case = _fea_case;
+		densities.fea_case->maintain_boundary_connection = _maintain_boundary_connection;
 	}
 	double min_stress_threshold = 1.0;
 	float greediness;
@@ -144,9 +145,9 @@ void FESS::run() {
 
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
-		msh::create_bound_id_lookup(&bound_conds, &fe_mesh, bound_id_lookup);
-		msh::assemble_fea_case(&densities.fea_case, &bound_id_lookup);
-		IO::write_text_to_file(densities.fea_case.content, iteration_folder + "/case.sif");
+		msh::create_bound_id_lookup(&fea_case.bound_conds, &fe_mesh, bound_id_lookup);
+		msh::assemble_fea_case(densities.fea_case, &bound_id_lookup);
+		IO::write_text_to_file(densities.fea_case->content, iteration_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";
 
 		// Export newly generated FE mesh
@@ -188,9 +189,9 @@ void FESS::run() {
 		cout << "FESS: Current minimum stress: " << std::setprecision(3) << std::scientific << min_stress << endl;
 
 		// Check if maximum stress exceeds threshold
-		if (max_stress > max_stress_threshold) {
+		if (max_stress > fea_case.max_stress_threshold) {
 			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
-				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << max_stress_threshold << ")\n";
+				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << fea_case.max_stress_threshold << ")\n";
 			final_valid_iteration_folder = get_iteration_folder(i - 1);
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;

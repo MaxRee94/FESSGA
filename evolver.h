@@ -15,11 +15,11 @@ class Evolver : public OptimizerBase {
 public:
 	Evolver() = default;
 	Evolver(
-		string _msh_file, string _fea_case, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, float _mutation_rate_level0, float _mutation_rate_level1,
-		double _max_stress_threshold, grd::Densities2d _starting_densities, int _max_iterations, int _max_iterations_without_change,
+		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, float _mutation_rate_level0, float _mutation_rate_level1,
+		grd::Densities2d _starting_densities, int _max_iterations, int _max_iterations_without_change,
 		bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1, string _crossover_method
 	) : OptimizerBase(
-		_msh_file, _fea_case, _mesh, _base_folder, _max_stress_threshold, _starting_densities, _max_iterations, _export_msh, _verbose)
+		_fea_case, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
 		pop_size = _pop_size;
 		mutation_rate_level0 = _mutation_rate_level0;

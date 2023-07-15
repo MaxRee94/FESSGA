@@ -27,6 +27,7 @@ public:
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
+        fea_case = phys::FEACase(base_folder + "/case.sif", dim_x, dim_y, INFINITY);
         
         // Initialize RNG
         help::init_RNG();
@@ -50,6 +51,7 @@ public:
 
         // Load density distribution from a file or generate it on the fly
         init_densities();
+        cout << "fea case cutout cells no: " << fea_case.cutout_cells.size() << endl;
 
         // Execute action
         if (action == "export_mesh") {
@@ -95,8 +97,6 @@ public:
     msh::SurfaceMesh mesh;
     grd::Densities2d densities2d;
     grd::Densities3d densities3d;
-    phys::FEAResults2D fea_results;
-    phys::FEACase fea_case;
     grd::Grid3D grid;
     GUI gui;
     string mesh_description = "";
@@ -110,11 +110,13 @@ public:
     Vector3d offset;
     Input input;
     vector<grd::Piece> pieces;
+    phys::FEACase fea_case;
 };
 
 // Load distribution from file or generate it on the fly
 void Controller::init_densities() {
     densities2d = grd::Densities2d(dim_x, mesh.diagonal, base_folder);
+    densities2d.fea_case = &fea_case;
     if (input.type == "distribution2d") {
         cout << "Importing 2d density distribution from location " << input.path << "\n";
         densities2d.do_import(input.path, mesh.diagonal(0));
@@ -154,25 +156,25 @@ void Controller::init_densities() {
         // Write 2d distribution to image
         img::write_distribution_to_image(densities2d, base_folder + "/" + input.name + ".jpg");
     }
+    fea_case.dim_x = densities2d.dim_x;
+    fea_case.dim_y = densities2d.dim_y;
 }
 
 
 void Controller::run_fess() {
     // Parameters
-    double max_stress = 1.5e9;
+    fea_case.max_stress_threshold = 1.5e9;
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
-    string fea_case = base_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.05;
     bool verbose = true;
     bool maintain_boundary_connection = true;
     
-    
     // Run optimization
     FESS fess = FESS(
-        msh_file, fea_case, mesh, base_folder, min_stress, max_stress, densities2d, max_iterations, greediness,
+        fea_case, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
         maintain_boundary_connection, export_msh, verbose
     );
     fess.run();
@@ -180,9 +182,8 @@ void Controller::run_fess() {
 
 void Controller::run_evoma() {
     // Parameters
-    double max_stress = 1e6;
+    fea_case.max_stress_threshold = 5e5;
     string msh_file = base_folder + "/mesh.msh";
-    string fea_case = base_folder + "/case.sif";
     int max_iterations = 100000;
     bool export_msh = true;
     bool verbose = true;
@@ -190,12 +191,12 @@ void Controller::run_evoma() {
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.1;
     float initial_perturb_level1 = 0.2;
-    int pop_size = 200; // NOTE: must be divisible by 4
+    int pop_size = 8; // NOTE: must be divisible by 4
     float mutation_rate_level0 = 0.0002;
     float mutation_rate_level1 = 0.005;
     int max_iterations_without_change = 150;
     Evolver evolver(
-        msh_file, fea_case, mesh, base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, max_stress, densities2d, max_iterations, 
+        fea_case, mesh, base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, densities2d, max_iterations, 
         max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
     evolver.evolve();

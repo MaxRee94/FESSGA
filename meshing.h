@@ -353,11 +353,11 @@ namespace fessga {
         // Create a map from strings that encode the name of a boundary condition to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            grd::Densities2d& densities, map<string, vector<pair<int, int>>>& bound_conds, SurfaceMesh mesh
+            phys::FEACase& fea_case, grd::Densities2d& densities, SurfaceMesh mesh
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_conditions(boundary_id_lookup, &densities.fea_case);
+            read_boundary_conditions(boundary_id_lookup, &fea_case);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
@@ -374,26 +374,26 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = (line.id - 1) >> 2;
-                    if (!help::is_in(&densities.fea_case.cells_to_keep, cell_coord)) densities.fea_case.cells_to_keep.push_back(cell_coord);
+                    if (!help::is_in(&fea_case.cells_to_keep, cell_coord)) fea_case.cells_to_keep.push_back(cell_coord);
 
                     // Store the void cells adjacent to the boundary cell; these should remain empty so that the boundary line is maintained
                     int local_line_idx = line.id % 4;
                     vector<int> void_neighbors = densities.get_empty_neighbors(cell_coord, true);
                     for (auto& void_neighbor : void_neighbors) {
-                        if (!help::is_in(&densities.fea_case.cutout_cells, void_neighbor))
-                            densities.fea_case.cutout_cells.push_back(void_neighbor);
+                        if (!help::is_in(&fea_case.cutout_cells, void_neighbor))
+                            fea_case.cutout_cells.push_back(void_neighbor);
                     }
 
                     // Store the filled cells neighboring the boundary cell as cells to keep
                     vector<int> neighbors = densities.get_neighbors(cell_coord);
                     for (auto& neighbor : neighbors) {
-                        if (!help::is_in(&densities.fea_case.cells_to_keep, neighbor)) 
-                            densities.fea_case.cells_to_keep.push_back(neighbor);
+                        if (!help::is_in(&fea_case.cells_to_keep, neighbor)) 
+                            fea_case.cells_to_keep.push_back(neighbor);
                     }
                 }
-                bound_conds[bound_name] = bound_lines;
+                fea_case.bound_conds[bound_name] = bound_lines;
             }
-            cout << "no boundary cells: " << densities.fea_case.cells_to_keep.size() << endl;
+            cout << "no boundary cells: " << fea_case.cells_to_keep.size() << endl;
             cout << "no boundary lines: " << q << endl;
         }
 

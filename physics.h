@@ -38,14 +38,45 @@ namespace fessga {
         class FEACase {
         public:
             FEACase() = default;
-            FEACase(string _path) : path(_path) {}
+            FEACase(string _path, int _dim_x, int _dim_y, double _max_stress_threshold) : 
+                path(_path), dim_x(_dim_x), dim_y(_dim_y), max_stress_threshold(_max_stress_threshold) {
+            }
+            void compute_barycenters();
+            Vector2d get_node_coords(int idx);
+
             string path;
             vector<string> names, sections;
             vector<int> cells_to_keep;
             vector<int> cutout_cells;
+            map<string, vector<Vector2d>> morph_vectors;
+            map<string, vector<int>> bound_nodes;
             string content;
+            phys::FEACase* target;
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;
+            map<string, vector<pair<int, int>>> bound_conds;
+            map<string, Vector2d> barycenters;
+            int dim_x, dim_y;
+        };
+        
+        class FEACaseInterpolator {
+        public:
+            FEACaseInterpolator() = default;
+            FEACaseInterpolator(string source_case_path, string target_case_path, int dim_x, int dim_y, pair<double, double> max_stress_thresholds) {
+                source = phys::FEACase(source_case_path, dim_x, dim_y, max_stress_thresholds.first);
+                target = phys::FEACase(target_case_path, dim_x, dim_y, max_stress_thresholds.second);
+                interpolated = source;
+            }
+            Vector2d get_vector2nn(Vector2d node, vector<int>& target_nodes);
+            void compute_morph_vectors();
+            void order_nodes_by_distance(vector<int>* source_nodes, Vector2d barycenter);
+            void resample_boundary(vector<int>& nodes, Vector2d barycenter, int target_no_lines);
+            void morph_nodes(float fraction);
+            void interpolate(float fraction);
+            int get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
+
+            phys::FEACase source, target, interpolated;
+            map<string, vector<Vector2d>> morph_vectors;
         };
 
         class FEAResults2D {

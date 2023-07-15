@@ -97,23 +97,23 @@ void Tester::run_tests() {
 
 void Tester::init_dummy_optimizer(OptimizerBase& optimizer) {
     // Parameters
-    double max_stress = 1.5e9;
+    ctrl->fea_case.max_stress_threshold = 1.5e9;
     double min_stress = 7e3;
     string msh_file = ctrl->base_folder + "/mesh.msh";
-    string fea_case = ctrl->base_folder + "/case.sif";
     int max_iterations = 100;
     bool export_msh = true;
-    float greediness = 0.1;
+    float greediness = 0.05;
     bool verbose = true;
     bool maintain_boundary_connection = true;
-    optimizer = OptimizerBase(msh_file, fea_case, ctrl->mesh, ctrl->base_folder, max_stress, ctrl->densities2d, max_iterations, export_msh, verbose);
+
+    // Run optimization
+    optimizer = OptimizerBase(ctrl->fea_case, ctrl->mesh, ctrl->base_folder, ctrl->densities2d, max_iterations, export_msh, verbose);
 }
 
 void Tester::init_dummy_evolver(Evolver& evolver) {
     // Parameters
-    double max_stress = 1e6;
+    ctrl->fea_case.max_stress_threshold = 5e5;
     string msh_file = ctrl->base_folder + "/mesh.msh";
-    string fea_case = ctrl->base_folder + "/case.sif";
     int max_iterations = 100000;
     bool export_msh = true;
     bool verbose = true;
@@ -121,14 +121,15 @@ void Tester::init_dummy_evolver(Evolver& evolver) {
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.1;
     float initial_perturb_level1 = 0.2;
-    int pop_size = 200; // NOTE: must be divisible by 4
+    int pop_size = 200; // NOTE: must be divisible by 4 so we can use 4 threads
     float mutation_rate_level0 = 0.0002;
     float mutation_rate_level1 = 0.005;
     int max_iterations_without_change = 150;
     evolver = Evolver(
-        msh_file, fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, max_stress, ctrl->densities2d, max_iterations,
+        ctrl->fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, ctrl->densities2d, max_iterations,
         max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
+    evolver.evolve();
 }
 
 OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x, int dim_y, string base_folder) {
@@ -148,14 +149,10 @@ OptimizerBase Tester::do_setup(string type, string path, bool verbose, int dim_x
     init_dummy_optimizer(optimizer);
 
     // Update input and distribution with given type and path
-    phys::FEACase fea_case = ctrl->fea_case;
-    phys::FEAResults2D fea_results = ctrl->fea_results;
     ctrl->input.path = path;
     ctrl->input.type = type;
     ctrl->init_densities();
 
-    ctrl->fea_case = fea_case;
-    ctrl->fea_results = fea_results;
     optimizer.densities.copy_from(&ctrl->densities2d);
 
     if (verbose) optimizer.densities.print();
@@ -180,14 +177,10 @@ Evolver Tester::do_evolver_setup(string type, string path, bool verbose, int dim
     init_dummy_evolver(evolver);
 
     // Update input and distribution with given type and path
-    phys::FEACase fea_case = ctrl->fea_case;
-    phys::FEAResults2D fea_results = ctrl->fea_results;
     ctrl->input.path = path;
     ctrl->input.type = type;
     ctrl->init_densities();
 
-    ctrl->fea_case = fea_case;
-    ctrl->fea_results = fea_results;
     evolver.densities.copy_from(&ctrl->densities2d);
 
     if (verbose) evolver.densities.print();
