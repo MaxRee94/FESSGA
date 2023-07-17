@@ -27,7 +27,7 @@ public:
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
-        fea_case = phys::FEACase(base_folder + "/case.sif", dim_x, dim_y, INFINITY);
+        fea_case = phys::FEACase(base_folder + "/case.sif", dim_x + 1, dim_y + 1, INFINITY);
         
         // Initialize RNG
         help::init_RNG();
@@ -156,8 +156,8 @@ void Controller::init_densities() {
         // Write 2d distribution to image
         img::write_distribution_to_image(densities2d, base_folder + "/" + input.name + ".jpg");
     }
-    fea_case.dim_x = densities2d.dim_x;
-    fea_case.dim_y = densities2d.dim_y;
+    fea_case.dim_x = densities2d.dim_x + 1;
+    fea_case.dim_y = densities2d.dim_y + 1;
 }
 
 
@@ -182,7 +182,7 @@ void Controller::run_fess() {
 
 void Controller::run_evoma() {
     // Parameters
-    fea_case.max_stress_threshold = 5e5;
+    fea_case.max_stress_threshold = 1.5e6;
     string msh_file = base_folder + "/mesh.msh";
     int max_iterations = 100000;
     bool export_msh = true;
@@ -191,12 +191,14 @@ void Controller::run_evoma() {
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.1;
     float initial_perturb_level1 = 0.2;
-    int pop_size = 8; // NOTE: must be divisible by 4
+    int pop_size = 100; // NOTE: must be divisible by 4
     float mutation_rate_level0 = 0.0002;
-    float mutation_rate_level1 = 0.005;
+    float mutation_rate_level1 = 0.001;
+    float variation_trigger = 1.5;
     int max_iterations_without_change = 150;
+    int optimum_shift_trigger = 6;
     Evolver evolver(
-        fea_case, mesh, base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, densities2d, max_iterations, 
+        fea_case, mesh, base_folder, pop_size, optimum_shift_trigger, mutation_rate_level0, mutation_rate_level1, densities2d, variation_trigger, max_iterations,
         max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
     evolver.evolve();

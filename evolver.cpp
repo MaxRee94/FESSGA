@@ -23,15 +23,15 @@ void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_o
 }
 
 // Obtain FEA results
-void load_physics_batch(vector<evo::Individual2d>* population, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true) {
+void load_physics_batch(vector<evo::Individual2d>* population, int offset, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true) {
 	cout << "Starting results loader...\n";
-	for (int i = pop_size; i < pop_size * 2; i++) {
+	for (int i = offset; i < pop_size; i++) {
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		string vtk_file_path = population->at(i).output_folder + "/case0001.vtk";
 		while (!IO::file_exists(fea_finish_confirmation_file)) {} // Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk file is ready.
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
-			cout << "- Read stress distribution for individual " << i - pop_size + 1 << " / " << pop_size << "\n";
+			cout << "- Read stress distribution for individual " << i - offset + 1 << " / " << pop_size << "\n";
 	}
 }
 
@@ -211,18 +211,20 @@ void Evolver::init_population(bool verbose) {
 		if (i > pop_size * 2 && population.size() == 0) {
 			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
 		}
-
 		create_single_individual();
-
 		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
 	cout << "Generating initial population finished.\n";
+	// Start a thread to read the results of the FEA
+	thread results_thread(load_physics_batch, &population, 0, pop_size, &mesh, verbose);
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
 	cout << "FEA of initial population finished.\n";
+	results_thread.join();
+	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
 void Evolver::write_densities_to_image() {
@@ -259,11 +261,18 @@ bool Evolver::termination_condition_reached() {
 	terminate = terminate || iteration_number >= max_iterations;
 	if (iteration_number >= max_iterations) {
 		terminate = true;
-		cout << "Terminating EVOMA: Maximum number of iterations (" + to_string(max_iterations) + ") reached.\n";
+		cout << "\nTerminating EVOMA: Maximum number of iterations (" + to_string(max_iterations) + ") reached.\n";
 	}
 	else if (iterations_since_fitness_change > max_iterations_without_change) {
 		terminate = true;
-		cout << "Terminating EVOMA: Maximum number of iterations without a change in best fitness (" + to_string(max_iterations_without_change) + ") reached.\n";
+		cout << "\nTerminating EVOMA: Maximum number of iterations without a change in best fitness ("
+			+ to_string(max_iterations_without_change) + ") reached.\n";
+	}
+	bool valid_solutions_exist = false;
+	for (auto& [_, fitness] : fitnesses_map) if (fitness < INFINITY) { valid_solutions_exist = true; break; }
+	if (!valid_solutions_exist) {
+		terminate = true;
+		cout << "\nTerminating EVOMA: All solutions in population are invalid.\n";
 	}
 
 	return terminate;
@@ -284,6 +293,17 @@ void Evolver::do_setup() {
 	collect_stats();
 	export_stats(iteration_name, true);
 	cleanup();
+}
+
+void Evolver::update_objective_function() {
+	if (iterations_since_fitness_change >= optimum_shift_trigger && variation < variation_trigger) {
+		fea_case.max_stress_threshold -= 1e5;
+		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from (" << fea_case.max_stress_threshold + 1e5 <<
+			") to (" << fea_case.max_stress_threshold << ").\n";
+		cout << "-- Updating fitnesses according to new objective function.\n";
+		fitnesses_map.clear();
+		evaluate_fitnesses(0);
+	}
 }
 
 // Choose a pair of parents randomly
@@ -325,7 +345,7 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 // Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 void Evolver::create_sif_file(evo::Individual2d* individual, bool verbose) {
 	map<string, vector<int>> bound_id_lookup;
-	msh::create_bound_id_lookup(&fea_case.bound_conds, &individual->fe_mesh, bound_id_lookup);
+	msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
 	msh::assemble_fea_case(individual->fea_case, &bound_id_lookup);
 	IO::write_text_to_file(individual->fea_case->content, individual->output_folder + "/case.sif");
 	if (verbose) cout << "EVOMA: Exported updated case.sif file.\n";
@@ -376,7 +396,7 @@ void Evolver::create_children(bool verbose) {
 	cout << "Finished generating children.\n";
 
 	// Start a thread to read the results of the FEA
-	thread results_thread(load_physics_batch, &population, pop_size, &mesh, verbose);
+	thread results_thread(load_physics_batch, &population, pop_size, pop_size, &mesh, verbose);
 
 	// Join threads
 	fea_thread1.join();
@@ -408,15 +428,15 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 	// Obtain FEA results and compute fitnesses
 	for (int i = offset; i < (pop_size + offset); i++) {
-		max_stress = population[i].fea_results.max;
+		double _max_stress = population[i].fea_results.max;
 
 		// Compute fitness
 		double fitness;
-		if (max_stress > fea_case.max_stress_threshold) fitness = INFINITY;
+		if (_max_stress > fea_case.max_stress_threshold) fitness = _max_stress;
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));
 
-		// Update best fitness if fitness is improved
+		// Update best fitness if improved
 		if (fitness < best_fitness) {
 			best_fitness = fitness;
 			iterations_since_fitness_change = 0;
@@ -463,6 +483,7 @@ void Evolver::evolve() {
 	while (!termination_condition_reached()) {
 		iteration_number++;
 		cout << "\nStarting iteration " << iteration_number << "...\n";
+		update_objective_function();
 		create_iteration_directories(iteration_number);
 		create_children();
 		evaluate_fitnesses(pop_size);

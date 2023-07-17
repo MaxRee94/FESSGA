@@ -145,7 +145,7 @@ void FESS::run() {
 
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
-		msh::create_bound_id_lookup(&fea_case.bound_conds, &fe_mesh, bound_id_lookup);
+		msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &fe_mesh, bound_id_lookup);
 		msh::assemble_fea_case(densities.fea_case, &bound_id_lookup);
 		IO::write_text_to_file(densities.fea_case->content, iteration_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";

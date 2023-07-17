@@ -363,10 +363,14 @@ namespace fessga {
             FEMesh2D fe_mesh;
             create_FE_mesh(mesh, densities, fe_mesh);
             
-            // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_conds map
+            // For each boundary condition, add the vector of boundary node coordinates in the fe mesh to the bound_cond_lines map
             int q = 0;
             for (auto& [bound_name, bound_ids] : boundary_id_lookup) {
                 vector<pair<int, int>> bound_lines;
+                map<string, vector<int>> bound_cell_map;
+                vector<int> bound_cells;
+                vector<int> cutout_cells;
+                vector<int> keep_cells;
                 for (int i = 0; i < bound_ids.size(); i++) {
                     Element line = fe_mesh.lines[bound_ids[i] - 1];
                     bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
@@ -374,24 +378,35 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = (line.id - 1) >> 2;
-                    if (!help::is_in(&fea_case.cells_to_keep, cell_coord)) fea_case.cells_to_keep.push_back(cell_coord);
+                    if (!help::is_in(&fea_case.cells_to_keep, cell_coord)) {
+                        fea_case.cells_to_keep.push_back(cell_coord);
+                        bound_cells.push_back(cell_coord);
+                    }
 
                     // Store the void cells adjacent to the boundary cell; these should remain empty so that the boundary line is maintained
                     int local_line_idx = line.id % 4;
                     vector<int> void_neighbors = densities.get_empty_neighbors(cell_coord, true);
                     for (auto& void_neighbor : void_neighbors) {
-                        if (!help::is_in(&fea_case.cutout_cells, void_neighbor))
+                        if (!help::is_in(&fea_case.cutout_cells, void_neighbor)) {
                             fea_case.cutout_cells.push_back(void_neighbor);
+                            cutout_cells.push_back(void_neighbor);
+                        }
                     }
 
                     // Store the filled cells neighboring the boundary cell as cells to keep
                     vector<int> neighbors = densities.get_neighbors(cell_coord);
                     for (auto& neighbor : neighbors) {
-                        if (!help::is_in(&fea_case.cells_to_keep, neighbor)) 
+                        if (!help::is_in(&fea_case.cells_to_keep, neighbor)) {
                             fea_case.cells_to_keep.push_back(neighbor);
+                            keep_cells.push_back(neighbor);
+                        }
                     }
                 }
-                fea_case.bound_conds[bound_name] = bound_lines;
+                fea_case.bound_cond_lines[bound_name] = bound_lines;
+                bound_cell_map["bound"] = bound_cells;
+                bound_cell_map["cutout"] = cutout_cells;
+                bound_cell_map["keep"] = keep_cells;
+                fea_case.bound_cond_cells[bound_name] = bound_cell_map;
             }
             cout << "no boundary cells: " << fea_case.cells_to_keep.size() << endl;
             cout << "no boundary lines: " << q << endl;
@@ -399,10 +414,10 @@ namespace fessga {
 
         // Create map containing a vector of boundary ids corresponding to the given fe mesh for each boundary condition name
         static void create_bound_id_lookup(
-            map<string, vector<pair<int, int>>>* bound_conds, FEMesh2D* fe_mesh, map<string, vector<int>>& bound_id_lookup
+            map<string, vector<pair<int, int>>>* bound_cond_lines, FEMesh2D* fe_mesh, map<string, vector<int>>& bound_id_lookup
         ) {
-            for (auto& [bound_name, lines] : (*bound_conds)) {
-                // Get the boundary ids of all node coordinate pairs stored in the bound_conds-map for the current boundary condition.
+            for (auto& [bound_name, lines] : (*bound_cond_lines)) {
+                // Get the boundary ids of all node coordinate pairs stored in the bound_cond_lines-map for the current boundary condition.
                 vector<int> bound_ids;
                 for (int i = 0; i < lines.size(); i++) {
                     pair<int, int> line = lines[i];

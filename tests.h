@@ -125,9 +125,11 @@ void Tester::init_dummy_evolver(Evolver& evolver) {
     float mutation_rate_level0 = 0.0002;
     float mutation_rate_level1 = 0.005;
     int max_iterations_without_change = 150;
+    int optimum_shift_trigger = 40;
+    float variation_trigger = 1.5;
     evolver = Evolver(
-        ctrl->fea_case, ctrl->mesh, ctrl->base_folder, pop_size, mutation_rate_level0, mutation_rate_level1, ctrl->densities2d, max_iterations,
-        max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
+        ctrl->fea_case, ctrl->mesh, ctrl->base_folder, pop_size, optimum_shift_trigger, mutation_rate_level0, mutation_rate_level1, ctrl->densities2d, 
+        variation_trigger, max_iterations, max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );
     evolver.evolve();
 }

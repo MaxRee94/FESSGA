@@ -28,6 +28,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	mesh = msh::SurfaceMesh(mesh_size);
 	grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, densities.output_folder);
 	_densities.fea_case = densities.fea_case;
+	_densities.fea_case->dim_x = _densities.dim_x + 1; _densities.fea_case->dim_y = _densities.dim_y + 1;;
 	densities = _densities;
 
 	// Extract red values

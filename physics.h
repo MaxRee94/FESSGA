@@ -41,6 +41,9 @@ namespace fessga {
             FEACase(string _path, int _dim_x, int _dim_y, double _max_stress_threshold) : 
                 path(_path), dim_x(_dim_x), dim_y(_dim_y), max_stress_threshold(_max_stress_threshold) {
             }
+            Vector2d compute_cell_barycenter(vector<int>* cells);
+            void compute_node_barycenters();
+            void compute_cell_barycenters();
             void compute_barycenters();
             Vector2d get_node_coords(int idx);
 
@@ -49,13 +52,15 @@ namespace fessga {
             vector<int> cells_to_keep;
             vector<int> cutout_cells;
             map<string, vector<Vector2d>> morph_vectors;
-            map<string, vector<int>> bound_nodes;
             string content;
             phys::FEACase* target;
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;
-            map<string, vector<pair<int, int>>> bound_conds;
-            map<string, Vector2d> barycenters;
+            map<string, vector<int>> bound_cond_nodes;
+            map<string, vector<pair<int, int>>> bound_cond_lines;
+            map<string, map<string, vector<int>>> bound_cond_cells;
+            map<string, Vector2d> node_barycenters;
+            map<string, map<string, Vector2d>> cell_barycenters;
             int dim_x, dim_y;
         };
         
@@ -72,8 +77,18 @@ namespace fessga {
             void order_nodes_by_distance(vector<int>* source_nodes, Vector2d barycenter);
             void resample_boundary(vector<int>& nodes, Vector2d barycenter, int target_no_lines);
             void morph_nodes(float fraction);
+            void morph_cells(float fraction);
             void interpolate(float fraction);
             int get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
+            int get_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
+            vector<int> get_unvisited_neighbor_cells(int cell, vector<int>& neighbors, vector<int>* visited_cells);
+            void get_boundary_walk(vector<int>* unordered_boundary, vector<int>& walk, int start_node = -1);
+            pair<int, int> get_cells_with_given_edge(pair<int, int> edge);
+            tuple<int, int> get_bound_cells(int start_cell, pair<int, int> neighbor_cells, pair<int, int> prev_line, pair<int, int> next_line);
+            void walk_and_collect_bound_cells(
+                map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell, int neighbor_node, string bound_name
+            );
+            vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
 
             phys::FEACase source, target, interpolated;
             map<string, vector<Vector2d>> morph_vectors;
