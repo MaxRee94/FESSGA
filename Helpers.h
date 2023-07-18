@@ -78,6 +78,8 @@ namespace fessga {
 
 		static int get_value(std::map<int, int>* map, int key);
 
+		static int get_value(std::map<int, double>* map, int key);
+
 		static int get_value(std::map<uint32_t, uint32_t>* map, uint32_t key);
 
 		static float get_rand_float(float min, float max);

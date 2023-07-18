@@ -51,7 +51,7 @@ namespace fessga {
             vector<string> names, sections;
             vector<int> cells_to_keep;
             vector<int> cutout_cells;
-            map<string, vector<Vector2d>> morph_vectors;
+            map<string, vector<Vector2d>> interpolate_vectors;
             string content;
             phys::FEACase* target;
             double max_stress_threshold = INFINITY;
@@ -67,17 +67,18 @@ namespace fessga {
         class FEACaseInterpolator {
         public:
             FEACaseInterpolator() = default;
-            FEACaseInterpolator(string source_case_path, string target_case_path, int dim_x, int dim_y, pair<double, double> max_stress_thresholds) {
-                source = phys::FEACase(source_case_path, dim_x, dim_y, max_stress_thresholds.first);
-                target = phys::FEACase(target_case_path, dim_x, dim_y, max_stress_thresholds.second);
+            FEACaseInterpolator(phys::FEACase _source, phys::FEACase _target) {
+                source = _source;
+                target = _target;
                 interpolated = source;
             }
             Vector2d get_vector2nn(Vector2d node, vector<int>& target_nodes);
-            void compute_morph_vectors();
             void order_nodes_by_distance(vector<int>* source_nodes, Vector2d barycenter);
             void resample_boundary(vector<int>& nodes, Vector2d barycenter, int target_no_lines);
-            void morph_nodes(float fraction);
-            void morph_cells(float fraction);
+            void compute_migration_vectors();
+            void initialize();
+            void interpolate_nodes(float fraction);
+            void interpolate_cells(float fraction);
             void interpolate(float fraction);
             int get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
             int get_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
@@ -86,12 +87,13 @@ namespace fessga {
             pair<int, int> get_cells_with_given_edge(pair<int, int> edge);
             tuple<int, int> get_bound_cells(int start_cell, pair<int, int> neighbor_cells, pair<int, int> prev_line, pair<int, int> next_line);
             void walk_and_collect_bound_cells(
-                map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell, int neighbor_node, string bound_name
+                map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell,
+                int neighbor_node, string bound_name
             );
             vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
 
             phys::FEACase source, target, interpolated;
-            map<string, vector<Vector2d>> morph_vectors;
+            map<string, vector<Vector2d>> migration_vectors;
         };
 
         class FEAResults2D {

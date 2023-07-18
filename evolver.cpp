@@ -9,7 +9,7 @@ int NO_FEA_THREADS = 4; // must be even number
 * Method to run a batch of FEA jobs on all given output folders
 */
 void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_offset, bool verbose) {
-	cout << "Starting FEA batch thread " + to_string(thread_offset) + "\n";
+	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
@@ -174,10 +174,10 @@ void Evolver::create_single_individual(bool verbose) {
 	// Make a copy of the base individual
 	evo::Individual2d individual(&densities);
 
-	/*cout << "keep cells:\n";
+	cout << "keep cells:\n";
 	individual.visualize_keep_cells();
 	cout << "cutout cells:\n";
-	individual.visualize_cutout_cells();*/
+	individual.visualize_cutout_cells();
 
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
@@ -296,10 +296,11 @@ void Evolver::do_setup() {
 }
 
 void Evolver::update_objective_function() {
-	if (iterations_since_fitness_change >= optimum_shift_trigger && variation < variation_trigger) {
-		fea_case.max_stress_threshold -= 1e5;
-		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from (" << fea_case.max_stress_threshold + 1e5 <<
-			") to (" << fea_case.max_stress_threshold << ").\n";
+	if (iterations_since_fitness_change >= no_static_iterations_trigger && variation < variation_trigger) {
+		fea_interpolator.interpolated.max_stress_threshold -= 1e5;
+		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
+			<< fea_interpolator.interpolated.max_stress_threshold + 1e5 <<
+			") to (" << fea_interpolator.interpolated.max_stress_threshold << ").\n";
 		cout << "-- Updating fitnesses according to new objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
@@ -345,7 +346,7 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 // Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 void Evolver::create_sif_file(evo::Individual2d* individual, bool verbose) {
 	map<string, vector<int>> bound_id_lookup;
-	msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
+	msh::create_bound_id_lookup(&individual->fea_case->bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
 	msh::assemble_fea_case(individual->fea_case, &bound_id_lookup);
 	IO::write_text_to_file(individual->fea_case->content, individual->output_folder + "/case.sif");
 	if (verbose) cout << "EVOMA: Exported updated case.sif file.\n";
@@ -432,7 +433,10 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_case.max_stress_threshold) fitness = _max_stress;
+		if (_max_stress > fea_interpolator.interpolated.max_stress_threshold) {
+			// Compute fraction by which largest found stress value is larger than maximum threshold.
+			fitness = _max_stress / fea_interpolator.interpolated.max_stress_threshold;
+		}
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));
 

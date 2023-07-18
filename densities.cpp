@@ -275,7 +275,8 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
 
 // Visualize distribution and highlight keep cells
 void fessga::grd::Densities2d::visualize_keep_cells() {
-    for (auto& cell : fea_case->cells_to_keep) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
+    //for (auto& cell : fea_case->cells_to_keep) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
+    for (auto& cell : fea_case->cells_to_keep) set(cell, 5);
     print();
     for (auto& cell : fea_case->cells_to_keep) set(cell, 1);
 }

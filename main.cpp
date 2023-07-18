@@ -17,12 +17,12 @@ void parse_args(
     base_folder = "E:/Development/FESSGA/data/" + string(argv[2]);
     string relative_path = string(argv[3]);
     if (help::ends_with(string(argv[3]), ".obj")) {
-        input.path = "../data/objects/" + string(argv[3]);
+        input.path = base_folder + "/" + string(argv[3]);
         input.name = string(argv[3]);
     }
     else if (help::ends_with(string(argv[3]), ".jpg")) {
         input.type = "image";
-        input.path = "../data/images/" + string(argv[3]);
+        input.path = base_folder + "/" + string(argv[3]);
         size = atof(argv[5]);
     }
     else if (string(argv[3]) == "distribution2d") {

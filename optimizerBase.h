@@ -18,7 +18,7 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder,
+		phys::FEACaseInterpolator _fea_interpolator, msh::SurfaceMesh _mesh, string _base_folder,
 		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
@@ -32,11 +32,8 @@ public:
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
-		fea_case = _fea_case;
-		densities.fea_case = &fea_case;
-		msh::derive_boundary_conditions(fea_case, densities, mesh);
-		if (help::have_overlap(&fea_case.cutout_cells, &fea_case.cells_to_keep))
-			cout << "Error: some cutout cells are also marked as keep cells.\n";
+		fea_interpolator = _fea_interpolator;
+		densities.fea_case = &fea_interpolator.interpolated;
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -46,7 +43,7 @@ public:
 	int max_iterations = 0;
 	int iteration_number = 0;
 	bool export_msh = false;
-	phys::FEACase fea_case;
+	phys::FEACaseInterpolator fea_interpolator;
 	double min_stress, max_stress;
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
@@ -67,7 +64,7 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(fea_case.max_stress_threshold),
+			"max stress threshold = " + to_string(fea_interpolator.interpolated.max_stress_threshold),
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");

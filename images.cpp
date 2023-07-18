@@ -10,7 +10,10 @@ using namespace fessga;
 
 
 void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh::SurfaceMesh& mesh, const char* filename) {
-	if (!IO::file_exists(string(filename))) throw std::runtime_error("Error: image file " + string(filename) + " does not exist");
+	if (!IO::file_exists(string(filename))) {
+		cerr << "Error: image file " + string(filename) + " does not exist";
+		throw std::runtime_error("Error: image file " + string(filename) + " does not exist");
+	}
 
 	// Load image
 	int width, height, numChannels;

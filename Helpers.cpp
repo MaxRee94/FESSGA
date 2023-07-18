@@ -224,6 +224,17 @@ int fessga::help::get_value(std::map<int, int>* _map, int key) {
     }
 }
 
+int fessga::help::get_value(std::map<int, double>* _map, int key) {
+    if (_map == 0) return -1;
+    map<int, double>::iterator it = _map->find(key);
+    if (it == _map->end()) {
+        return -1;
+    }
+    else {
+        return it->second;
+    }
+}
+
 int fessga::help::get_value(std::map<uint32_t, uint32_t>* _map, uint32_t key) {
     if (_map == 0) return -1;
     std::map<uint32_t, uint32_t>::iterator it = _map->find(key);
@@ -271,7 +282,6 @@ void fessga::help::sort(std::map<int, double>& _map, PairSet& _set)
     // function comp()
     auto beginning = _map.end();
     _set = PairSet(_map.begin(), _map.end());
-
 }
 
 double fessga::help::max(double val1, double val2) {

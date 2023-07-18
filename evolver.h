@@ -15,11 +15,12 @@ class Evolver : public OptimizerBase {
 public:
 	Evolver() = default;
 	Evolver(
-		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, int _optimum_shift_trigger, float _mutation_rate_level0,
-		float _mutation_rate_level1, grd::Densities2d _starting_densities, double _variation_trigger, int _max_iterations, int _max_iterations_without_change,
-		bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1, string _crossover_method
+		phys::FEACaseInterpolator _fea_interpolator, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, int _no_static_iterations_trigger,
+		float _mutation_rate_level0, float _mutation_rate_level1, grd::Densities2d _starting_densities, double _variation_trigger, int _max_iterations,
+		int _max_iterations_without_change, bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1,
+		string _crossover_method
 	) : OptimizerBase(
-		_fea_case, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
+		_fea_interpolator, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
 		pop_size = _pop_size;
 		mutation_rate_level0 = _mutation_rate_level0;
@@ -27,9 +28,9 @@ public:
 		initial_perturb_level0 = _initial_perturb_level0;
 		initial_perturb_level1 = _initial_perturb_level1;
 		variation_trigger = _variation_trigger;
+		no_static_iterations_trigger = _no_static_iterations_trigger;
 		max_iterations_without_change = _max_iterations_without_change;
 		crossover_method = _crossover_method;
-		optimum_shift_trigger = _optimum_shift_trigger;
 		best_solutions_folder = output_folder + "/best_solutions";
 		best_individuals_images_folder = image_folder + "/best_individuals";
 		IO::create_folder_if_not_exists(best_individuals_images_folder);
@@ -66,7 +67,7 @@ private:
 	float initial_perturbation_size = 0;
 	bool last_iteration_was_valid = true;
 	int final_valid_iteration = 1;
-	int optimum_shift_trigger = 100;
+	int no_static_iterations_trigger = 100;
 	string final_valid_iteration_folder = "";
 	vector<string> individual_folders;
 	map<int, double> fitnesses_map;

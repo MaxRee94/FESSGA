@@ -50,8 +50,7 @@ public:
         IO::create_folder_if_not_exists(base_folder);
 
         // Load density distribution from a file or generate it on the fly
-        init_densities();
-        cout << "fea case cutout cells no: " << fea_case.cutout_cells.size() << endl;
+        if (action != "evolve") init_densities();
 
         // Execute action
         if (action == "export_mesh") {
@@ -88,8 +87,10 @@ public:
             cerr << "Error: Action '" << action << "' not recognized.\n" << endl;
         }
     };
-    void init_densities();
+    void init_densities(phys::FEACase* fea_case = 0);
+    void run_fess(FESS& _fess);
     void run_fess();
+    void run_evoma(Evolver& _evolver);
     void run_evoma();
 
     vector<MatrixXd> V_list;
@@ -114,9 +115,10 @@ public:
 };
 
 // Load distribution from file or generate it on the fly
-void Controller::init_densities() {
+void Controller::init_densities(phys::FEACase* _fea_case) {
+    if (!_fea_case) _fea_case = &fea_case;
     densities2d = grd::Densities2d(dim_x, mesh.diagonal, base_folder);
-    densities2d.fea_case = &fea_case;
+    densities2d.fea_case = _fea_case;
     if (input.type == "distribution2d") {
         cout << "Importing 2d density distribution from location " << input.path << "\n";
         densities2d.do_import(input.path, mesh.diagonal(0));
@@ -156,51 +158,119 @@ void Controller::init_densities() {
         // Write 2d distribution to image
         img::write_distribution_to_image(densities2d, base_folder + "/" + input.name + ".jpg");
     }
-    fea_case.dim_x = densities2d.dim_x + 1;
-    fea_case.dim_y = densities2d.dim_y + 1;
+    _fea_case->dim_x = densities2d.dim_x + 1;
+    _fea_case->dim_y = densities2d.dim_y + 1;
 }
 
 
-void Controller::run_fess() {
+void Controller::run_fess(FESS& _fess) {
     // Parameters
     fea_case.max_stress_threshold = 1.5e9;
+    fea_case.maintain_boundary_connection = true;
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.05;
     bool verbose = true;
-    bool maintain_boundary_connection = true;
+    phys::FEACaseInterpolator fea_interpolator;
+    fea_interpolator.source = fea_case;
     
     // Run optimization
     FESS fess = FESS(
-        fea_case, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
-        maintain_boundary_connection, export_msh, verbose
+        fea_interpolator, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
+        export_msh, verbose
     );
+    _fess = fess;
     fess.run();
 }
 
-void Controller::run_evoma() {
-    // Parameters
-    fea_case.max_stress_threshold = 1.5e6;
+void Controller::run_evoma(Evolver& _evolver) {
+    // Generic optimizer parameters
     string msh_file = base_folder + "/mesh.msh";
     int max_iterations = 100000;
     bool export_msh = true;
     bool verbose = true;
-    bool maintain_boundary_connection = true;
+
+    // FEA Parameters
+    string source_case_folder = base_folder + "/cases/coelophysis_bauri";
+    string target_case_folder = base_folder + "/cases/trex_v02";
+
+    // Load source- and target shape's densities and corresponding FEACase
+    // -- Target
+    input.path = target_case_folder + "/img.jpg";
+    input.type = "image";
+    phys::FEACase fea_case_target = phys::FEACase(target_case_folder + "/case.sif", densities2d.dim_x + 1, densities2d.dim_y + 1, INFINITY);
+    init_densities(&fea_case_target);
+    grd::Densities2d target_densities = densities2d;
+    
+    // -- Source
+    input.path = source_case_folder + "/img.jpg";
+    input.type = "image";
+    phys::FEACase fea_case_source = phys::FEACase(source_case_folder + "/case.sif", densities2d.dim_x + 1, densities2d.dim_y + 1, INFINITY);
+    init_densities(&fea_case_source);
+    grd::Densities2d source_densities = densities2d;
+
+    // Create interpolator from source and target
+    phys::FEACaseInterpolator fea_interpolator(*source_densities.fea_case, *target_densities.fea_case);
+    source_densities.fea_case = &fea_interpolator.source;
+    target_densities.fea_case = &fea_interpolator.target;
+    fea_interpolator.source.max_stress_threshold = 1e4;
+    fea_interpolator.target.max_stress_threshold = 1.5e6;
+
+    // Derive bound conditions for source and target
+    msh::derive_boundary_conditions(*source_densities.fea_case, source_densities, mesh);
+    msh::derive_boundary_conditions(*target_densities.fea_case, target_densities, mesh);
+
+    // Initialize fea case interpolator
+    fea_interpolator.initialize();
+    
+    // temp
+    cout << "\nsource keep:\n";
+    source_densities.visualize_keep_cells();
+    cout << "\nsource cutouts:\n";
+    source_densities.visualize_cutout_cells();
+    
+    cout << "\ntarget keep:\n";
+    target_densities.visualize_keep_cells();
+    cout << "\ntarget cutouts:\n";
+    target_densities.visualize_cutout_cells();
+
+    densities2d.fea_case = &fea_interpolator.interpolated;
+    cout << "\interpolated keep:\n";
+    densities2d.visualize_keep_cells();
+    cout << "\interpolated cutouts:\n";
+    densities2d.visualize_cutout_cells();
+
+
+    // Evolver-specific parameters
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.1;
     float initial_perturb_level1 = 0.2;
-    int pop_size = 100; // NOTE: must be divisible by 4
+    int pop_size = 12; // NOTE: must be divisible by 4
     float mutation_rate_level0 = 0.0002;
     float mutation_rate_level1 = 0.001;
-    float variation_trigger = 1.5;
     int max_iterations_without_change = 150;
-    int optimum_shift_trigger = 6;
+    float variation_trigger = 1.5;
+    int no_static_iterations_trigger = 6;
+    
+    // Initialize and run evolver
     Evolver evolver(
-        fea_case, mesh, base_folder, pop_size, optimum_shift_trigger, mutation_rate_level0, mutation_rate_level1, densities2d, variation_trigger, max_iterations,
-        max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
+        fea_interpolator, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0, mutation_rate_level1, densities2d,
+        variation_trigger, max_iterations, max_iterations_without_change, export_msh, verbose, initial_perturb_level0, initial_perturb_level1,
+        crossover_method
     );
+    _evolver = _evolver;
     evolver.evolve();
+}
+
+void Controller::run_evoma() {
+    Evolver evolver;
+    run_evoma(evolver);
+}
+
+void Controller::run_fess() {
+    FESS fess;
+    run_fess(fess);
 }
 

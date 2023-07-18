@@ -15,18 +15,18 @@ class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		phys::FEACase _fea_case, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
+		phys::FEACaseInterpolator _fea_interpolator, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
 		grd::Densities2d _densities, int _max_iterations, float _greediness,
-		bool _maintain_boundary_connection, bool _export_msh = false, bool _verbose = true
-	) : OptimizerBase(_fea_case, _mesh, _base_folder, _densities, _max_iterations, _export_msh, _verbose)
+		bool _export_msh = false, bool _verbose = true
+	) : OptimizerBase(_fea_interpolator, _mesh, _base_folder, _densities, _max_iterations, _export_msh, _verbose)
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
-		fea_case = _fea_case;
-		densities.fea_case->maintain_boundary_connection = _maintain_boundary_connection;
+		fea_case = fea_interpolator.interpolated;
 	}
 	double min_stress_threshold = 1.0;
 	float greediness;
+	phys::FEACase fea_case;
 	void run();
 	void log_termination(string final_valid_iteration_folder, int final_valid_iteration);
 	int FESS::handle_floating_pieces(
