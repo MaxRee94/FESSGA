@@ -372,7 +372,8 @@ namespace fessga {
                 vector<int> cutout_cells;
                 vector<int> keep_cells;
                 for (int i = 0; i < bound_ids.size(); i++) {
-                    Element line = fe_mesh.lines[bound_ids[i] - 1];
+                    int bound_id = bound_ids[i];
+                    Element line = fe_mesh.lines[bound_id - 1];
                     bound_lines.push_back(pair(line.nodes[0] - 1, line.nodes[1] - 1));
                     q++;
 

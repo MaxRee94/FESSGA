@@ -1,3 +1,4 @@
+#pragma once
 #include "evolver.h"
 #include <iostream>
 #include <thread>
@@ -174,10 +175,10 @@ void Evolver::create_single_individual(bool verbose) {
 	// Make a copy of the base individual
 	evo::Individual2d individual(&densities);
 
-	cout << "keep cells:\n";
+	/*cout << "keep cells:\n";
 	individual.visualize_keep_cells();
 	cout << "cutout cells:\n";
-	individual.visualize_cutout_cells();
+	individual.visualize_cutout_cells();*/
 
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
@@ -261,18 +262,18 @@ bool Evolver::termination_condition_reached() {
 	terminate = terminate || iteration_number >= max_iterations;
 	if (iteration_number >= max_iterations) {
 		terminate = true;
-		cout << "\nTerminating EVOMA: Maximum number of iterations (" + to_string(max_iterations) + ") reached.\n";
+		cout << "\nTerminating emma: Maximum number of iterations (" + to_string(max_iterations) + ") reached.\n";
 	}
 	else if (iterations_since_fitness_change > max_iterations_without_change) {
 		terminate = true;
-		cout << "\nTerminating EVOMA: Maximum number of iterations without a change in best fitness ("
+		cout << "\nTerminating emma: Maximum number of iterations without a change in best fitness ("
 			+ to_string(max_iterations_without_change) + ") reached.\n";
 	}
 	bool valid_solutions_exist = false;
 	for (auto& [_, fitness] : fitnesses_map) if (fitness < INFINITY) { valid_solutions_exist = true; break; }
 	if (!valid_solutions_exist) {
 		terminate = true;
-		cout << "\nTerminating EVOMA: All solutions in population are invalid.\n";
+		cout << "\nTerminating emma: All solutions in population are invalid.\n";
 	}
 
 	return terminate;
@@ -297,10 +298,10 @@ void Evolver::do_setup() {
 
 void Evolver::update_objective_function() {
 	if (iterations_since_fitness_change >= no_static_iterations_trigger && variation < variation_trigger) {
-		fea_interpolator.interpolated.max_stress_threshold -= 1e5;
+		fea_manager.current.max_stress_threshold -= 1e5;
 		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
-			<< fea_interpolator.interpolated.max_stress_threshold + 1e5 <<
-			") to (" << fea_interpolator.interpolated.max_stress_threshold << ").\n";
+			<< fea_manager.current.max_stress_threshold + 1e5 <<
+			") to (" << fea_manager.current.max_stress_threshold << ").\n";
 		cout << "-- Updating fitnesses according to new objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
@@ -337,8 +338,8 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 	msh::create_FE_mesh(mesh, *individual, individual->fe_mesh);
 	msh::export_as_elmer_files(&individual->fe_mesh, individual->output_folder);
 	if (export_msh) msh::export_as_msh_file(&individual->fe_mesh, individual->output_folder);
-	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout << "EVOMA: Exported new FE mesh to " << individual->output_folder << endl;
-	else if (verbose) cout << "EVOMA: ERROR: Failed to export new FE mesh.\n";
+	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout << "emma: Exported new FE mesh to " << individual->output_folder << endl;
+	else if (verbose) cout << "emma: ERROR: Failed to export new FE mesh.\n";
 	string densities_file = individual->do_export(individual->output_folder + "/distribution2d.dens");
 	string batch_file = msh::create_batch_file(individual->output_folder);
 }
@@ -349,7 +350,7 @@ void Evolver::create_sif_file(evo::Individual2d* individual, bool verbose) {
 	msh::create_bound_id_lookup(&individual->fea_case->bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
 	msh::assemble_fea_case(individual->fea_case, &bound_id_lookup);
 	IO::write_text_to_file(individual->fea_case->content, individual->output_folder + "/case.sif");
-	if (verbose) cout << "EVOMA: Exported updated case.sif file.\n";
+	if (verbose) cout << "emma: Exported updated case.sif file.\n";
 }
 
 void Evolver::export_individual(evo::Individual2d* individual, string folder) {
@@ -433,9 +434,9 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_interpolator.interpolated.max_stress_threshold) {
+		if (_max_stress > fea_manager.current.max_stress_threshold) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = _max_stress / fea_interpolator.interpolated.max_stress_threshold;
+			fitness = _max_stress / fea_manager.current.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));
@@ -447,11 +448,11 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 	}
 	if (iterations_since_fitness_change == 0) {
-		cout << "EVOMA: New best fitness: " << best_fitness << endl;
+		cout << "emma: New best fitness: " << best_fitness << endl;
 	}
 	else {
-		cout << "EVOMA: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
-			"EVOMA will terminate when fitness has not changed for " << max_iterations_without_change << ".\n";
+		cout << "emma: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
+			"emma will terminate when fitness has not changed for " << max_iterations_without_change << ".\n";
 	}
 }
 

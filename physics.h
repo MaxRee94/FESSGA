@@ -64,13 +64,16 @@ namespace fessga {
             int dim_x, dim_y;
         };
         
-        class FEACaseInterpolator {
+        class FEACaseManager {
         public:
-            FEACaseInterpolator() = default;
-            FEACaseInterpolator(phys::FEACase _source, phys::FEACase _target) {
+            FEACaseManager() = default;
+            FEACaseManager(phys::FEACase _source, phys::FEACase _target) {
                 source = _source;
                 target = _target;
-                interpolated = source;
+                current = source;
+            }
+            FEACaseManager(phys::FEACase _current) {
+                current = _current;
             }
             Vector2d get_vector2nn(Vector2d node, vector<int>& target_nodes);
             void order_nodes_by_distance(vector<int>* source_nodes, Vector2d barycenter);
@@ -80,19 +83,21 @@ namespace fessga {
             void interpolate_nodes(float fraction);
             void interpolate_cells(float fraction);
             void interpolate(float fraction);
-            int get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
-            int get_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
+            tuple<int, int> get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
+            int get_direct_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
+            vector<int> get_indirect_path_to_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes, int radius);
+            vector<int> get_path_to_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
             vector<int> get_unvisited_neighbor_cells(int cell, vector<int>& neighbors, vector<int>* visited_cells);
-            void get_boundary_walk(vector<int>* unordered_boundary, vector<int>& walk, int start_node = -1);
             pair<int, int> get_cells_with_given_edge(pair<int, int> edge);
             tuple<int, int> get_bound_cells(int start_cell, pair<int, int> neighbor_cells, pair<int, int> prev_line, pair<int, int> next_line);
+            void walk_and_collect_bound_nodes(vector<int>* unordered_boundary, vector<int>& walk, int start_node = -1);
             void walk_and_collect_bound_cells(
                 map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell,
                 int neighbor_node, string bound_name
             );
             vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
 
-            phys::FEACase source, target, interpolated;
+            phys::FEACase source, target, current;
             map<string, vector<Vector2d>> migration_vectors;
         };
 

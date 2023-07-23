@@ -2,9 +2,7 @@ import os
 
 
 def main():
-    boundconds = [
-        "306 402",
-    ]
+    boundconds = ["254 343"]
     bound_conds_amended = []
     no_edges_per_boundcond = []
     for bounds in boundconds:

@@ -18,7 +18,7 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		phys::FEACaseInterpolator _fea_interpolator, msh::SurfaceMesh _mesh, string _base_folder,
+		phys::FEACaseManager _fea_manager, msh::SurfaceMesh _mesh, string _base_folder,
 		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
@@ -32,8 +32,8 @@ public:
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
-		fea_interpolator = _fea_interpolator;
-		densities.fea_case = &fea_interpolator.interpolated;
+		fea_manager = _fea_manager;
+		densities.fea_case = &fea_manager.current;
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -43,7 +43,7 @@ public:
 	int max_iterations = 0;
 	int iteration_number = 0;
 	bool export_msh = false;
-	phys::FEACaseInterpolator fea_interpolator;
+	phys::FEACaseManager fea_manager;
 	double min_stress, max_stress;
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
@@ -64,7 +64,7 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(fea_interpolator.interpolated.max_stress_threshold),
+			"max stress threshold = " + to_string(fea_manager.current.max_stress_threshold),
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");
@@ -76,7 +76,7 @@ public:
 		write_densities_to_image();
 	}
 
-	// Copy all files in a solution folder (iteration folder for FESS, individual folder for EVOMA) to the specified target folder
+	// Copy all files in a solution folder (iteration folder for FESS, individual folder for emma) to the specified target folder
 	void copy_solution_files(string source_dir, string target_dir, bool verbose = true) {
 		if (verbose) cout << "Copying solution files from directory " << source_dir << " to " << target_dir << endl;
 		vector<string> filepaths;
