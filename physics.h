@@ -130,26 +130,6 @@ namespace fessga {
         }
 
         static bool load_2d_physics_data(
-            vector<string> filenames, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, char* data_type)
-        {
-            // Initialize data map to contain only 0's
-            for (int i = 0; i < dim_x * dim_y; i++) results->data_map.insert(pair(i, 0));
-
-            // For each coordinate, retain the maximum value out of all FEA runs  
-            for (auto& filename : filenames) {
-                FEAResults2D single_run_results;
-                load_single_FE_run(filename, &single_run_results, dim_x, dim_y, cell_size, _offset, data_type);
-                for (int coord = 0; coord < dim_x * dim_y; coord++) {
-                    if (single_run_results.data_map[coord] > results->data_map[coord]) {
-                        results->data_map[coord] = single_run_results.data_map[coord];
-                    }
-                }
-            }
-            help::sort(results->data_map, results->data);
-        }
-
-        static bool load_single_FE_run(
             string filename, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, char* data_type)
         {
             // Read data from file
@@ -218,6 +198,7 @@ namespace fessga {
                 int cell_coord = x * dim_y + y;
                 results->data_map.insert(pair(cell_coord, cell_stress));
             }
+            help::sort(results->data_map, results->data);
             results->min = min_stress;
             results->max = max_stress;
 
