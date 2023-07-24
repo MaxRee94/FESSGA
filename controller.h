@@ -14,11 +14,12 @@ struct Input {
     string type = "object";
     string path;
     string name;
+    float size;
 };
 
 class Controller {
 public:
-    Controller(Input _input, string _base_folder, string action, int _dim_x, int size)
+    Controller(Input _input, string _base_folder, string action, int _dim_x)
     {
         // Initialize member variables
         input = _input; base_folder = _base_folder;
@@ -31,11 +32,13 @@ public:
         // Initialize RNG
         help::init_RNG();
 
+        cout << "size (controller): " << input.size << endl;
+
         // Load mesh
         MatrixXd V;
         MatrixXi F;
         if (input.type == "image" || input.type == "distribution2d" || input.type == "distribution3d") {
-            Vector3d object_size(size, size, size);
+            Vector3d object_size(input.size, input.size, input.size);
             mesh = msh::SurfaceMesh(object_size);
             cout << "Created dummy mesh" << endl;
         }

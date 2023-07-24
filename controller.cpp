@@ -83,6 +83,8 @@ void Controller::run_emma_static(Evolver& _evolver) {
     fea_manager.current = fea_case;
     densities2d.fea_case = &fea_manager.current;
     msh::derive_boundary_conditions(*densities2d.fea_case, densities2d, mesh);
+    densities2d.compute_center_of_mass(true);
+
     run_emma(_evolver, &fea_manager);
 }
 

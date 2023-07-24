@@ -86,7 +86,6 @@ public:
 			IO::copy_file(fpath, target_path);
 		}
 	}
-
 };
 
 
