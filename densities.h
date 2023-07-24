@@ -243,7 +243,7 @@ namespace fessga {
             Vector2d cell_size;
             string output_folder;
             Vector2d diagonal;
-            phys::FEACase* fea_case;
+            phys::FEACaseManager* fea_casemanager;
             phys::FEAResults2D fea_results;
             vector<int> removed_cells = {};
             vector<Piece> pieces;

@@ -9,7 +9,9 @@ int NO_FEA_THREADS = 4; // must be even number
 /*
 * Method to run a batch of FEA jobs on all given output folders
 */
-void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_offset, bool verbose) {
+void run_FEA_batch(
+	vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
+) {
 	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
@@ -19,7 +21,10 @@ void run_FEA_batch(vector<string> individual_folders, int pop_size, int thread_o
 		fessga::phys::call_elmer(elmer_bat_file);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
-		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt"); // Communicate that FEA is finished and the .vtk file is ready to be read.
+
+		// Communicate that FEA is finished and that the .vtk file is therefore ready to be read.
+		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt"); 
+
 	}
 }
 
@@ -254,6 +259,7 @@ void Evolver::create_iteration_directories(int iteration) {
 		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
 		IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
+		create_FEA_folders(individual_folder);
 	}
 }
 
@@ -298,10 +304,10 @@ void Evolver::do_setup() {
 
 void Evolver::update_objective_function() {
 	if (iterations_since_fitness_change >= no_static_iterations_trigger && variation < variation_trigger) {
-		fea_manager.current.max_stress_threshold -= 1e5;
+		fea_manager.max_stress_threshold -= 1e5;
 		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
-			<< fea_manager.current.max_stress_threshold + 1e5 <<
-			") to (" << fea_manager.current.max_stress_threshold << ").\n";
+			<< fea_manager.max_stress_threshold + 1e5 <<
+			") to (" << fea_manager.max_stress_threshold << ").\n";
 		cout << "-- Updating fitnesses according to new objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
@@ -344,19 +350,21 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 	string batch_file = msh::create_batch_file(individual->output_folder);
 }
 
-// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
-void Evolver::create_sif_file(evo::Individual2d* individual, bool verbose) {
-	map<string, vector<int>> bound_id_lookup;
-	msh::create_bound_id_lookup(&individual->fea_case->bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
-	msh::assemble_fea_case(individual->fea_case, &bound_id_lookup);
-	IO::write_text_to_file(individual->fea_case->content, individual->output_folder + "/case.sif");
-	if (verbose) cout << "emma: Exported updated case.sif file.\n";
+// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
+void Evolver::create_sif_files(evo::Individual2d* individual, bool verbose) {
+	for (auto& fea_case : individual->fea_casemanager->active_cases) {
+		map<string, vector<int>> bound_id_lookup;
+		msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
+		msh::assemble_fea_case(individual->fea_casemanager, &fea_case, &bound_id_lookup);
+		IO::write_text_to_file(fea_case.content, individual->output_folder + "/case.sif");
+	}
+	if (verbose) cout << "emma: Exported updated case.sif files.\n";
 }
 
 void Evolver::export_individual(evo::Individual2d* individual, string folder) {
 	individual->output_folder = folder;
 	create_individual_mesh(individual);
-	create_sif_file(individual);
+	create_sif_files(individual);
 }
 
 void Evolver::create_children(bool verbose) {
@@ -434,9 +442,9 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_manager.current.max_stress_threshold) {
+		if (_max_stress > fea_manager.active_states.max_stress_threshold) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = _max_stress / fea_manager.current.max_stress_threshold;
+			fitness = _max_stress / fea_manager.active_states.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));

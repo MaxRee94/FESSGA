@@ -3,10 +3,10 @@
 
 
 // Load distribution from file or generate it on the fly
-void Controller::init_densities(phys::FEACase* _fea_case) {
-    if (!_fea_case) _fea_case = &fea_case;
+void Controller::init_densities(phys::FEACaseManager* _fea_casemanager) {
+    if (!_fea_casemanager) _fea_casemanager = &fea_casemanager;
     densities2d = grd::Densities2d(dim_x, mesh.diagonal, base_folder);
-    densities2d.fea_case = _fea_case;
+    densities2d.fea_casemanager = _fea_casemanager;
     if (input.type == "distribution2d") {
         cout << "Importing 2d density distribution from location " << input.path << "\n";
         densities2d.do_import(input.path, mesh.diagonal(0));
@@ -46,27 +46,26 @@ void Controller::init_densities(phys::FEACase* _fea_case) {
         // Write 2d distribution to image
         img::write_distribution_to_image(densities2d, base_folder + "/" + input.name + ".jpg");
     }
-    _fea_case->dim_x = densities2d.dim_x + 1;
-    _fea_case->dim_y = densities2d.dim_y + 1;
+    _fea_casemanager->dim_x = densities2d.dim_x + 1;
+    _fea_casemanager->dim_y = densities2d.dim_y + 1;
 }
 
 
 void Controller::run_fess(FESS& _fess) {
+#if 0:
     init_densities();
 
     // Parameters
-    fea_case.max_stress_threshold = 1.5e9;
-    fea_case.maintain_boundary_connection = true;
+    fea_casemanager.max_stress_threshold = 1.5e9;
+    fea_casemanager.maintain_boundary_connection = true;
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
     int max_iterations = 100;
     bool export_msh = true;
     float greediness = 0.05;
     bool verbose = true;
-    phys::FEACaseManager fea_manager;
-    fea_manager.current = fea_case;
-    densities2d.fea_case = &fea_manager.current;
-    msh::derive_boundary_conditions(fea_case, densities2d, mesh);
+   
+    msh::init_fea_cases();
 
     // Run optimization
     FESS fess = FESS(
@@ -75,18 +74,28 @@ void Controller::run_fess(FESS& _fess) {
     );
     _fess = fess;
     fess.run();
+#else
+    throw("Error: FESS has not yet been updated to handle multiple FEA cases per iteration.\n");
+    cout << "Error: FESS has not yet been updated to handle multiple FEA cases per iteration.\n";
+#endif
 }
 
 void Controller::run_emma_static(Evolver& _evolver) {
     init_densities();
-    phys::FEACaseManager fea_manager;
-    fea_manager.current = fea_case;
-    densities2d.fea_case = &fea_manager.current;
-    msh::derive_boundary_conditions(*densities2d.fea_case, densities2d, mesh);
-    run_emma(_evolver, &fea_manager);
+    phys::FEACaseManager fea_casemanager;
+    string case_folder = base_folder + "/cases/trex_v02";
+    vector<string> case_names = {
+       "case1.sif",
+       "case2.sif",
+       "case3.sif"
+    };
+    msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
+
+    run_emma(_evolver, &fea_casemanager);
 }
 
 void Controller::run_emma_dynamic(Evolver& _evolver) {
+#if 0:
     // FEA Parameters
     string source_case_folder = base_folder + "/cases/coelophysis_bauri";
     string target_case_folder = base_folder + "/cases/trex_v02";
@@ -110,21 +119,21 @@ void Controller::run_emma_dynamic(Evolver& _evolver) {
     init_densities(&fea_case_source);
     grd::Densities2d source_densities = densities2d;
 
-    // Create interpolator from source and target
-    phys::FEACaseManager fea_manager(*source_densities.fea_case, *target_densities.fea_case);
-    source_densities.fea_case = &fea_manager.source;
-    target_densities.fea_case = &fea_manager.target;
+    // Create fea manager and update the feamanager-references in the densities objects
+    phys::FEACaseManager fea_manager(* source_densities.fea_cases, * target_densities.fea_cases);
+    source_densities.fea_cases = &fea_manager.source;
+    target_densities.fea_cases = &fea_manager.target;
     fea_manager.source.max_stress_threshold = 1e4;
     fea_manager.target.max_stress_threshold = 1.5e6;
 
     // Derive bound conditions for source and target
-    msh::derive_boundary_conditions(*source_densities.fea_case, source_densities, mesh);
-    msh::derive_boundary_conditions(*target_densities.fea_case, target_densities, mesh);
+    msh::derive_boundary_conditions(*source_densities.fea_cases, source_densities, mesh);
+    msh::derive_boundary_conditions(*target_densities.fea_cases, target_densities, mesh);
 
     // Initialize fea case interpolator
     fea_manager.initialize();
     fea_manager.interpolate(0.5);
-
+    
     // temp
     /*cout << "\nsource keep:\n";
     source_densities.visualize_keep_cells();
@@ -136,13 +145,17 @@ void Controller::run_emma_dynamic(Evolver& _evolver) {
     cout << "\ntarget cutouts:\n";
     target_densities.visualize_cutout_cells();*/
 
-    /*densities2d.fea_case = &fea_manager.current;
+    /*densities2d.fea_cases = &fea_manager.active_states;
     cout << "\interpolated keep:\n";
     densities2d.visualize_keep_cells();
     cout << "\interpolated cutouts:\n";
     densities2d.visualize_cutout_cells();*/
-
+    
     run_emma(_evolver, &fea_manager);
+#else
+    throw("Error: Emma dynamic has not yet been updated to handle multiple FEA cases per individual.\n");
+    cout << "Error: Emma dynamic has not yet been updated to handle multiple FEA cases per individual.\n";
+#endif
 }
 
 void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_manager) {

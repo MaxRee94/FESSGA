@@ -269,7 +269,6 @@ namespace fessga {
             export_elmer_nodes(fe_mesh, base_folder);
             export_elmer_elements(fe_mesh, base_folder);
             export_elmer_boundary(fe_mesh, base_folder);
-            IO::write_text_to_file("case.sif\n1", base_folder + "/ELMERSOLVER_STARTINFO");
         }
 
         // Create batch file for running elmer and return its absolute path
@@ -303,7 +302,7 @@ namespace fessga {
 
         // Parse the given case.sif file, extracting boundary ids and in-between sections of text
         static void read_boundary_conditions(
-            map<string, vector<int>>& boundary_id_lookup, phys::FEACase* fea_case
+            map<string, vector<int>>& boundary_id_lookup, phys::FEACase* fea_case, phys::FEACaseManager* fea_casemanager
         ) {
             // Read content
             vector<string> case_content;
@@ -325,7 +324,7 @@ namespace fessga {
                     string prefix;
                     parse_target_boundaries(line, prefix, bound_ids);
                     section += prefix;
-                    fea_case->sections.push_back(section);
+                    fea_casemanager->sections.push_back(section);
                     section = "\n";
                     continue;
                 }
@@ -341,23 +340,23 @@ namespace fessga {
                     for (int j = 1; j < last_idx; j++) {
                         name += split_line[1][j];
                     }
-                    fea_case->names.push_back(name);
+                    fea_casemanager->names.push_back(name);
                     boundary_id_lookup[name] = bound_ids;
                     bound_ids.clear();
                 }
                 section += line + "\n";
             }
-            fea_case->sections.push_back(section);
+            fea_casemanager->sections.push_back(section);
         }
 
         // Create a map from strings that encode the name of a boundary condition to vectors of boundary node coordinate pairs that
         // represent the edges to which those boundary conditions have been applied
         static void derive_boundary_conditions(
-            phys::FEACase& fea_case, grd::Densities2d& densities, SurfaceMesh mesh
+            phys::FEACase& fea_case, grd::Densities2d& densities, SurfaceMesh mesh, phys::FEACaseManager* fea_casemanager
         ) {
             // Read each boundary condition and the corresponding boundary node id's from the original case.sif file
             map<string, vector<int>> boundary_id_lookup;
-            read_boundary_conditions(boundary_id_lookup, &fea_case);
+            read_boundary_conditions(boundary_id_lookup, &fea_case, fea_casemanager);
 
             // Generate FE mesh
             FEMesh2D fe_mesh;
@@ -379,8 +378,8 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = (line.id - 1) >> 2;
-                    if (!help::is_in(&fea_case.cells_to_keep, cell_coord)) {
-                        fea_case.cells_to_keep.push_back(cell_coord);
+                    if (!help::is_in(&fea_casemanager->cells_to_keep, cell_coord)) {
+                        fea_casemanager->cells_to_keep.push_back(cell_coord);
                         bound_cells.push_back(cell_coord);
                     }
 
@@ -388,8 +387,8 @@ namespace fessga {
                     int local_line_idx = line.id % 4;
                     vector<int> void_neighbors = densities.get_empty_neighbors(cell_coord, true);
                     for (auto& void_neighbor : void_neighbors) {
-                        if (!help::is_in(&fea_case.cutout_cells, void_neighbor)) {
-                            fea_case.cutout_cells.push_back(void_neighbor);
+                        if (!help::is_in(&fea_casemanager->cutout_cells, void_neighbor)) {
+                            fea_casemanager->cutout_cells.push_back(void_neighbor);
                             cutout_cells.push_back(void_neighbor);
                         }
                     }
@@ -397,8 +396,8 @@ namespace fessga {
                     // Store the filled cells neighboring the boundary cell as cells to keep
                     vector<int> neighbors = densities.get_neighbors(cell_coord);
                     for (auto& neighbor : neighbors) {
-                        if (!help::is_in(&fea_case.cells_to_keep, neighbor)) {
-                            fea_case.cells_to_keep.push_back(neighbor);
+                        if (!help::is_in(&fea_casemanager->cells_to_keep, neighbor)) {
+                            fea_casemanager->cells_to_keep.push_back(neighbor);
                             keep_cells.push_back(neighbor);
                         }
                     }
@@ -409,7 +408,7 @@ namespace fessga {
                 bound_cell_map["keep"] = keep_cells;
                 fea_case.bound_cond_cells[bound_name] = bound_cell_map;
             }
-            cout << "no boundary cells: " << fea_case.cells_to_keep.size() << endl;
+            cout << "no boundary cells: " << fea_casemanager->cells_to_keep.size() << endl;
             cout << "no boundary lines: " << q << endl;
         }
 
@@ -449,15 +448,33 @@ namespace fessga {
         }
 
         // Re-assemble the case file's content by concatenating the sections and updated target boundaries
-        static void assemble_fea_case(phys::FEACase* fea_case, map<string, vector<int>>* bound_id_lookup) {
+        static void assemble_fea_case(
+            phys::FEACaseManager* fea_casemanager, phys::FEACase* fea_case, map<string, vector<int>>* bound_id_lookup
+        ) {
             fea_case->content = "";
-            for (int i = 0; i < fea_case->names.size(); i++) {
-                string name = fea_case->names[i];
+            for (int i = 0; i < fea_casemanager->names.size(); i++) {
+                string name = fea_casemanager->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
                 string bound_ids_string = help::join_as_string(bound_ids, " ");
-                fea_case->content += fea_case->sections[i] + bound_ids_string;
+                fea_case->content += fea_casemanager->sections[i] + bound_ids_string;
             }
-            fea_case->content += fea_case->sections[fea_case->names.size()];
+            fea_case->content += fea_casemanager->sections[fea_casemanager->names.size()];
+        }
+
+        static void init_fea_cases(
+            phys::FEACaseManager* fea_casemanager, string case_folder, vector<string> case_names,
+            grd::Densities2d* densities, SurfaceMesh* mesh, bool source_cases = true
+        ) {
+            vector<phys::FEACase>* fea_cases;
+            if (source_cases) fea_cases = &fea_casemanager->sources;
+            else fea_cases = &fea_casemanager->targets;
+            for (auto& case_name : case_names) {
+                string case_path = case_folder + "/" + case_name;
+                phys::FEACase fea_case(case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold);
+                fea_case.name = case_name;
+                msh::derive_boundary_conditions(fea_case, *densities, *mesh, fea_casemanager);
+                fea_cases->push_back(fea_case);
+            }
         }
 
     };

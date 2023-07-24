@@ -22,7 +22,7 @@ public:
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
-		fea_case = fea_manager.current;
+		fea_case = fea_manager.active_states;
 	}
 	double min_stress_threshold = 1.0;
 	float greediness;

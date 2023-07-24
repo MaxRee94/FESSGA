@@ -9,8 +9,14 @@ void load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 		cout << "OptimizerBase: Terminating program." << endl;
 		exit(1);
 	}
+	vector<string> case_paths = {
+		densities->fea_casemanager->active_cases[0].path,
+		densities->fea_casemanager->active_cases[1].path,
+		densities->fea_casemanager->active_cases[2].path,
+	};
 	bool physics_loaded = fessga::phys::load_2d_physics_data(
-		cur_case_output_file, &densities->fea_results, densities->dim_x, densities->dim_y, densities->cell_size, mesh->offset, "Vonmises"
+		case_paths, &densities->fea_results, densities->dim_x,
+		densities->dim_y, densities->cell_size, mesh->offset, "Vonmises"
 	);
 	if (physics_loaded && verbose) cout << "OptimizerBase: Finished reading stress distribution from .vtk file." << endl;
 	else if (!physics_loaded) {

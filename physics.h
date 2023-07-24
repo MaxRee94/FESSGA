@@ -38,7 +38,7 @@ namespace fessga {
         class FEACase {
         public:
             FEACase() = default;
-            FEACase(string _path, int _dim_x, int _dim_y, double _max_stress_threshold) : 
+            FEACase(string _path, int _dim_x, int _dim_y, double _max_stress_threshold) :
                 path(_path), dim_x(_dim_x), dim_y(_dim_y), max_stress_threshold(_max_stress_threshold) {
             }
             Vector2d compute_cell_barycenter(vector<int>* cells);
@@ -48,40 +48,46 @@ namespace fessga {
             Vector2d get_node_coords(int idx);
 
             string path;
-            vector<string> names, sections;
-            vector<int> cells_to_keep;
-            vector<int> cutout_cells;
-            map<string, vector<Vector2d>> interpolate_vectors;
             string content;
-            phys::FEACase* target;
-            double max_stress_threshold = INFINITY;
-            bool maintain_boundary_connection = true;
+            string name;
             map<string, vector<int>> bound_cond_nodes;
             map<string, vector<pair<int, int>>> bound_cond_lines;
             map<string, map<string, vector<int>>> bound_cond_cells;
             map<string, Vector2d> node_barycenters;
             map<string, map<string, Vector2d>> cell_barycenters;
             int dim_x, dim_y;
+            double max_stress_threshold;
         };
         
         class FEACaseManager {
         public:
             FEACaseManager() = default;
-            FEACaseManager(phys::FEACase _source, phys::FEACase _target) {
-                source = _source;
-                target = _target;
-                current = source;
+            FEACaseManager(
+                vector<phys::FEACase> _sources, vector<phys::FEACase> _targets, double _max_stress_threshold,
+                int _dim_x, int _dim_y
+            ) {
+                sources = _sources;
+                targets = _targets;
+                active_cases = { _sources };
+                dim_x = _dim_x;
+                dim_y = _dim_y;
             }
-            FEACaseManager(phys::FEACase _current) {
-                current = _current;
+            FEACaseManager(
+                vector<phys::FEACase> _active_cases, double _max_stress_threshold, int _dim_x, int _dim_y
+            ) {
+                active_cases = _active_cases;
+                max_stress_threshold = _max_stress_threshold;
+                dim_x = _dim_x;
+                dim_y = _dim_y;
             }
+            Vector2d get_node_coords(int idx);
             Vector2d get_vector2nn(Vector2d node, vector<int>& target_nodes);
             void order_nodes_by_distance(vector<int>* source_nodes, Vector2d barycenter);
             void resample_boundary(vector<int>& nodes, Vector2d barycenter, int target_no_lines);
-            void compute_migration_vectors();
+            void compute_migration_vectors(phys::FEACase* source, phys::FEACase* target, int pair_idx);
             void initialize();
-            void interpolate_nodes(float fraction);
-            void interpolate_cells(float fraction);
+            void interpolate_nodes(FEACase* active_case, FEACase* source, float fraction, int pair_idx);
+            void interpolate_cells(FEACase* source, FEACase* target, FEACase* active_case, float fraction);
             void interpolate(float fraction);
             tuple<int, int> get_nearest_neighbor(Vector2d node, vector<int>* neighbors = 0);
             int get_direct_unvisited_node_neighbor(int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes);
@@ -92,13 +98,19 @@ namespace fessga {
             tuple<int, int> get_bound_cells(int start_cell, pair<int, int> neighbor_cells, pair<int, int> prev_line, pair<int, int> next_line);
             void walk_and_collect_bound_nodes(vector<int>* unordered_boundary, vector<int>& walk, int start_node = -1);
             void walk_and_collect_bound_cells(
-                map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell,
-                int neighbor_node, string bound_name
+                FEACase* active_case, map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line,
+                int first_bound_cell, int neighbor_node, string bound_name
             );
             vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
 
-            phys::FEACase source, target, current;
-            map<string, vector<Vector2d>> migration_vectors;
+            vector<phys::FEACase> sources, targets, active_cases;
+            vector<map<string, vector<Vector2d>>> migration_vectors;
+            vector<string> names, sections;
+            vector<int> cells_to_keep;
+            vector<int> cutout_cells;
+            double max_stress_threshold = INFINITY;
+            bool maintain_boundary_connection = true;
+            int dim_x, dim_y;
         };
 
         class FEAResults2D {
@@ -112,8 +124,10 @@ namespace fessga {
             double min, max;
         };
 
-        static void call_elmer(string bat_file, vector<FILE*>* pipes = 0, bool wait = true, bool verbose = false) {
-            std::string command = bat_file;
+        static void start_external_process(
+            string base_folder, vector<FILE*>* pipes = 0, bool wait = true, bool verbose = false
+        ) {
+            std::string command = base_folder + "/run_elmer.bat";
             if (wait) {
                 std::array<char, 80> buffer;
                 FILE* pipe = _popen(command.c_str(), "r");
@@ -126,6 +140,16 @@ namespace fessga {
                 // If a pipe is provided as a parameter, don't wait for it to finish
                 FILE* pipe = _popen(command.c_str(), "r");
                 pipes->push_back(pipe);
+            }
+        }
+
+        static void call_elmer(
+            string base_folder, phys::FEACaseManager* fea_casemanager,
+            vector<FILE*>* pipes = 0, bool wait = true, bool verbose = false
+        ) {
+            for (auto& fea_case : fea_casemanager->active_cases) {
+                IO::write_text_to_file(fea_case.name + "\n1", base_folder + "/ELMERSOLVER_STARTINFO");
+                start_external_process(base_folder, pipes, wait, verbose);
             }
         }
 

@@ -33,7 +33,7 @@ public:
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 		fea_manager = _fea_manager;
-		densities.fea_case = &fea_manager.current;
+		densities.fea_cases = &fea_manager.active_states;
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -64,7 +64,7 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(fea_manager.current.max_stress_threshold),
+			"max stress threshold = " + to_string(fea_manager.active_states.max_stress_threshold),
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");
@@ -85,6 +85,10 @@ public:
 			string target_path = help::replace_occurrences(fpath, source_dir, target_dir);
 			IO::copy_file(fpath, target_path);
 		}
+	}
+
+	void create_FEA_folders(string superfolder) {
+
 	}
 
 };

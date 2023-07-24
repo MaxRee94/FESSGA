@@ -68,6 +68,12 @@ void phys::FEACaseManager::resample_boundary(vector<int>& nodes, Vector2d baryce
 	if (nodes.size() < target_no_nodes) resample_boundary(nodes, barycenter, target_no_nodes);
 }
 
+Vector2d phys::FEACaseManager::get_node_coords(int idx) {
+	int x = idx / dim_y;
+	int y = idx % dim_y;
+	return Vector2d((double)x, (double)y);
+}
+
 // Get the index of the nearest node on the grid relative to the given node coordinates
 tuple<int, int> phys::FEACaseManager::get_nearest_neighbor(Vector2d coords, vector<int>* _neighbors) {
 	double min_dist = INFINITY;
@@ -79,7 +85,7 @@ tuple<int, int> phys::FEACaseManager::get_nearest_neighbor(Vector2d coords, vect
 		for (auto& offset : offsets) {
 			int x = (int)coords[0] + offset.first;
 			int y = (int)coords[1] + offset.second;
-			neighbors.push_back(x * source.dim_y + y);
+			neighbors.push_back(x * dim_y + y);
 		}
 	}
 
@@ -87,7 +93,7 @@ tuple<int, int> phys::FEACaseManager::get_nearest_neighbor(Vector2d coords, vect
 
 	for (int i = 0; i < neighbors.size(); i++) {
 		int _neighbor_idx = neighbors[i];
-		Vector2d neighbor_coords = source.get_node_coords(_neighbor_idx);
+		Vector2d neighbor_coords = get_node_coords(_neighbor_idx);
 		double dist = (neighbor_coords - coords).norm();
 		if (dist < min_dist) {
 			min_dist = dist;
@@ -102,7 +108,7 @@ tuple<int, int> phys::FEACaseManager::get_nearest_neighbor(Vector2d coords, vect
 // Get vector to the nearest neighbor of the given node
 Vector2d phys::FEACaseManager::get_vector2nn(Vector2d coords, vector<int>& neighbors) {
 	auto [nn_global_idx, nn_local_idx] = get_nearest_neighbor(coords, &neighbors);
-	Vector2d vector2nn = source.get_node_coords(nn_global_idx) - coords;
+	Vector2d vector2nn = get_node_coords(nn_global_idx) - coords;
 	neighbors.erase(neighbors.begin() + nn_local_idx);
 
 	return vector2nn;
@@ -112,7 +118,7 @@ void phys::FEACaseManager::order_nodes_by_distance(vector<int>* nodes, Vector2d 
 	map<int, double> distances;
 	map<int, int> copied_vals;
 	for (auto& _node : *nodes) {
-		Vector2d node = source.get_node_coords(_node);
+		Vector2d node = get_node_coords(_node);
 		double distance = (barycenter - node).norm();
 		if (help::get_value(&distances, _node) != -1) {
 			if (help::get_value(&copied_vals, _node) != -1) copied_vals[_node]++;
@@ -130,14 +136,14 @@ void phys::FEACaseManager::order_nodes_by_distance(vector<int>* nodes, Vector2d 
 	}
 }
 
-void phys::FEACaseManager::compute_migration_vectors() {
-	for (auto& [bound_name, lines] : source.bound_cond_lines) {
+void phys::FEACaseManager::compute_migration_vectors(phys::FEACase* source, phys::FEACase* target, int pair_idx) {
+	for (auto& [bound_name, lines] : source->bound_cond_lines) {
 		// Compute barycenter alignment vector
-		Vector2d align_to_barycenter = target.node_barycenters[bound_name] - source.node_barycenters[bound_name];
+		Vector2d align_to_barycenter = target->node_barycenters[bound_name] - source->node_barycenters[bound_name];
 
 		// Convert lines vectors to vectors of nodes
 		vector<int> target_nodes;
-		for (auto& line : target.bound_cond_lines[bound_name]) {
+		for (auto& line : target->bound_cond_lines[bound_name]) {
 			if (!help::is_in(&target_nodes, line.first)) target_nodes.push_back(line.first);
 			if (!help::is_in(&target_nodes, line.second)) target_nodes.push_back(line.second);
 		}
@@ -148,30 +154,30 @@ void phys::FEACaseManager::compute_migration_vectors() {
 		}
 
 		// Order source nodes by distance to barycenter
-		order_nodes_by_distance(&source_nodes, source.node_barycenters[bound_name]);
+		order_nodes_by_distance(&source_nodes, source->node_barycenters[bound_name]);
 
 		// Resample if the number of nodes of the boundary condition differs between source and target
-		if (target_nodes.size() > source_nodes.size()) resample_boundary(source_nodes, source.node_barycenters[bound_name],
+		if (target_nodes.size() > source_nodes.size()) resample_boundary(source_nodes, source->node_barycenters[bound_name],
 			target_nodes.size());
 		else if (source_nodes.size() > target_nodes.size()) {
-			order_nodes_by_distance(&target_nodes, source.node_barycenters[bound_name]);
-			resample_boundary(target_nodes, target.node_barycenters[bound_name], source_nodes.size());
+			order_nodes_by_distance(&target_nodes, source->node_barycenters[bound_name]);
+			resample_boundary(target_nodes, target->node_barycenters[bound_name], source_nodes.size());
 		}
-		order_nodes_by_distance(&source_nodes, source.node_barycenters[bound_name]);
+		order_nodes_by_distance(&source_nodes, source->node_barycenters[bound_name]);
 
 		// Compute vectors to align nodes
 		vector<Vector2d> _migration_vectors;
 		for (auto& src_pnt : source_nodes) {
-			Vector2d source_node = source.get_node_coords(src_pnt);
+			Vector2d source_node = source->get_node_coords(src_pnt);
 			source_node += align_to_barycenter; // Align the cluster of source nodes to the barycenter of the target cluster
 			Vector2d to_nn = get_vector2nn(source_node, target_nodes);
 			_migration_vectors.push_back(align_to_barycenter + to_nn);
 		}
 
 		// Store bound nodes and morph vectors
-		source.bound_cond_nodes[bound_name] = source_nodes;
-		target.bound_cond_nodes[bound_name] = target_nodes;
-		migration_vectors[bound_name] = _migration_vectors;
+		source->bound_cond_nodes[bound_name] = source_nodes;
+		target->bound_cond_nodes[bound_name] = target_nodes;
+		migration_vectors[pair_idx][bound_name] = _migration_vectors;
 	}
 }
 
@@ -179,10 +185,10 @@ int phys::FEACaseManager::get_direct_unvisited_node_neighbor(
 	int node_idx, vector<int>* all_nodes, vector<int>* visited_nodes
 ) {
 	vector<pair<int, int>> offsets = { pair(0, 1), pair(0, -1), pair(1, 0), pair(-1, 0) };
-	int x = node_idx / (source.dim_y);
-	int y = node_idx % (source.dim_y);
+	int x = node_idx / (dim_y);
+	int y = node_idx % (dim_y);
 	for (auto& offset : offsets) {
-		int neighbor = (x + offset.first) * (source.dim_y) + (y + offset.second);
+		int neighbor = (x + offset.first) * (dim_y) + (y + offset.second);
 		if (help::is_in(visited_nodes, neighbor)) continue;
 		if (help::is_in(all_nodes, neighbor)) return neighbor;
 	}
@@ -199,12 +205,12 @@ vector<int> phys::FEACaseManager::get_indirect_path_to_unvisited_node_neighbor(
 		pair(0, radius), pair(0, -radius), pair(radius, 0), pair(-radius, 0),
 		pair(radius, radius), pair(-radius, -radius), pair(radius, radius), pair(-radius, -radius)
 	};
-	int x = node_idx / (source.dim_y);
-	int y = node_idx % (source.dim_y);
+	int x = node_idx / (dim_y);
+	int y = node_idx % (dim_y);
 	pair<int, int> neighbor = pair(-1, -1);
 	int neighbor_idx;
 	for (auto& offset : offsets) {
-		neighbor_idx = (x + offset.first) * (source.dim_y) + (y + offset.second);
+		neighbor_idx = (x + offset.first) * (dim_y) + (y + offset.second);
 		if (help::is_in(visited_nodes, neighbor_idx)) continue;
 		if (help::is_in(all_nodes, neighbor_idx)) {
 			neighbor = pair(x + offset.first, y + offset.second);
@@ -234,7 +240,7 @@ vector<int> phys::FEACaseManager::get_indirect_path_to_unvisited_node_neighbor(
 			int _y = y + y_sign * y_travelled;
 			x_frac = (float)x_travelled / (float)abs(vec2neighbor.first);
 			y_frac = (float)y_travelled / (float)abs(vec2neighbor.second);
-			int node_idx = _x * source.dim_y + _y;
+			int node_idx = _x * dim_y + _y;
 			path.push_back(node_idx);
 		}
 		/*cout << "\n\npath: \n";
@@ -281,17 +287,17 @@ void phys::FEACaseManager::walk_and_collect_bound_nodes(vector<int>* unordered_b
 	}
 }
 
-void phys::FEACaseManager::interpolate_nodes(float fraction) {
-	current.bound_cond_nodes.clear();
-	for (auto& [bound_name, bound_cond_nodes] : source.bound_cond_nodes) {
+void phys::FEACaseManager::interpolate_nodes(FEACase* active_case, FEACase* source, float fraction, int pair_idx) {
+	active_case->bound_cond_nodes.clear();
+	for (auto& [bound_name, bound_cond_nodes] : source->bound_cond_nodes) {
 		//cout << "\nbound name: " << bound_name << endl;
 		
 		// Get interpolated boundary nodes
 		vector<int> interpolated_bound_cond_nodes;
 		for (int i = 0; i < bound_cond_nodes.size(); i++) {
-			Vector2d source_coords = source.get_node_coords(bound_cond_nodes[i]);
+			Vector2d source_coords = source->get_node_coords(bound_cond_nodes[i]);
 			//cout << "source coords: " << source_coords.transpose() << endl;
-			Vector2d interpolate_vec = fraction * migration_vectors[bound_name][i];
+			Vector2d interpolate_vec = fraction * migration_vectors[pair_idx][bound_name][i];
 			//cout << "interpolate coords: " << (source_coords + interpolate_vec).transpose() << endl;
 			auto [interpolated_node, _] = get_nearest_neighbor(source_coords + interpolate_vec);
 			if (!help::is_in(&interpolated_bound_cond_nodes, interpolated_node)) {
@@ -309,8 +315,8 @@ void phys::FEACaseManager::interpolate_nodes(float fraction) {
 			pair<int, int> line = pair(boundary_cond_walk[i], boundary_cond_walk[i + 1]);
 			lines.push_back(line);
 		}
-		current.bound_cond_lines[bound_name] = lines;
-		current.bound_cond_nodes[bound_name] = interpolated_bound_cond_nodes;
+		active_case->bound_cond_lines[bound_name] = lines;
+		active_case->bound_cond_nodes[bound_name] = interpolated_bound_cond_nodes;
 
 		// Temp
 		cout << "No bound cond nodes: " << interpolated_bound_cond_nodes.size() << endl;
@@ -320,22 +326,22 @@ void phys::FEACaseManager::interpolate_nodes(float fraction) {
 
 vector<int> phys::FEACaseManager::get_unvisited_neighbor_cells(int cell, vector<int>& neighbors, vector<int>* visited_cells) {
 	vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1), pair(-1,-1), pair(-1, 1), pair(1,1), pair(1,-1) };
-	int x = cell / (source.dim_y - 1); int y = cell % (source.dim_y - 1);
+	int x = cell / (dim_y - 1); int y = cell % (dim_y - 1);
 	for (auto& offset : offsets) {
 		int _x = x + offset.first;
 		int _y = y + offset.second;
-		if (_x == (source.dim_x - 1) || _y == (source.dim_y - 1) || _x < 0 || _y < 0) continue;
-		int neighbor_coord = _x * (source.dim_y - 1) + _y;
+		if (_x == (dim_x - 1) || _y == (dim_y - 1) || _x < 0 || _y < 0) continue;
+		int neighbor_coord = _x * (dim_y - 1) + _y;
 		if (!help::is_in(visited_cells, neighbor_coord)) neighbors.push_back(neighbor_coord);
 	}
 	return neighbors;
 }
 
 pair<int, int> phys::FEACaseManager::get_cells_with_given_edge(pair<int, int> edge) {
-	int node1_x = edge.first / source.dim_y;
-	int node1_y = edge.first % source.dim_y;
-	int node2_x = edge.second / source.dim_y;
-	int node2_y = edge.second % source.dim_y;
+	int node1_x = edge.first / dim_y;
+	int node1_y = edge.first % dim_y;
+	int node2_x = edge.second / dim_y;
+	int node2_y = edge.second % dim_y;
 	int cell1_x, cell1_y, cell2_x, cell2_y;
 	bool vertical = node1_x == node2_x;
 	if (vertical) {
@@ -351,8 +357,8 @@ pair<int, int> phys::FEACaseManager::get_cells_with_given_edge(pair<int, int> ed
 		cell2_x = cell1_x;
 	}
 
-	int cell1 = cell1_x * (source.dim_y - 1) + cell1_y;
-	int cell2 = cell2_x * (source.dim_y - 1) + cell2_y;
+	int cell1 = cell1_x * (dim_y - 1) + cell1_y;
+	int cell2 = cell2_x * (dim_y - 1) + cell2_y;
 
 	return pair(cell1, cell2);
 }
@@ -362,24 +368,24 @@ tuple<int, int> phys::FEACaseManager::get_bound_cells(
 	int prev_cell, pair<int, int> candidate_cells, pair<int, int> prev_line, pair<int, int> next_line
 ) {
 	// Get prev node coords
-	int prev_node1_x = prev_line.first / source.dim_y;
-	int prev_node1_y = prev_line.first % source.dim_y;
-	int prev_node2_x = prev_line.second / source.dim_y;
-	int prev_node2_y = prev_line.second % source.dim_y;
+	int prev_node1_x = prev_line.first / dim_y;
+	int prev_node1_y = prev_line.first % dim_y;
+	int prev_node2_x = prev_line.second / dim_y;
+	int prev_node2_y = prev_line.second % dim_y;
 
 	// Get next node coords
-	int next_node1_x = next_line.first / source.dim_y;
-	int next_node1_y = next_line.first % source.dim_y;
-	int next_node2_x = next_line.second / source.dim_y;
-	int next_node2_y = next_line.second % source.dim_y;
+	int next_node1_x = next_line.first / dim_y;
+	int next_node1_y = next_line.first % dim_y;
+	int next_node2_x = next_line.second / dim_y;
+	int next_node2_y = next_line.second % dim_y;
 
 	// Get cell coords
-	int candidate_cell1_x = candidate_cells.first / (source.dim_y - 1);
-	int candidate_cell1_y = candidate_cells.first % (source.dim_y - 1);
-	int candidate_cell2_x = candidate_cells.second / (source.dim_y - 1);
-	int candidate_cell2_y = candidate_cells.second % (source.dim_y - 1);
-	int prev_cell_x = prev_cell / (source.dim_y - 1);
-	int prev_cell_y = prev_cell % (source.dim_y - 1);
+	int candidate_cell1_x = candidate_cells.first / (dim_y - 1);
+	int candidate_cell1_y = candidate_cells.first % (dim_y - 1);
+	int candidate_cell2_x = candidate_cells.second / (dim_y - 1);
+	int candidate_cell2_y = candidate_cells.second % (dim_y - 1);
+	int prev_cell_x = prev_cell / (dim_y - 1);
+	int prev_cell_y = prev_cell % (dim_y - 1);
 
 	// Choose between candidate bound cells
 	bool prevline_vertical = prev_node1_x == prev_node2_x;
@@ -418,8 +424,8 @@ tuple<int, int> phys::FEACaseManager::get_bound_cells(
 		cutoutcell_x = candidate_cell2_x; cutoutcell_y = candidate_cell2_y;
 	}
 
-	int boundcell = boundcell_x * (source.dim_y - 1) + boundcell_y;
-	int cutoutcell = cutoutcell_x * (source.dim_y - 1) + cutoutcell_y;
+	int boundcell = boundcell_x * (dim_y - 1) + boundcell_y;
+	int cutoutcell = cutoutcell_x * (dim_y - 1) + cutoutcell_y;
 
 	return { boundcell, cutoutcell };
 }
@@ -428,11 +434,11 @@ vector<int> phys::FEACaseManager::get_additional_bound_cells(vector<int>* origin
 	vector<int> additional_cells;
 	vector<pair<int, int>> offsets = { pair(0,0), pair(1,0), pair(1,1), pair(1,0) };
 	for (auto& bound_cell : *origin_cells) {
-		Vector2d coords = source.get_node_coords(bound_cell);
+		Vector2d coords = get_node_coords(bound_cell);
 		for (auto& offset : offsets) {
 			int x = (int)coords[0] + offset.first;
 			int y = (int)coords[1] + offset.second;
-			int candidate = x * (source.dim_y - 1) + y;
+			int candidate = x * (dim_y - 1) + y;
 			if (!help::is_in(cells_to_avoid, candidate) && !help::is_in(&additional_cells, candidate) &&
 				!help::is_in(origin_cells, candidate))
 				additional_cells.push_back(candidate);
@@ -442,15 +448,15 @@ vector<int> phys::FEACaseManager::get_additional_bound_cells(vector<int>* origin
 }
 
 void phys::FEACaseManager::walk_and_collect_bound_cells(
-	map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line, int first_bound_cell,
-	int neighbor_node, string bound_name
+	FEACase* active_case, map<string, vector<int>>* bound_cells, vector<int>* visited_nodes, pair<int, int> first_line,
+	int first_bound_cell, int neighbor_node, string bound_name
 ) {
 	pair<int, int> previous_line = first_line;
 	int boundcell = first_bound_cell;
 	int node = neighbor_node;
 	while (true) {
 		vector<int> path_to_neighbor = get_path_to_unvisited_node_neighbor(
-			node, &current.bound_cond_nodes[bound_name], visited_nodes
+			node, &active_case->bound_cond_nodes[bound_name], visited_nodes
 		);
 		if (path_to_neighbor.size()) break; // If there's no neighbor, we've reached the end of the walk.
 		for (int i = 1; i < path_to_neighbor.size(); i++) {
@@ -467,29 +473,29 @@ void phys::FEACaseManager::walk_and_collect_bound_cells(
 	}
 }
 
-void phys::FEACaseManager::interpolate_cells(float fraction) {
-	for (auto& [bound_name, bound_cells] : source.bound_cond_cells) {
+void phys::FEACaseManager::interpolate_cells(FEACase* source, FEACase* target, FEACase* active_case, float fraction) {
+	for (auto& [bound_name, bound_cells] : source->bound_cond_cells) {
 		// Get interpolated boundcell- and node barycenters
-		Vector2d cell_barycent_diff = target.cell_barycenters[bound_name]["bound"] - source.cell_barycenters[bound_name]["bound"];
-		Vector2d cell_barycent = source.cell_barycenters[bound_name]["bound"] + fraction * cell_barycent_diff;
-		Vector2d node_barycent_diff = target.node_barycenters[bound_name] - source.node_barycenters[bound_name];
-		Vector2d node_barycent = source.node_barycenters[bound_name] + fraction * node_barycent_diff;
+		Vector2d cell_barycent_diff = target->cell_barycenters[bound_name]["bound"] - source->cell_barycenters[bound_name]["bound"];
+		Vector2d cell_barycent = source->cell_barycenters[bound_name]["bound"] + fraction * cell_barycent_diff;
+		Vector2d node_barycent_diff = target->node_barycenters[bound_name] - source->node_barycenters[bound_name];
+		Vector2d node_barycent = source->node_barycenters[bound_name] + fraction * node_barycent_diff;
 
 		// Get vector from nodes' barycenter to cells' barycenter
 		Vector2d barycent_difference = cell_barycent - node_barycent;
 
 		// Get interpolated node closest to node barycenter
-		auto [start_node, _] = get_nearest_neighbor(node_barycent, &current.bound_cond_nodes[bound_name]);
+		auto [start_node, _] = get_nearest_neighbor(node_barycent, &active_case->bound_cond_nodes[bound_name]);
 
 		// Get neighbor node
 		vector<int> visited_nodes = { start_node };
 		vector<int> path_to_neighbor = get_path_to_unvisited_node_neighbor(
-			start_node, &current.bound_cond_nodes[bound_name], &visited_nodes);
+			start_node, &active_case->bound_cond_nodes[bound_name], &visited_nodes);
 		int neighbor_node = path_to_neighbor.back();
 
 		// Check whether formed line is vertical or horizontal
-		Vector2d nearest_coords = current.get_node_coords(start_node);
-		Vector2d neighbor_coords = current.get_node_coords(neighbor_node);
+		Vector2d nearest_coords = get_node_coords(start_node);
+		Vector2d neighbor_coords = get_node_coords(neighbor_node);
 		bool vertical = nearest_coords[0] == neighbor_coords[0];
 		int cell_x, cell_y;
 
@@ -509,7 +515,7 @@ void phys::FEACaseManager::interpolate_cells(float fraction) {
 			}
 			else cell_y = nearest_coords[1];
 		}
-		int first_bound_cell = cell_x * (current.dim_y - 1) + cell_y;
+		int first_bound_cell = cell_x * (dim_y - 1) + cell_y;
 		cout << "first bound cell: " << cell_x << ", " << cell_y << endl;
 
 		// Starting from found boundary cell, walk along boundary condition lines till endpoint. Meanwhile, collect boundary cells.
@@ -517,14 +523,18 @@ void phys::FEACaseManager::interpolate_cells(float fraction) {
 		bound_cells["bound"] = { first_bound_cell };
 		visited_nodes.push_back(neighbor_node);
 		walk_and_collect_bound_cells(
-			&bound_cells, &visited_nodes, pair(start_node, neighbor_node), first_bound_cell, neighbor_node, bound_name);
+			active_case, &bound_cells, &visited_nodes, pair(start_node, neighbor_node),
+			first_bound_cell, neighbor_node, bound_name
+		);
 
 		// Re-start walk from first cell, walking in opposite direction
-		path_to_neighbor = get_path_to_unvisited_node_neighbor(start_node, &current.bound_cond_nodes[bound_name], &visited_nodes);
+		path_to_neighbor = get_path_to_unvisited_node_neighbor(
+			start_node, &active_case->bound_cond_nodes[bound_name], &visited_nodes
+		);
 		if (path_to_neighbor.size() > 0) {
 			walk_and_collect_bound_cells(
-				&bound_cells, &visited_nodes, pair(start_node, path_to_neighbor.back()), first_bound_cell, path_to_neighbor.back(),
-				bound_name
+				active_case, &bound_cells, &visited_nodes, pair(start_node, path_to_neighbor.back()),
+				first_bound_cell, path_to_neighbor.back(), bound_name
 			);
 		}
 
@@ -535,10 +545,10 @@ void phys::FEACaseManager::interpolate_cells(float fraction) {
 
 		// Store found boundary cells
 		help::append_vector(bound_cells["cutout"], &extra_cutout_cells);
-		help::append_vector(current.cells_to_keep, &bound_cells["keep"]);
-		help::append_vector(current.cells_to_keep, &bound_cells["bound"]);
-		help::append_vector(current.cutout_cells, &bound_cells["cutout"]);		
-		current.bound_cond_cells[bound_name] = bound_cells;
+		help::append_vector(cells_to_keep, &bound_cells["keep"]);
+		help::append_vector(cells_to_keep, &bound_cells["bound"]);
+		help::append_vector(cutout_cells, &bound_cells["cutout"]);		
+		active_case->bound_cond_cells[bound_name] = bound_cells;
 		
 		// Temp
 		for (auto& [type, cells] : bound_cells) {
@@ -550,20 +560,26 @@ void phys::FEACaseManager::interpolate_cells(float fraction) {
 
 void phys::FEACaseManager::interpolate(float fraction) {
 	// Reset
-	current.cells_to_keep.clear();
-	current.cutout_cells.clear();
-	current.bound_cond_cells.clear();
+	cells_to_keep.clear();
+	cutout_cells.clear();
+	for (int i = 0; i < active_cases.size(); i++) active_cases[i].bound_cond_cells.clear();
 
 	// Recompute
-	current.max_stress_threshold = source.max_stress_threshold + fraction * (
-		target.max_stress_threshold - source.max_stress_threshold);
-	interpolate_nodes(fraction);
-	interpolate_cells(fraction);
+	for (int i = 0; i < active_cases.size(); i++) {
+		max_stress_threshold = sources[i].max_stress_threshold +
+			fraction * (targets[i].max_stress_threshold - sources[i].max_stress_threshold
+		);
+		interpolate_nodes(&sources[i], &targets[i], fraction, i);
+		interpolate_cells(&sources[i], &targets[i], &active_cases[i], fraction);
+	}
 }
 
 void phys::FEACaseManager::initialize() {
-	current = source;
-	source.compute_barycenters();
-	target.compute_barycenters();
-	compute_migration_vectors();
+	active_cases = sources;
+	max_stress_threshold = sources[0].max_stress_threshold;
+	for (int i = 0; i < sources.size(); i++) {
+		sources[i].compute_barycenters();
+		targets[i].compute_barycenters();
+		compute_migration_vectors(&sources[i], &targets[i], i);
+	}
 }

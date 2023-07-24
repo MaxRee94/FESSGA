@@ -63,7 +63,7 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 			//if (no_removed_pieces > 0) {
 			//	// At least one piece was succesfully removed previously. These should again be removed.
 			//	densities.remove_smaller_pieces(
-			//		densities.fea_case, densities.removed_pieces, &densities.removed_cells, max_stress_threshold, densities.fea_results,
+			//		densities.fea_cases, densities.removed_pieces, &densities.removed_cells, max_stress_threshold, densities.fea_results,
 			//		maintain_boundary_connection, false, true
 			//	);
 			//	cout << "Densities after attempt to re-remove pieces:\n";
@@ -114,8 +114,8 @@ void FESS::run() {
 		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
 		map<string, vector<int>> bound_id_lookup;
 		msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &fe_mesh, bound_id_lookup);
-		msh::assemble_fea_case(densities.fea_case, &bound_id_lookup);
-		IO::write_text_to_file(densities.fea_case->content, iteration_folder + "/case.sif");
+		msh::assemble_fea_case(densities.fea_cases, &bound_id_lookup);
+		IO::write_text_to_file(densities.fea_cases->content, iteration_folder + "/case.sif");
 		cout << "FESS: Exported updated case.sif file.\n";
 
 		// Export newly generated FE mesh

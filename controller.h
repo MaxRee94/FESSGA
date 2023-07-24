@@ -26,7 +26,7 @@ public:
         vector<MatrixXd> V_list;
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
-        fea_case = phys::FEACase(base_folder + "/case.sif", dim_x + 1, dim_y + 1, INFINITY);
+        fea_casemanager = phys::FEACaseManager();
         
         // Initialize RNG
         help::init_RNG();
@@ -87,7 +87,7 @@ public:
             cerr << "Error: Action '" << action << "' not recognized.\n" << endl;
         }
     };
-    void init_densities(phys::FEACase* fea_case = 0);
+    void init_densities(phys::FEACaseManager* fea_casemanager = 0);
     void run_fess(FESS& _fess);
     void run_fess();
     void run_emma_dynamic(Evolver& _evolver);
@@ -114,5 +114,5 @@ public:
     Vector3d offset;
     Input input;
     vector<grd::Piece> pieces;
-    phys::FEACase fea_case;
+    phys::FEACaseManager fea_casemanager;
 };
