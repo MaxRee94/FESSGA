@@ -249,6 +249,7 @@ namespace fessga {
                 int cell_coord = x * dim_y + y;
                 results->data_map.insert(pair(cell_coord, cell_stress));
             }
+            help::sort(results->data_map, results->data);
             results->min = min_stress;
             results->max = max_stress;
 

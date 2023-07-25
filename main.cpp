@@ -11,7 +11,7 @@ using namespace fessga;
 // Parse cli args
 void parse_args(
     int argc, char* argv[], Input& input, string& base_folder, string& action,
-    int& dim_x, float& size
+    int& dim_x
     ) {
     action = argv[1];
     base_folder = "E:/Development/FESSGA/data/" + string(argv[2]);
@@ -23,17 +23,17 @@ void parse_args(
     else if (help::ends_with(string(argv[3]), ".jpg")) {
         input.type = "image";
         input.path = base_folder + "/" + string(argv[3]);
-        size = atof(argv[5]);
+        input.size = atof(argv[5]);
     }
     else if (string(argv[3]) == "distribution2d") {
         input.type = "distribution2d";
         input.path = base_folder + "/distribution2d" + ".dens";
-        size = atof(argv[5]);
+        input.size = atof(argv[5]);
     }
     else if (string(argv[3]) == "distribution3d") {
         input.type = "distribution3d";
         input.path = base_folder + "/distribution3d" + ".dens";
-        size = atof(argv[5]);
+        input.size = atof(argv[5]);
     }
     cout << "Input type: " << input.type << endl;
     dim_x = stoi(string(argv[4]));
@@ -54,10 +54,10 @@ int main(int argc, char* argv[])
     Input input;
     bool load_distribution;
     int dim_x;
-    float size;
-    parse_args(argc, argv, input, base_folder, action, dim_x, size);
+    parse_args(argc, argv, input, base_folder, action, dim_x);
 
-    Controller controller = Controller(input, base_folder, action, dim_x, size);
+    cout << "size (input): " << input.size << endl;
+    Controller controller = Controller(input, base_folder, action, dim_x);
     if (action == "test") {
         run_tests(&controller);
     }

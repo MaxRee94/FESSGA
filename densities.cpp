@@ -788,3 +788,20 @@ void fessga::grd::Densities2d::_copy(uint* source, uint* target, int source_coun
     for (int i = 0; i < size; i++) values[i] = source[i];
     target_count = source_count;
 }
+
+// Compute Center Of Mass
+void fessga::grd::Densities2d::compute_center_of_mass(bool verbose) {
+    float com_x = 0; float com_y = 0;
+    for (int i = 0; i < size; i++) {
+        int x = i / dim_y;
+        int y = i % dim_y;
+        if (values[i] == 1) {
+            com_x += (float)x * cell_size[0] + cell_size[0] * 0.5;
+            com_y += (float)y * cell_size[1] + cell_size[1] * 0.5;
+        }
+    }
+    com_x /= (float)count();
+    com_y /= (float)count();
+    if (verbose) cout << "center of gravity: " << com_x << ", " << com_y << endl;
+    int cent_coord = (int)(com_x / cell_size[0]) * dim_y + com_y / cell_size[1];
+}
