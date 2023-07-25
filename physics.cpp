@@ -577,9 +577,18 @@ void phys::FEACaseManager::interpolate(float fraction) {
 void phys::FEACaseManager::initialize() {
 	active_cases = sources;
 	max_stress_threshold = sources[0].max_stress_threshold;
-	for (int i = 0; i < sources.size(); i++) {
-		sources[i].compute_barycenters();
-		targets[i].compute_barycenters();
-		compute_migration_vectors(&sources[i], &targets[i], i);
+	if (dynamic) {
+		for (int i = 0; i < sources.size(); i++) {
+			sources[i].compute_barycenters();
+			targets[i].compute_barycenters();
+			compute_migration_vectors(&sources[i], &targets[i], i);
+		}
 	}
 }
+
+void phys::FEACaseManager::update_casepaths(string case_folder) {
+	for (auto& fea_case : active_cases) {
+		fea_case.path = case_folder + "/" + fea_case.name + ".sif";
+	}
+}
+

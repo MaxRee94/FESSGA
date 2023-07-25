@@ -52,7 +52,6 @@ public:
 	bool termination_condition_reached();
 	void choose_parents(vector<evo::Individual2d>& parents, vector<evo::Individual2d>* _population);
 	void create_individual_mesh(evo::Individual2d* individual, bool verbose = false);
-	void create_sif_files(evo::Individual2d* individual, bool verbose = false);
 	void export_individual(evo::Individual2d* individual, string folder);
 	void export_stats(string iteration_name, bool initialize = false);
 	void collect_stats();

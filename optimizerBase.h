@@ -18,7 +18,7 @@ public:
 
 	// Constructor for 2d optimization
 	OptimizerBase(
-		phys::FEACaseManager _fea_manager, msh::SurfaceMesh _mesh, string _base_folder,
+		phys::FEACaseManager _fea_casemanager, msh::SurfaceMesh _mesh, string _base_folder,
 		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
 	) {
 		mesh = _mesh;
@@ -32,8 +32,8 @@ public:
 		verbose = _verbose;
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
-		fea_manager = _fea_manager;
-		densities.fea_cases = &fea_manager.active_states;
+		fea_casemanager = _fea_casemanager;
+		densities.fea_casemanager = &fea_casemanager;
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -43,7 +43,7 @@ public:
 	int max_iterations = 0;
 	int iteration_number = 0;
 	bool export_msh = false;
-	phys::FEACaseManager fea_manager;
+	phys::FEACaseManager fea_casemanager;
 	double min_stress, max_stress;
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
@@ -51,7 +51,8 @@ public:
 	string get_iteration_folder(int iteration, bool verbose = false) {
 		iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
 		iteration_folder = output_folder + "/" + iteration_name;
-		if (verbose) cout << "OptimizerBase: Creating folder " << iteration_folder << " for current iteration if it does not exist yet...\n";
+		if (verbose) cout << "OptimizerBase: Creating folder " << iteration_folder <<
+			" for current iteration if it does not exist yet...\n";
 		IO::create_folder_if_not_exists(iteration_folder);
 
 		return iteration_folder;
@@ -64,7 +65,7 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(fea_manager.active_states.max_stress_threshold),
+			"max stress threshold = " + to_string(fea_casemanager.max_stress_threshold),
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");
@@ -87,10 +88,18 @@ public:
 		}
 	}
 
-	void create_FEA_folders(string superfolder) {
-
+	// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
+	void create_sif_files(grd::Densities2d* densities, msh::FEMesh2D* fe_mesh, bool verbose) {
+		densities->fea_casemanager->update_casepaths(densities->output_folder);
+		for (auto& fea_case : densities->fea_casemanager->active_cases) {
+			map<string, vector<int>> bound_id_lookup;
+			msh::create_bound_id_lookup(&fea_case.bound_cond_lines, fe_mesh, bound_id_lookup);
+			msh::assemble_fea_case(densities->fea_casemanager, &fea_case, &bound_id_lookup);
+			IO::write_text_to_file(fea_case.content, fea_case.path);
+			if (verbose) cout << "-- Exported case file to path " << fea_case.path << endl;
+		}
+		if (verbose) cout << "OptimizerBase: Exported updated case.sif files.\n";
 	}
-
 };
 
 

@@ -18,23 +18,26 @@ void run_FEA_batch(
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
 		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
 		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
-		fessga::phys::call_elmer(elmer_bat_file);
+		fessga::phys::call_elmer(individual_folders[i], fea_casemanager);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 
 		// Communicate that FEA is finished and that the .vtk file is therefore ready to be read.
 		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt"); 
-
 	}
 }
 
 // Obtain FEA results
-void load_physics_batch(vector<evo::Individual2d>* population, int offset, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true) {
+void load_physics_batch(
+	vector<evo::Individual2d>* population, int offset, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true
+) {
 	cout << "Starting results loader...\n";
 	for (int i = offset; i < pop_size; i++) {
+		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
-		string vtk_file_path = population->at(i).output_folder + "/case0001.vtk";
-		while (!IO::file_exists(fea_finish_confirmation_file)) {} // Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk file is ready.
+		while (!IO::file_exists(fea_finish_confirmation_file)) {}
+
+		// Load physics
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Read stress distribution for individual " << i - offset + 1 << " / " << pop_size << "\n";
@@ -91,7 +94,8 @@ void Evolver::export_stats(string iteration_name, bool initialize) {
 	);
 	IO::append_to_file(
 		statistics_file,
-		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " + to_string(variation) + ", " + current_best_solution_folder
+		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " +
+		to_string(variation) + ", " + current_best_solution_folder
 	);
 	vector<string> stats = {
 		"Current variation: " + to_string(variation),
@@ -101,7 +105,9 @@ void Evolver::export_stats(string iteration_name, bool initialize) {
 }
 
 // Do 2-point crossover
-void Evolver::do_2x_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2) {
+void Evolver::do_2x_crossover(
+	evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2
+) {
 	vector<uint> crosspoints = { fessga::help::get_rand_uint(0, no_cells - 1), fessga::help::get_rand_uint(0, no_cells - 1) };
 	uint crosspoint_1 = min(crosspoints[0], crosspoints[1]);
 	uint crosspoint_2 = max(crosspoints[0], crosspoints[1]);
@@ -124,7 +130,9 @@ void Evolver::do_2x_crossover(evo::Individual2d parent1, evo::Individual2d paren
 }
 
 // Do uniform crossover
-void Evolver::do_ux_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2) {
+void Evolver::do_ux_crossover(
+	evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2
+) {
 	for (int x = 0; x < densities.dim_x; x++) {
 		for (int y = 0; y < densities.dim_y; y++) {
 			int coord = x * densities.dim_y + y;
@@ -190,7 +198,7 @@ void Evolver::create_single_individual(bool verbose) {
 
 	// Run the repair pipeline on each individual, to ensure feasibility.
 	bool is_valid = individual.repair();
-	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual, outside this function)
+	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual)
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -206,10 +214,10 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, pop_size, 3, verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
 
 	int i = NO_FEA_THREADS;
 	while (population.size() < pop_size) {
@@ -259,7 +267,6 @@ void Evolver::create_iteration_directories(int iteration) {
 		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
 		IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
-		create_FEA_folders(individual_folder);
 	}
 }
 
@@ -304,10 +311,10 @@ void Evolver::do_setup() {
 
 void Evolver::update_objective_function() {
 	if (iterations_since_fitness_change >= no_static_iterations_trigger && variation < variation_trigger) {
-		fea_manager.max_stress_threshold -= 1e5;
+		fea_casemanager.max_stress_threshold -= 1e5;
 		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
-			<< fea_manager.max_stress_threshold + 1e5 <<
-			") to (" << fea_manager.max_stress_threshold << ").\n";
+			<< fea_casemanager.max_stress_threshold + 1e5 <<
+			") to (" << fea_casemanager.max_stress_threshold << ").\n";
 		cout << "-- Updating fitnesses according to new objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
@@ -344,27 +351,17 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 	msh::create_FE_mesh(mesh, *individual, individual->fe_mesh);
 	msh::export_as_elmer_files(&individual->fe_mesh, individual->output_folder);
 	if (export_msh) msh::export_as_msh_file(&individual->fe_mesh, individual->output_folder);
-	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout << "emma: Exported new FE mesh to " << individual->output_folder << endl;
+	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout <<
+		"emma: Exported new FE mesh to " << individual->output_folder << endl;
 	else if (verbose) cout << "emma: ERROR: Failed to export new FE mesh.\n";
 	string densities_file = individual->do_export(individual->output_folder + "/distribution2d.dens");
 	string batch_file = msh::create_batch_file(individual->output_folder);
 }
 
-// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
-void Evolver::create_sif_files(evo::Individual2d* individual, bool verbose) {
-	for (auto& fea_case : individual->fea_casemanager->active_cases) {
-		map<string, vector<int>> bound_id_lookup;
-		msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &individual->fe_mesh, bound_id_lookup);
-		msh::assemble_fea_case(individual->fea_casemanager, &fea_case, &bound_id_lookup);
-		IO::write_text_to_file(fea_case.content, individual->output_folder + "/case.sif");
-	}
-	if (verbose) cout << "emma: Exported updated case.sif files.\n";
-}
-
 void Evolver::export_individual(evo::Individual2d* individual, string folder) {
 	individual->output_folder = folder;
 	create_individual_mesh(individual);
-	create_sif_files(individual);
+	create_sif_files(individual, &individual->fe_mesh, verbose);
 }
 
 void Evolver::create_children(bool verbose) {
@@ -385,10 +382,10 @@ void Evolver::create_children(bool verbose) {
 		if (verbose && (population.size() < 20 || (i + 1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
-	thread fea_thread1(run_FEA_batch, individual_folders, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, pop_size, 3, verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
 
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -442,9 +439,9 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_manager.active_states.max_stress_threshold) {
+		if (_max_stress > fea_casemanager.max_stress_threshold) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = _max_stress / fea_manager.active_states.max_stress_threshold;
+			fitness = _max_stress / fea_casemanager.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_volume();
 		fitnesses_map.insert(pair(i, fitness));

@@ -71,6 +71,7 @@ namespace fessga {
                 active_cases = { _sources };
                 dim_x = _dim_x;
                 dim_y = _dim_y;
+                dynamic = true;
             }
             FEACaseManager(
                 vector<phys::FEACase> _active_cases, double _max_stress_threshold, int _dim_x, int _dim_y
@@ -79,6 +80,7 @@ namespace fessga {
                 max_stress_threshold = _max_stress_threshold;
                 dim_x = _dim_x;
                 dim_y = _dim_y;
+                dynamic = false;
             }
             Vector2d get_node_coords(int idx);
             Vector2d get_vector2nn(Vector2d node, vector<int>& target_nodes);
@@ -102,6 +104,8 @@ namespace fessga {
                 int first_bound_cell, int neighbor_node, string bound_name
             );
             vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
+            void update_casepaths(string case_folder);
+            void get_vtk_paths(vector<string>& vtk_paths);
 
             vector<phys::FEACase> sources, targets, active_cases;
             vector<map<string, vector<Vector2d>>> migration_vectors;
@@ -111,6 +115,7 @@ namespace fessga {
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;
             int dim_x, dim_y;
+            bool dynamic = false;
         };
 
         class FEAResults2D {
@@ -144,12 +149,12 @@ namespace fessga {
         }
 
         static void call_elmer(
-            string base_folder, phys::FEACaseManager* fea_casemanager,
+            string case_folder, phys::FEACaseManager* fea_casemanager,
             vector<FILE*>* pipes = 0, bool wait = true, bool verbose = false
         ) {
             for (auto& fea_case : fea_casemanager->active_cases) {
-                IO::write_text_to_file(fea_case.name + "\n1", base_folder + "/ELMERSOLVER_STARTINFO");
-                start_external_process(base_folder, pipes, wait, verbose);
+                IO::write_text_to_file(fea_case.name + ".sif" + "\n1", case_folder + "/ELMERSOLVER_STARTINFO");
+                start_external_process(case_folder, pipes, wait, verbose);
             }
         }
 
@@ -171,6 +176,8 @@ namespace fessga {
                 }
             }
             help::sort(results->data_map, results->data);
+
+            return true;
         }
 
         static bool load_single_FE_run(

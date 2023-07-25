@@ -85,11 +85,12 @@ void Controller::run_emma_static(Evolver& _evolver) {
     phys::FEACaseManager fea_casemanager;
     string case_folder = base_folder + "/cases/trex_v02";
     vector<string> case_names = {
-       "case1.sif",
-       "case2.sif",
-       "case3.sif"
+       "case1",
+       "case2",
+       "case3"
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
+    fea_casemanager.initialize();
 
     run_emma(_evolver, &fea_casemanager);
 }
@@ -158,18 +159,18 @@ void Controller::run_emma_dynamic(Evolver& _evolver) {
 #endif
 }
 
-void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_manager) {
+void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanager) {
     // Generic optimizer parameters
     string msh_file = base_folder + "/mesh.msh";
     int max_iterations = 100000;
     bool export_msh = true;
-    bool verbose = true;
+    bool verbose = false;
 
     // Evolver-specific parameters
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.1;
     float initial_perturb_level1 = 0.2;
-    int pop_size = 12; // NOTE: must be divisible by 4
+    int pop_size = 8; // NOTE: must be divisible by 4
     float mutation_rate_level0 = 0.0002;
     float mutation_rate_level1 = 0.001;
     int max_iterations_without_change = 150;
@@ -178,7 +179,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_manager) 
 
     // Initialize and run evolver
     Evolver evolver(
-        *fea_manager, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0,
+        *fea_casemanager, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0,
         mutation_rate_level1, densities2d, variation_trigger, max_iterations, max_iterations_without_change,
         export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
     );

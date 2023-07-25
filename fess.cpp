@@ -111,12 +111,7 @@ void FESS::run() {
 		msh::create_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
 
-		// Create and export a new version of the case.sif file by updating the boundary ids to fit the topology of the current FE mesh
-		map<string, vector<int>> bound_id_lookup;
-		msh::create_bound_id_lookup(&fea_case.bound_cond_lines, &fe_mesh, bound_id_lookup);
-		msh::assemble_fea_case(densities.fea_cases, &bound_id_lookup);
-		IO::write_text_to_file(densities.fea_cases->content, iteration_folder + "/case.sif");
-		cout << "FESS: Exported updated case.sif file.\n";
+		create_sif_files(&densities, &fe_mesh, verbose);
 
 		// Export newly generated FE mesh
 		msh::export_as_elmer_files(&fe_mesh, iteration_folder);
@@ -132,7 +127,7 @@ void FESS::run() {
 		string batch_file = msh::create_batch_file(iteration_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
 		FILE* pipe;
-		fessga::phys::call_elmer(batch_file);
+		fessga::phys::call_elmer(iteration_folder, &fea_casemanager);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
 		// Obtain vonmises stress distribution from the .vtk file
@@ -142,13 +137,7 @@ void FESS::run() {
 			cout << "FESS: Terminating program." << endl;
 			exit(1);
 		}
-		bool physics_loaded = fessga::phys::load_2d_physics_data(
-			cur_case_output_file, &densities.fea_results, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset, "Vonmises"
-		);
-		if (physics_loaded) cout << "FESS: Finished reading stress distribution from .vtk file." << endl;
-		else {
-			cout << "FESS: Error: Unable to read physics data from file " << cur_case_output_file << endl;
-		}
+		load_physics(&densities, &mesh, verbose);
 
 		// Get minimum and maximum stress values
 		max_stress = densities.fea_results.max;
@@ -157,16 +146,17 @@ void FESS::run() {
 		cout << "FESS: Current minimum stress: " << std::setprecision(3) << std::scientific << min_stress << endl;
 
 		// Check if maximum stress exceeds threshold
-		if (max_stress > fea_case.max_stress_threshold) {
-			cout << "FESS: highest stress in FE result (" << std::setprecision(3) << std::scientific << max_stress
-				<< ") EXCEEDS MAXIMUM THRESHOLD (" << std::setprecision(3) << std::scientific << fea_case.max_stress_threshold << ")\n";
+		if (max_stress > fea_casemanager.max_stress_threshold) {
+			cout << std::setprecision(3) << std::scientific;
+			cout << "FESS: highest stress in FE result (" << max_stress
+				<< ") EXCEEDS MAXIMUM THRESHOLD (" << fea_casemanager.max_stress_threshold << ")\n";
 			final_valid_iteration_folder = get_iteration_folder(i - 1);
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
 			break;
 		}
 
 		// If termination conditions were not met, prepare density distribution for next iteration by removing 
-		// elements below minimum stress threshold.
+		// elements with lowest stress
 		int no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
 		densities.remove_low_stress_cells(no_cells_to_remove, 0);
 

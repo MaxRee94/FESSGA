@@ -285,6 +285,7 @@ namespace fessga {
             // Split the prefix and the numbers-part of the line
             vector<string> split_line;
             help::split(line, " = ", split_line);
+
             prefix = split_line[0] + " = ";
 
             // Split the numbers-part of the line
@@ -313,6 +314,8 @@ namespace fessga {
             bool bound_name = false;
             string section = "";
             vector<int> bound_ids;
+            fea_casemanager->sections.clear();
+            fea_casemanager->names.clear();
             for (int i = 0; i < case_content.size(); i++) {
                 string line = case_content[i];
                 if (help::is_in(line, "Boundary Condition")) {
@@ -459,6 +462,16 @@ namespace fessga {
                 fea_case->content += fea_casemanager->sections[i] + bound_ids_string;
             }
             fea_case->content += fea_casemanager->sections[fea_casemanager->names.size()];
+
+            // Replace 'Output File Name' default setting of 'case' with the fea_case's specific case name.
+            fea_case->content = help::replace_occurrences(
+                fea_case->content, "Output File Name = case\n", "Output File Name = " + fea_case->name + "_\n");
+        }
+
+        static void get_vtk_paths(grd::Densities2d* densities, vector<string>& vtk_paths) {
+            for (auto& fea_case : densities->fea_casemanager->active_cases) {
+                vtk_paths.push_back(densities->output_folder + "/" + fea_case.name + "_0001.vtk");
+            }
         }
 
         static void init_fea_cases(
@@ -469,7 +482,7 @@ namespace fessga {
             if (source_cases) fea_cases = &fea_casemanager->sources;
             else fea_cases = &fea_casemanager->targets;
             for (auto& case_name : case_names) {
-                string case_path = case_folder + "/" + case_name;
+                string case_path = case_folder + "/" + case_name + ".sif";
                 phys::FEACase fea_case(case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold);
                 fea_case.name = case_name;
                 msh::derive_boundary_conditions(fea_case, *densities, *mesh, fea_casemanager);

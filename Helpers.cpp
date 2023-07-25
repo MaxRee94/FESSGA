@@ -134,12 +134,11 @@ void fessga::help::NormalizeElementWise(Matrix3d* M) {
 }
 
 string fessga::help::replace_occurrences(string basestring, string toReplace, string replaceWith) {
-    int pos = 0;
     string newstring = basestring;
-    while (basestring.find(toReplace, pos) != string::npos) {
-        pos = basestring.find(toReplace);
-        newstring = basestring.replace(pos, toReplace.size(), replaceWith);
-        pos++;
+    int pos = newstring.find(toReplace);
+    while (pos != string::npos) {
+        newstring.replace(pos, toReplace.size(), replaceWith);
+        pos = newstring.find(toReplace);
     }
 
     return newstring;

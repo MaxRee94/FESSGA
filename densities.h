@@ -61,7 +61,7 @@ namespace fessga {
                 dim_x = densities->dim_x;
                 construct_grid();
                 fea_results = densities->fea_results;
-                fea_case = densities->fea_case;
+                fea_casemanager = densities->fea_casemanager;
             }
             virtual void construct_grid() {
                 dim_y = round(diagonal(1) / cell_size(1));
