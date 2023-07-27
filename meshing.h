@@ -286,6 +286,7 @@ namespace fessga {
             vector<string> split_line;
             help::split(line, " = ", split_line);
 
+
             prefix = split_line[0] + " = ";
 
             // Split the numbers-part of the line
@@ -314,8 +315,8 @@ namespace fessga {
             bool bound_name = false;
             string section = "";
             vector<int> bound_ids;
-            fea_casemanager->sections.clear();
-            fea_casemanager->names.clear();
+            fea_case->sections.clear();
+            fea_case->names.clear();
             for (int i = 0; i < case_content.size(); i++) {
                 string line = case_content[i];
                 if (help::is_in(line, "Boundary Condition")) {
@@ -327,7 +328,7 @@ namespace fessga {
                     string prefix;
                     parse_target_boundaries(line, prefix, bound_ids);
                     section += prefix;
-                    fea_casemanager->sections.push_back(section);
+                    fea_case->sections.push_back(section);
                     section = "\n";
                     continue;
                 }
@@ -343,13 +344,13 @@ namespace fessga {
                     for (int j = 1; j < last_idx; j++) {
                         name += split_line[1][j];
                     }
-                    fea_casemanager->names.push_back(name);
+                    fea_case->names.push_back(name);
                     boundary_id_lookup[name] = bound_ids;
                     bound_ids.clear();
                 }
                 section += line + "\n";
             }
-            fea_casemanager->sections.push_back(section);
+            fea_case->sections.push_back(section);
         }
 
         // Create a map from strings that encode the name of a boundary condition to vectors of boundary node coordinate pairs that
@@ -455,13 +456,13 @@ namespace fessga {
             phys::FEACaseManager* fea_casemanager, phys::FEACase* fea_case, map<string, vector<int>>* bound_id_lookup
         ) {
             fea_case->content = "";
-            for (int i = 0; i < fea_casemanager->names.size(); i++) {
-                string name = fea_casemanager->names[i];
+            for (int i = 0; i < fea_case->names.size(); i++) {
+                string name = fea_case->names[i];
                 vector<int> bound_ids = bound_id_lookup->at(name);
                 string bound_ids_string = help::join_as_string(bound_ids, " ");
-                fea_case->content += fea_casemanager->sections[i] + bound_ids_string;
+                fea_case->content += fea_case->sections[i] + bound_ids_string;
             }
-            fea_case->content += fea_casemanager->sections[fea_casemanager->names.size()];
+            fea_case->content += fea_case->sections[fea_case->names.size()];
 
             // Replace 'Output File Name' default setting of 'case' with the fea_case's specific case name.
             fea_case->content = help::replace_occurrences(
@@ -483,7 +484,9 @@ namespace fessga {
             else fea_cases = &fea_casemanager->targets;
             for (auto& case_name : case_names) {
                 string case_path = case_folder + "/" + case_name + ".sif";
-                phys::FEACase fea_case(case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold);
+                phys::FEACase fea_case(
+                    case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold
+                );
                 fea_case.name = case_name;
                 msh::derive_boundary_conditions(fea_case, *densities, *mesh, fea_casemanager);
                 fea_cases->push_back(fea_case);
