@@ -7,8 +7,8 @@ void FESS::export_stats(string iteration_name) {
 }
 
 void FESS::log_termination(string final_valid_iteration_folder, int final_valid_iteration) {
-	cout << "\nTerminating FESS algorithm after " << final_valid_iteration << " iterations. Final results were saved to "
-		<< final_valid_iteration_folder << endl;
+	cout << "\nTerminating FESS algorithm after " << final_valid_iteration
+		<< " iterations. Final results were saved to " << final_valid_iteration_folder << endl;
 }
 
 int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove, int no_cells_removed, bool recurse) {
@@ -16,7 +16,8 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 	densities.init_pieces();
 	if (densities.pieces.size() > 1) {
 		// Attempt removal of smaller floating pieces
-		cout << "FESS: Element removal resulted in a shape consisting of " << densities.pieces.size() << " pieces. Attempting to remove smaller piece(s)..." << endl;
+		cout << "FESS: Element removal resulted in a shape consisting of " << densities.pieces.size()
+			<< " pieces. Attempting to remove smaller piece(s)..." << endl;
 		cout << "piece sizes: "; for (auto& piece : densities.pieces) cout << piece.cells.size() << "  "; cout << endl;
 
 		//for (auto& piece : densities.pieces) {
@@ -36,12 +37,14 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 			cout << "FESS: All floating pieces successfully removed." << endl;
 		}
 		else {
-			// If not all the floating pieces could be removed, restore the removed cells and re-try cell removal in so-called 'careful mode'.
-			// This means that cells are only removed if they will not result in the splitting of the shape into multiple pieces.
+			// If not all the floating pieces could be removed, restore the removed cells and re-try cell removal
+			// in so-called 'careful mode'. This means that cells are only removed if they will not result in the
+			// splitting of the shape into multiple pieces.
 			cout << "FESS: Not all smaller pieces could be removed.\n";
 			densities.restore_removed_cells(densities.removed_cells);
 			if (!densities.is_single_piece()) {
-				cout << "Restoring individual cells did not result in unity of the shape. Also restoring removed pieces..\n";
+				cout << "Restoring individual cells did not result in unity of the shape. "
+					<< "Also restoring removed pieces..\n";
 				densities.restore_removed_pieces(densities.removed_pieces);
 			}
 			int no_cells_removed = densities.get_no_cells_in_removed_pieces();
@@ -51,7 +54,9 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 			// If insufficient cells have been removed, remove them one-by-one (each time checking whether the shape still consists of one piece)
 			if (no_cells_to_remove > 0) {
 				cout << "Re-trying cell removal in 'careful mode'\n";
-				no_cells_removed += densities.remove_low_stress_cells(no_cells_to_remove, no_cells_removed, &densities.pieces.at(0));
+				no_cells_removed += densities.remove_low_stress_cells(
+					no_cells_to_remove, no_cells_removed, &densities.pieces.at(0)
+				);
 			}
 
 			//int no_removed_pieces = densities.removed_pieces.size();
@@ -81,6 +86,13 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 	return no_cells_removed;
 }
 
+void FESS::fill_design_domain() {
+	densities.fill_all();
+	for (int& cutout_cell : fea_casemanager.cutout_cells) {
+		densities.del(cutout_cell);
+	}
+}
+
 
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
@@ -90,6 +102,9 @@ void FESS::run() {
 	int i = 1;
 	bool last_iteration_was_valid = true;
 	if (verbose) densities.print();
+
+	fill_design_domain();
+
 	while (i - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << i << ".\n";
 
@@ -101,9 +116,10 @@ void FESS::run() {
 		}
 
 		// Reset densities object (keeping only the density values themselves)
-		grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, iteration_folder);
+		/*grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, iteration_folder);
 		_densities.copy_from(&densities);
-		densities = _densities;
+		densities = _densities;*/
+		densities.output_folder = iteration_folder;
 
 		// Generate new FE mesh using modified density distribution
 		cout << "FESS: Generating new FE mesh...\n";
@@ -130,13 +146,7 @@ void FESS::run() {
 		fessga::phys::call_elmer(iteration_folder, &fea_casemanager);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
-		// Obtain vonmises stress distribution from the .vtk file
-		string cur_case_output_file = iteration_folder + "/case0001.vtk";
-		if (!IO::file_exists(cur_case_output_file)) {
-			cout << "\nFESS: ERROR: Elmer did not produce a .vtk file (expected path " << cur_case_output_file << ")\n";
-			cout << "FESS: Terminating program." << endl;
-			exit(1);
-		}
+		// Obtain vonmises stress distribution from the .vtk files
 		load_physics(&densities, &mesh, verbose);
 
 		// Get minimum and maximum stress values
@@ -160,11 +170,13 @@ void FESS::run() {
 		int no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
 		densities.remove_low_stress_cells(no_cells_to_remove, 0);
 
-		// Check if the resulting shape consists of exactly one piece. If not, the shape has become invalid and a repair operation is necessary.
+		// Check if the resulting shape consists of exactly one piece. 
+		// If not, the shape has become invalid and a repair operation is necessary.
 		int no_cells_removed = handle_floating_pieces(&fe_mesh, no_cells_to_remove, densities.removed_cells.size());
 		if (last_iteration_was_valid && verbose) densities.print();
 
-		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue optimization.
+		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue
+		// optimization.
 		last_iteration_was_valid = false;
 		if (no_cells_removed == 0) {
 			cout << "FESS: Termination condition reached: Unable to remove any more cells." << endl;
@@ -172,8 +184,8 @@ void FESS::run() {
 			break;
 		}
 		else {
-			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by " << std::fixed
-				<< (float)no_cells_removed / (float)densities.size << ", to "
+			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by "
+				<< std::fixed << (float)no_cells_removed / (float)densities.size << ", to "
 				<< (float)(densities.count()) / (float)densities.size << "\n";
 			last_iteration_was_valid = true;
 			final_valid_iteration = i;

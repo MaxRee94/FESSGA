@@ -10,15 +10,14 @@
 #include "optimizerBase.h"
 
 
-
 class FESS : public OptimizerBase {
 public:
 	FESS() = default;
 	FESS(
-		phys::FEACaseManager _fea_manager, msh::SurfaceMesh _mesh, string _base_folder, double _min_stress_threshold,
-		grd::Densities2d _densities, int _max_iterations, float _greediness,
-		bool _export_msh = false, bool _verbose = true
-	) : OptimizerBase(_fea_manager, _mesh, _base_folder, _densities, _max_iterations, _export_msh, _verbose)
+		phys::FEACaseManager fea_casemanager, msh::SurfaceMesh mesh, string base_folder, double _min_stress_threshold,
+		grd::Densities2d _densities, int max_iterations, float _greediness,
+		bool export_msh = false, bool verbose = true
+	) : OptimizerBase(fea_casemanager, mesh, base_folder, _densities, max_iterations, export_msh, verbose)
 	{
 		min_stress_threshold = _min_stress_threshold;
 		greediness = _greediness;
@@ -32,5 +31,6 @@ public:
 		msh::FEMesh2D* fe_mesh, int no_cells_to_remove, int no_cells_removed, bool recurse = true
 	);
 	void export_stats(string iteration_name);
+	void fill_design_domain();
 };
 

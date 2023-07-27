@@ -50,40 +50,10 @@ void Controller::init_densities(phys::FEACaseManager* _fea_casemanager) {
     _fea_casemanager->dim_y = densities2d.dim_y + 1;
 }
 
-
-void Controller::run_fess(FESS& _fess) {
-#if 0:
+void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     init_densities();
-
-    // Parameters
-    fea_casemanager.max_stress_threshold = 1.5e9;
-    fea_casemanager.maintain_boundary_connection = true;
-    double min_stress = 7e3;
-    string msh_file = base_folder + "/mesh.msh";
-    int max_iterations = 100;
-    bool export_msh = true;
-    float greediness = 0.05;
-    bool verbose = true;
-   
-    msh::init_fea_cases();
-
-    // Run optimization
-    FESS fess = FESS(
-        fea_manager, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
-        export_msh, verbose
-    );
-    _fess = fess;
-    fess.run();
-#else
-    throw("Error: FESS has not yet been updated to handle multiple FEA cases per iteration.\n");
-    cout << "Error: FESS has not yet been updated to handle multiple FEA cases per iteration.\n";
-#endif
-}
-
-void Controller::run_emma_static(Evolver& _evolver) {
-    init_densities();
-    phys::FEACaseManager fea_casemanager = *densities2d.fea_casemanager;
-    string case_folder = base_folder + "/cases/trex_v02";
+    fea_casemanager = *densities2d.fea_casemanager;
+    string case_folder = base_folder + "/cases";
     vector<string> case_names = {
        "ant_load",
        "mid_load",
@@ -91,7 +61,34 @@ void Controller::run_emma_static(Evolver& _evolver) {
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
+}
 
+void Controller::run_fess(FESS& _fess) {
+    phys::FEACaseManager fea_casemanager;
+    do_static_setup(fea_casemanager);
+
+    // Parameters
+    fea_casemanager.max_stress_threshold = 2.5e6;
+    fea_casemanager.maintain_boundary_connection = true;
+    double min_stress = 7e3;
+    string msh_file = base_folder + "/mesh.msh";
+    int max_iterations = 500;
+    bool export_msh = true;
+    float greediness = 0.05;
+    bool verbose = true;
+
+    // Run optimization
+    FESS fess = FESS(
+        fea_casemanager, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
+        export_msh, verbose
+    );
+    _fess = fess;
+    fess.run();
+}
+
+void Controller::run_emma_static(Evolver& _evolver) {
+    phys::FEACaseManager fea_casemanager;
+    do_static_setup(fea_casemanager);
     run_emma(_evolver, &fea_casemanager);
 }
 
@@ -165,13 +162,13 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     int max_iterations = 100000;
     bool export_msh = true;
     bool verbose = false;
-    fea_casemanager->max_stress_threshold = 2.6e6;
+    fea_casemanager->max_stress_threshold = 2.5e6;
 
     // Evolver-specific parameters
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
-    float initial_perturb_level1 = 0.03;
-    int pop_size = 8; // NOTE: must be divisible by 4
+    float initial_perturb_level1 = 0.02;
+    int pop_size = 36; // NOTE: must be divisible by 6
     float mutation_rate_level0 = 0.0008;
     float mutation_rate_level1 = 0.0002;
     int max_iterations_without_change = 150;

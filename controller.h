@@ -99,6 +99,7 @@ public:
     void run_emma_static(Evolver& _evolver);
     void run_emma_static();
     void run_emma(Evolver& _evolver, phys::FEACaseManager* fea_manager);
+    void do_static_setup(phys::FEACaseManager& fea_casemanager);
 
     vector<MatrixXd> V_list;
     vector<MatrixXi> F_list;
