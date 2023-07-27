@@ -85,7 +85,11 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			}
 			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			bool is_cutout = cell_value;
-			if (is_cutout) densities.fea_casemanager->cutout_cells.push_back((x + 1) * densities.dim_y - y - 1);
+			if (is_cutout) {
+				int coord = (x + 1) * densities.dim_y - y - 1;
+				densities.fea_casemanager->cutout_cells.push_back(coord);
+				densities.del(coord);
+			}
 		}
 	}
 }

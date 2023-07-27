@@ -236,6 +236,9 @@ namespace fessga {
             double get_relative_volume();
             double get_inverse_relative_volume();
             void compute_center_of_mass(bool verbose = false);
+            void compute_area(bool verbose = false);
+            void fill_level1_voids(bool verbose = false);
+            void invert();
 
             int dim_x = 0;
             int dim_y = 0;
@@ -244,13 +247,14 @@ namespace fessga {
             Vector2d cell_size;
             string output_folder;
             Vector2d diagonal;
-            phys::FEACaseManager* fea_casemanager;
+            phys::FEACaseManager* fea_casemanager = 0;
             phys::FEAResults2D fea_results;
             vector<int> removed_cells = {};
             vector<Piece> pieces;
             vector<Piece> removed_pieces;
             Piece main_piece = Piece();
             float com_x, com_y;
+            double area;
 
         protected:
             uint* values = 0;

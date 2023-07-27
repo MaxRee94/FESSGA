@@ -152,7 +152,7 @@ int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piec
                 piece.cells.push_back(neighbors[j]);
                 if (piece.is_removable) {
                     // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
-                    if (help::is_in(&fea_casemanager->cells_to_keep, neighbors[j])) {
+                    if (fea_casemanager && help::is_in(&fea_casemanager->cells_to_keep, neighbors[j])) {
                         piece.is_removable = false;
                     }
                 }
@@ -246,7 +246,10 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
     // Check if the shape consists of one piece or several
     if (piece_size < cells_left) {
         // If the piece has boundary cells and it is the largest piece, it is considered the main piece
-        if (piece.cells.size() > main_piece.cells.size() && help::have_overlap(&piece.cells, &fea_casemanager->cells_to_keep)) {
+        if (
+            fea_casemanager && piece.cells.size() > main_piece.cells.size() &&
+            help::have_overlap(&piece.cells, &fea_casemanager->cells_to_keep)
+            ) {
             set_main_piece(&piece);
         }
         cells_left -= piece_size;
@@ -283,7 +286,11 @@ void fessga::grd::Densities2d::visualize_keep_cells() {
 
 // Visualize distribution and highlight cutout cells
 void fessga::grd::Densities2d::visualize_cutout_cells() {
-    for (auto& cell : fea_casemanager->cutout_cells) !values[cell] ? set(cell, 5) : throw("Error: Cutout cell is filled.\n");
+    //for (auto& cell : fea_casemanager->cutout_cells) !values[cell] ? set(cell, 5) : throw("Error: Cutout cell is filled.\n");
+    for (auto& cell : fea_casemanager->cutout_cells) {
+        if (!values[cell]) set(cell, 5);
+        else set(cell, 8);
+    }
     print();
     for (auto& cell : fea_casemanager->cutout_cells) set(cell, 0);
 }
@@ -689,8 +696,6 @@ bool fessga::grd::Densities2d::remove_isolated_material() {
 
 void fessga::grd::Densities2d::fill_voids(int target_no_neighbors) {
     save_internal_snapshot();
-    vector<int> x_bounds = { 0, dim_x - 1 };
-    vector<int> y_bounds = { 0, dim_y - 1 };
     for (int x = 0; x < dim_x; x++) {
         for (int y = 0; y < dim_y; y++) {
             int cell = x * dim_y + y;
@@ -710,10 +715,46 @@ void fessga::grd::Densities2d::fill_voids(int target_no_neighbors) {
     }
 }
 
+// Use a 2x2 kernel to check for level1 voids (2x2 pockets of cells that are empty) and fill them.
+void fessga::grd::Densities2d::fill_level1_voids(bool verbose) {
+    vector<pair<int, int>> offsets = { pair(0,0), pair(0,1), pair(1,1), pair(1,0) };
+    for (int x = 0; x < dim_x - 1; x++) {
+        for (int y = 0; y < dim_y - 1; y++) {
+            // Check if the kernel contains a void
+            bool is_level1_void = true;
+            for (auto& offset : offsets) {
+                int cell = get_idx(pair(x + offset.first, y + offset.second));
+
+                // If the cell is not empty or has fewer than 2 neighbors, the kernel apparently does not contain
+                // a void
+                if (values[cell] || get_neighbors(cell).size() < 2) {
+                    is_level1_void = false; break;
+                }
+            }
+
+            // If the kernel contains a void, fill it
+            if (is_level1_void) {
+                for (auto& offset : offsets) {
+                    int cell = get_idx(pair(x + offset.first, y + offset.second));
+                    fill(cell);
+                }
+            }
+        }
+    }
+    for (auto& cutout_cell : fea_casemanager->cutout_cells) {
+        del(cutout_cell);
+    }
+}
+
 void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
     grd::Densities2d previous_state(this);
     bool filtering_had_effect = true;
     int i = 1;
+
+    // Fill level1 voids (2x2 pockets of cells that are empty)
+    fill_level1_voids(verbose);
+
+    // Run level0 (meaning 'acting on individual cells') filtering loop 
     while (filtering_had_effect) {
         do_single_feasibility_filtering_pass();
         filtering_had_effect = !previous_state.is_identical_to(values);
@@ -804,4 +845,12 @@ void fessga::grd::Densities2d::compute_center_of_mass(bool verbose) {
     com_y /= (float)count();
     if (verbose) cout << "center of gravity: " << com_x << ", " << com_y << endl;
     int cent_coord = (int)(com_x / cell_size[0]) * dim_y + com_y / cell_size[1];
+}
+
+void fessga::grd::Densities2d::compute_area(bool verbose) {
+    area = (cell_size[0] * cell_size[1]) * (double)count();
+}
+
+void fessga::grd::Densities2d::invert() {
+    for (int i = 0; i < count(); i++) values[i] = !values[i];
 }

@@ -67,7 +67,8 @@ public:
             // Export the FE mesh in Elmer format (in .header, .nodes, .elments, .boundaries files)
             msh::export_as_elmer_files(&fe_mesh, base_folder);
 
-            // TODO: Update the case.sif file to fill in missing target boundary edges
+            densities2d.compute_area();
+            cout << "Mass: " << densities2d.area << endl;
 
             cout << "Finished exporting FE mesh. Continuing to post actions.." << endl;
         }

@@ -32,7 +32,7 @@ void load_physics_batch(
 	vector<evo::Individual2d>* population, int offset, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true
 ) {
 	cout << "Starting results loader...\n";
-	for (int i = offset; i < pop_size; i++) {
+	for (int i = offset; i < (offset + pop_size); i++) {
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		while (!IO::file_exists(fea_finish_confirmation_file)) {}
@@ -167,8 +167,8 @@ void Evolver::do_2d_mutation(evo::Individual2d& individual, float _mutation_rate
 
 	// Level 1 mutation (groups of 4 adjacent bits arranged in a square)
 	vector<pair<int, int>> offsets = { pair(0,0), pair(0,1), pair(1,1), pair(1,0) };
-	for (int x = 0; x < individual.dim_x; x+=2) {
-		for (int y = 0; y < individual.dim_y; y += 2) {
+	for (int x = 0; x < individual.dim_x - 1; x++) {
+		for (int y = 0; y < individual.dim_y - 1; y++) {
 			float rand_val = fessga::help::get_rand_float(0.0, 1.0);
 			bool do_flip = rand_val < _mutation_rate_level1;
 
@@ -199,6 +199,9 @@ void Evolver::create_single_individual(bool verbose) {
 	// Run the repair pipeline on each individual, to ensure feasibility.
 	bool is_valid = individual.repair();
 	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual)
+
+	// Iteratively fill the smallest fenestrae until the shape has at least as many cells as the starting shape
+	individual.fill_smaller_fenestrae((int)(help::get_rand_float(0.8, 1.2) * (float)densities.count()), verbose);
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -436,6 +439,8 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	// Obtain FEA results and compute fitnesses
 	for (int i = offset; i < (pop_size + offset); i++) {
 		double _max_stress = population[i].fea_results.max;
+		/*cout << "\nmax stress: " << _max_stress << endl;
+		cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
 
 		// Compute fitness
 		double fitness;
@@ -453,10 +458,10 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 	}
 	if (iterations_since_fitness_change == 0) {
-		cout << "emma: New best fitness: " << best_fitness << endl;
+		cout << "EMMA: New best fitness: " << best_fitness << endl;
 	}
 	else {
-		cout << "emma: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
+		cout << "EMMA: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
 			"emma will terminate when fitness has not changed for " << max_iterations_without_change << ".\n";
 	}
 }

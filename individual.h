@@ -35,6 +35,7 @@ namespace fessga {
 			void update_phenotype();
 			void do_ground_element_filtering();
 			void copy_from_individual(Individual2d* source);
+			void fill_smaller_fenestrae(int target_no_cells, bool verbose = false);
 			double fitness = 0;
 			msh::FEMesh2D fe_mesh;
 		protected:
