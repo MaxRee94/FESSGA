@@ -3,7 +3,7 @@
 #include <iostream>
 #include <thread>
 
-int NO_FEA_THREADS = 4; // must be even number
+int NO_FEA_THREADS = 6; // must be even number
 
 
 /*
@@ -200,8 +200,13 @@ void Evolver::create_single_individual(bool verbose) {
 	bool is_valid = individual.repair();
 	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual)
 
-	// Iteratively fill the smallest fenestrae until the shape has at least as many cells as the starting shape
-	individual.fill_smaller_fenestrae((int)(help::get_rand_float(0.8, 1.2) * (float)densities.count()), verbose);
+	float min_fraction_cells = 0.8;
+	float max_fraction_cells = 1.2;
+	// If the individual has more than the prescribed range of cells, discard it
+	if (individual.count() > max_fraction_cells * densities.count()) return;
+	
+	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
+	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -221,6 +226,8 @@ void Evolver::init_population(bool verbose) {
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	int i = NO_FEA_THREADS;
 	while (population.size() < pop_size) {
@@ -239,6 +246,8 @@ void Evolver::init_population(bool verbose) {
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
+	fea_thread5.join();
+	fea_thread6.join();
 	cout << "FEA of initial population finished.\n";
 	results_thread.join();
 	cout << "Read FEA results for all individuals in individual population.\n";
@@ -389,6 +398,8 @@ void Evolver::create_children(bool verbose) {
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -413,6 +424,8 @@ void Evolver::create_children(bool verbose) {
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
+	fea_thread5.join();
+	fea_thread6.join();
 	cout << "Finished FEA for all children.\n";
 	results_thread.join();
 	cout << "Finished reading FEA results for all children.\n";
@@ -498,7 +511,7 @@ void Evolver::evolve() {
 	while (!termination_condition_reached()) {
 		iteration_number++;
 		cout << "\nStarting iteration " << iteration_number << "...\n";
-		update_objective_function();
+		if (fea_casemanager.dynamic) update_objective_function();
 		create_iteration_directories(iteration_number);
 		create_children();
 		evaluate_fitnesses(pop_size);
