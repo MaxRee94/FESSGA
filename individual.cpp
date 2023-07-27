@@ -58,7 +58,6 @@ void fessga::evo::Individual2d::fill_smaller_fenestrae(int target_no_cells, bool
 
 	// Iteratively fill fenestrae until count() >= target_no_cells
 	for (auto& [idx, no_cells] : fenestrae_set) {
-		if (count() >= target_no_cells) break;
 
 		// Don't fill fenestra that contain cutout cells
 		bool contains_cutout_cells = false;
@@ -68,7 +67,14 @@ void fessga::evo::Individual2d::fill_smaller_fenestrae(int target_no_cells, bool
 		if (contains_cutout_cells) break;
 
 		// Fill all cells in the fenestra
-		for (auto& cell : fenestrae[idx].cells) fill(cell);
+		bool stop = false;
+		for (auto& cell : fenestrae[idx].cells) {
+			fill(cell);
+			if (count() >= target_no_cells) {
+				stop = true; break;
+			}
+		}
+		if (stop) break;
 	}
 }
 

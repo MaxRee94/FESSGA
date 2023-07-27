@@ -384,7 +384,9 @@ void fessga::grd::Densities2d::flush_edit_memory() {
     main_piece = grd::Piece();
 }
 
-int fessga::grd::Densities2d::remove_low_stress_cells(int no_cells_to_remove, int no_cells_removed, grd::Piece* smaller_piece) {
+int fessga::grd::Densities2d::remove_low_stress_cells(
+    int no_cells_to_remove, int no_cells_removed, grd::Piece* smaller_piece
+) {
     int cell_from_smaller_piece;
     int no_iterations_without_removal = -1;
     for (auto& item : fea_results.data) {
@@ -716,31 +718,50 @@ void fessga::grd::Densities2d::fill_voids(int target_no_neighbors) {
 }
 
 // Use a 2x2 kernel to check for level1 voids (2x2 pockets of cells that are empty) and fill them.
-void fessga::grd::Densities2d::fill_level1_voids(bool verbose) {
+void fessga::grd::Densities2d::fix_level1_void_or_pinch(vector<pair<int, int>>* offsets, int x, int y) {
+    // Check if the kernel contains a void
+    bool is_level1_void = true;
+    bool is_pinch = false;
+    for (auto& offset : *offsets) {
+        int cell = get_idx(pair(x + offset.first, y + offset.second));
+
+        // If the cell is not empty or has fewer than 2 neighbors, the kernel apparently does not contain
+        // a 2x2 void (voids that are not strictly 2x2 are not considered level1 voids)
+        if (values[cell] || get_neighbors(cell).size() < 2) {
+            is_level1_void = false;
+
+            // Check for the presence of a pinch. A pinch is defined as a node that forms the only connection between
+            // two cells which neighbor each other diagonally. Therefore, check for the presence of two diagonally
+            // neighboring filled cells and two empty cells.
+            int bottomleft = at(x, y); int topright = at(x + 1, y + 1);
+            int topleft = at(x, y + 1); int bottomright = at(x + 1, y);
+            bool diagonal_1_full = bottomleft && topright;
+            bool diagonal_2_full = bottomright && topleft;
+            bool diagonal_1_empty = !bottomleft && !topright;
+            bool diagonal_2_empty = !bottomright && !topleft;
+            is_pinch = diagonal_1_full && diagonal_2_empty; // 1st diagonal is filled, 2nd empty
+            is_pinch = is_pinch || (diagonal_1_empty && diagonal_2_full); // Same but reverse
+            break;
+        }
+    }
+
+    // If the kernel contains a void or a pinch, fill it
+    if (is_level1_void || is_pinch) {
+        for (auto& offset : *offsets) {
+            int cell = get_idx(pair(x + offset.first, y + offset.second));
+            fill(cell);
+        }
+    }
+}
+
+void fessga::grd::Densities2d::fill_level1_voids_and_fix_pinches(bool verbose) {
     vector<pair<int, int>> offsets = { pair(0,0), pair(0,1), pair(1,1), pair(1,0) };
     for (int x = 0; x < dim_x - 1; x++) {
         for (int y = 0; y < dim_y - 1; y++) {
-            // Check if the kernel contains a void
-            bool is_level1_void = true;
-            for (auto& offset : offsets) {
-                int cell = get_idx(pair(x + offset.first, y + offset.second));
-
-                // If the cell is not empty or has fewer than 2 neighbors, the kernel apparently does not contain
-                // a void
-                if (values[cell] || get_neighbors(cell).size() < 2) {
-                    is_level1_void = false; break;
-                }
-            }
-
-            // If the kernel contains a void, fill it
-            if (is_level1_void) {
-                for (auto& offset : offsets) {
-                    int cell = get_idx(pair(x + offset.first, y + offset.second));
-                    fill(cell);
-                }
-            }
+            fix_level1_void_or_pinch(&offsets, x, y);
         }
     }
+    // If void and/or pinch filling filled some cutout cells, delete these.
     for (auto& cutout_cell : fea_casemanager->cutout_cells) {
         del(cutout_cell);
     }
@@ -751,9 +772,6 @@ void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
     bool filtering_had_effect = true;
     int i = 1;
 
-    // Fill level1 voids (2x2 pockets of cells that are empty)
-    fill_level1_voids(verbose);
-
     // Run level0 (meaning 'acting on individual cells') filtering loop 
     while (filtering_had_effect) {
         do_single_feasibility_filtering_pass();
@@ -761,6 +779,10 @@ void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
         previous_state.copy_from(this);
         i++;
     }
+
+    // Fill level1 voids (2x2 pockets of cells that are empty)
+    fill_level1_voids_and_fix_pinches(verbose);
+    
     if (verbose) cout << "Performed feasibility filtering (" << i << " passes).\n";
 }
 

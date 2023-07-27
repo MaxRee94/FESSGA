@@ -177,6 +177,10 @@ namespace fessga {
             uint at(int cell) {
                 return values[cell];
             }
+            uint at(int x, int y) {
+                int cell_idx = get_idx(x, y);
+                return values[cell_idx];
+            }
             void restore(int cell) {
                 fill(cell);
                 help::remove(&removed_cells, cell);
@@ -237,7 +241,8 @@ namespace fessga {
             double get_inverse_relative_volume();
             void compute_center_of_mass(bool verbose = false);
             void compute_area(bool verbose = false);
-            void fill_level1_voids(bool verbose = false);
+            void fill_level1_voids_and_fix_pinches(bool verbose = false);
+            void fix_level1_void_or_pinch(vector<pair<int, int>>* offsets, int x, int y);
             void invert();
 
             int dim_x = 0;
