@@ -38,6 +38,8 @@ void parse_args(
     cout << "Input type: " << input.type << endl;
     dim_x = stoi(string(argv[4]));
     input.name = string(argv[6]);
+    input.max_stress = atof(argv[7]);
+    input.max_iterations = atoi(argv[8]);
 }
 
 

@@ -12,6 +12,8 @@
 
 struct Input {
     string type = "object";
+    double max_stress;
+    int max_iterations;
     string path;
     string name;
     float size;
@@ -28,6 +30,8 @@ public:
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
         fea_casemanager = phys::FEACaseManager();
+        max_stress = input.max_stress;
+        max_iterations = input.max_iterations;
         
         // Initialize RNG
         help::init_RNG();
@@ -114,6 +118,8 @@ public:
     int dim_x = 1;
     int dim_y = 1;
     int dim_z = 1;
+    double max_stress;
+    int max_iterations;
     float cell_size = 0;
     string base_folder;
     Vector3d offset;
