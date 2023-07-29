@@ -68,19 +68,19 @@ void Controller::run_fess(FESS& _fess) {
     do_static_setup(fea_casemanager);
 
     // Parameters
-    fea_casemanager.max_stress_threshold = 2.5e6;
+    fea_casemanager.max_stress_threshold = max_stress;
     fea_casemanager.maintain_boundary_connection = true;
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
-    int max_iterations = 500;
     bool export_msh = true;
-    float greediness = 0.05;
+    float greediness = 0.2;
+    bool do_feasibility_filtering = true;
     bool verbose = true;
 
     // Run optimization
     FESS fess = FESS(
         fea_casemanager, mesh, base_folder, min_stress, densities2d, max_iterations, greediness,
-        export_msh, verbose
+        do_feasibility_filtering, export_msh, verbose
     );
     _fess = fess;
     fess.run();
@@ -159,16 +159,15 @@ void Controller::run_emma_dynamic(Evolver& _evolver) {
 void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanager) {
     // Generic optimizer parameters
     string msh_file = base_folder + "/mesh.msh";
-    int max_iterations = 100000;
     bool export_msh = true;
     bool verbose = false;
-    fea_casemanager->max_stress_threshold = 2.5e6;
+    fea_casemanager->max_stress_threshold = max_stress;
 
     // Evolver-specific parameters
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 36; // NOTE: must be divisible by 6
+    int pop_size = 156; // NOTE: must be divisible by 6
     float mutation_rate_level0 = 0.0008;
     float mutation_rate_level1 = 0.0002;
     int max_iterations_without_change = 150;

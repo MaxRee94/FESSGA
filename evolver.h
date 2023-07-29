@@ -48,12 +48,12 @@ public:
 	void evaluate_fitnesses(int offset, bool do_FEA = false, bool verbose = true);
 	void do_selection();
 	void create_iteration_directories(int iteration);
-	virtual void write_densities_to_image();
+	virtual void write_densities_to_image(bool verbose = false);
 	bool termination_condition_reached();
 	void choose_parents(vector<evo::Individual2d>& parents, vector<evo::Individual2d>* _population);
 	void create_individual_mesh(evo::Individual2d* individual, bool verbose = false);
 	void export_individual(evo::Individual2d* individual, string folder);
-	void export_stats(string iteration_name, bool initialize = false);
+	void export_stats(string iteration_name, bool initialize = false, bool verbose = false);
 	void collect_stats();
 	void cleanup();
 	void update_objective_function();
@@ -83,4 +83,5 @@ private:
 	string best_solutions_folder;
 	string best_individuals_images_folder;
 	string crossover_method;
+	double fitness_mean, fitness_stdev;
 };

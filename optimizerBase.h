@@ -59,7 +59,7 @@ public:
 	}
 
 	// Write densities to image file
-	virtual void write_densities_to_image() {
+	virtual void write_densities_to_image(bool verbose = false) {
 		img::write_distribution_to_image(densities, image_folder + "/" + iteration_name + ".jpg", true);
 	}
 
@@ -73,12 +73,12 @@ public:
 	}
 
 	// Function to write statistics, images, and other generated data to files
-	void export_base_stats(string iteration_name) {
+	void export_base_stats() {
 		write_densities_to_image();
 	}
 
 	// Copy all files in a solution folder (iteration folder for FESS, individual folder for emma) to the specified target folder
-	void copy_solution_files(string source_dir, string target_dir, bool verbose = true) {
+	void copy_solution_files(string source_dir, string target_dir, bool verbose = false) {
 		if (verbose) cout << "Copying solution files from directory " << source_dir << " to " << target_dir << endl;
 		vector<string> filepaths;
 		IO::get_files_in_directory(filepaths, source_dir);
@@ -89,7 +89,7 @@ public:
 	}
 
 	// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
-	void create_sif_files(grd::Densities2d* densities, msh::FEMesh2D* fe_mesh, bool verbose) {
+	void create_sif_files(grd::Densities2d* densities, msh::FEMesh2D* fe_mesh, bool verbose = false) {
 		densities->fea_casemanager->update_casepaths(densities->output_folder);
 		for (auto& fea_case : densities->fea_casemanager->active_cases) {
 			map<string, vector<int>> bound_id_lookup;
@@ -100,6 +100,7 @@ public:
 		}
 		if (verbose) cout << "OptimizerBase: Exported updated case.sif files.\n";
 	}
+
 };
 
 

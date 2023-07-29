@@ -295,6 +295,17 @@ void fessga::grd::Densities2d::visualize_cutout_cells() {
     for (auto& cell : fea_casemanager->cutout_cells) set(cell, 0);
 }
 
+// Visualize distribution and highlight removed cells
+void fessga::grd::Densities2d::visualize_removed_cells() {
+    //for (auto& cell : fea_casemanager->removed_cells) !values[cell] ? set(cell, 5) : throw("Error: 'Removed' cell is filled.\n");
+    for (auto& cell : removed_cells) {
+        if (!values[cell]) set(cell, 5);
+        else set(cell, 8);
+    }
+    print();
+    for (auto& cell : removed_cells) set(cell, 0);
+}
+
 bool fessga::grd::Densities2d::is_in(vector<grd::Piece>* _pieces, grd::Piece* piece) {
     for (int i = 0; i < _pieces->size(); i++) {
         if (_pieces->at(i).id == piece->id) return true;
@@ -303,7 +314,7 @@ bool fessga::grd::Densities2d::is_in(vector<grd::Piece>* _pieces, grd::Piece* pi
 }
 
 // Get the fraction (#no_filled_cells / #total_no_cells)
-double fessga::grd::Densities2d::get_relative_volume() {
+double fessga::grd::Densities2d::get_relative_area() {
     return (double)count() / (double)size;
 }
 
@@ -389,34 +400,35 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
 ) {
     int cell_from_smaller_piece;
     int no_iterations_without_removal = -1;
-    for (auto& item : fea_results.data) {
+    int initial_count = count();
+    for (auto [cell, cell_stress] : fea_results.data) {
         no_iterations_without_removal++;
-        if (smaller_piece && no_iterations_without_removal > 200) {
-            if (true) cout << "WARNING: 200 cells in a row could not be removed. There may be no more cells to remove.\n";
+        if (no_iterations_without_removal > 200) {
+            if (true) cout << "WARNING: 200 cells in a row could not be removed. "
+                << "There may be no more cells to remove.\n";
             return removed_cells.size();
         }
-        int cell = item.first;
-        double cell_stress = item.second;
 
-        // If the cell's stress exceeds the maximum, break the loop (all subsequent cells will also exceed the maximum since the list is ordered).
-        if (cell_stress > fea_casemanager->max_stress_threshold) continue;
+        // If the cell's stress exceeds the maximum, break the loop (all subsequent cells will also exceed the
+        // maximum since the list is ordered).
+        if (cell_stress > fea_casemanager->max_stress_threshold) break;
 
-        if (smaller_piece && no_iterations_without_removal > 100) cout << "before boundcells\n";
+        //if (no_iterations_without_removal > 100) cout << "before boundcells\n";
         
         // If the cell has a line on which a boundary condition was applied, skip deletion
         if (help::is_in(&fea_casemanager->cells_to_keep, cell)) {
             continue;
         }
 
-        if (smaller_piece && no_iterations_without_removal > 100) cout << "before value check\n";
+        //if (no_iterations_without_removal > 100) cout << "before value check\n";
 
         // If the cell was already empty, skip deletion (more importantly: don't count this as a deletion)
         if (!values[cell]) continue;
 
-        if (smaller_piece && no_iterations_without_removal > 100) cout << "before removal\n";
+        //if (no_iterations_without_removal > 100) cout << "before removal\n";
 
-        // If a 'smaller piece' vector was provided, perform cell removal in 'careful mode'. This means: check whether cell deletion results in 
-        // multiple pieces. If so, undo the deletion and whitelist the cell.
+        // If a 'smaller piece' vector was provided, perform cell removal in 'careful mode'. This means: check
+        // whether cell deletion results in multiple pieces. If so, undo the deletion and whitelist the cell.
         if (smaller_piece != 0) {
             vector<int> _removed_cell = { cell };
             remove_and_remember(cell);
@@ -426,7 +438,8 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
             if (!_is_single_piece) {
 
                 // Try removing the smaller pieces
-                pieces.clear(); removed_pieces.clear(); main_piece = grd::Piece(); // Flush edit memory except for removed_cells
+                // Flush edit memory except for removed_cells
+                pieces.clear(); removed_pieces.clear(); main_piece = grd::Piece(); 
                 init_pieces();
                 vector<int> removed_cell = { cell };
                 remove_smaller_pieces(pieces, &removed_cell, true);
@@ -436,18 +449,16 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
                 }
                 else {
                     // If removing the pieces failed to restore unity, undo the removal of the pieces and the cell
-                    if (VERBOSE) cout << "Removal of cell " << cell << " resulted in splitting of the shape, and removing pieces failed to restore unity.\n";
+                    if (VERBOSE) cout << "Removal of cell " << cell
+                        << " resulted in splitting of the shape, and removing pieces failed to restore unity.\n";
                     restore_removed_pieces(removed_pieces);
-                    //if (no_iterations_without_removal > 100) {
-                    //    set(cell, 5); // TEMP
-                    //    print(); // TEMP
-                    //}
                     restore(cell);
                     if (VERBOSE) cout << "restored cell." << endl;
                     continue;
                 }
             }
-            if (no_cells_removed % (no_cells_to_remove / 10) == 0) cout << "no removed cells: " << no_cells_removed << " / " << no_cells_to_remove << endl;
+            if (no_cells_removed % (no_cells_to_remove / 10) == 0) cout << "no removed cells: "
+                << no_cells_removed << " / " << no_cells_to_remove << endl;
             no_cells_removed++;
         }
 
@@ -455,17 +466,18 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         int no_deleted_neighbors = 0;
         if (!cell_is_safe_to_delete(cell, no_deleted_neighbors)) {
             restore(cell);
-            //cout << "cell is not safe to delete" << endl;
             continue;
         }
 
         // Set cell to zero, making it empty
-        //cout << "no removed cells: " << removed_cells.size() << endl;
         if (smaller_piece == 0) remove_and_remember(cell);
         no_iterations_without_removal = 0;
-        if (removed_cells.size() >= no_cells_to_remove) break;
+        no_cells_removed = initial_count - count();
+        if (no_cells_removed >= no_cells_to_remove) {
+            break;
+        }
     }
-    return removed_cells.size();
+    return no_cells_removed;
 }
 
 int fessga::grd::Densities2d::get_no_cells_in_removed_pieces() {
@@ -480,7 +492,8 @@ bool fessga::grd::Densities2d::remove_floating_piece(
 ) {
     vector<int> _removed_cells;
     for (auto& cell : piece->cells) {
-        // TODO: The last two conditions of the following if-statement should not be necessary, but they are. Figure out why.
+        // TODO: The last two conditions of the following if-statement should not be necessary, but they are.
+        // Figure out why.
         bool cell_cannot_be_removed = (
             fea_results.data_map[cell] > fea_casemanager->max_stress_threshold ||
             help::is_in(&fea_casemanager->cells_to_keep, cell)
@@ -530,14 +543,16 @@ void fessga::grd::Densities2d::remove_smaller_pieces(
         }
         else if (VERBOSE) cout << "Piece " << i << " was not removed." << endl;
 
-        // If this flag is set, we must prevent that the removal of a piece results in the splitting of the shape into multiple pieces.
+        // If this flag is set, we must prevent that the removal of a piece results in the splitting of the shape
+        // into multiple pieces.
         if (check_if_single_piece) {
             bool _is_single_piece = is_single_piece(-1, false);
             if (VERBOSE) cout << "CHECKING WHETHER PIECE REMOVAL RESULTED IN MULTIPLE PIECES....\n";
 
             // If the shape is broken into multiple pieces, undo the removal of the current piece
             if (!_is_single_piece) {
-                if (VERBOSE) cout << "UNDOING THE REMOVAL OF PIECE " << i << " BECAUSE ITS REMOVAL SPLIT THE SHAPE INTO MULTIPLE PIECES" << endl;
+                if (VERBOSE) cout << "UNDOING THE REMOVAL OF PIECE " << i
+                    << " BECAUSE ITS REMOVAL SPLIT THE SHAPE INTO MULTIPLE PIECES" << endl;
                 vector<grd::Piece> removed_piece = { piece };
                 restore_removed_pieces(removed_piece);
             }
@@ -586,7 +601,9 @@ void fessga::grd::Densities3d::fill_cells_inside_mesh(Vector3d offset, MatrixXd*
 
     // Initialize different ray directions, (this is a temporary fix for a bug whereby some cells
     // are not properly assigned a density of 1)
-    vector<Vector3d> ray_directions = { Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0) };
+    vector<Vector3d> ray_directions = {
+        Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0)
+    };
 
     // Create list of triangles
     std::vector<tracer::Triangle> triangles;
@@ -819,6 +836,7 @@ int fessga::grd::Densities2d::get_empty_neighbor_cell_of_line(int cell, int loca
 void fessga::grd::Densities2d::save_snapshot() {
     for (int i = 0; i < size; i++) snapshot[i] = values[i];
     _snapshot_count = _count;
+    fea_results_snapshot = fea_results;
 }
 
 // Save a copy of the current state of the density distribution, to be used only internally
@@ -831,6 +849,7 @@ void fessga::grd::Densities2d::save_internal_snapshot() {
 void fessga::grd::Densities2d::load_snapshot() {
     for (int i = 0; i < size; i++) values[i] = snapshot[i];
     _count = _snapshot_count;
+    fea_results = fea_results_snapshot;
 }
 
 // Load the previously saved state (i.e. the snapshot). Only for internal use.

@@ -2,8 +2,33 @@
 #include "fess.h"
 
 
-void FESS::export_stats(string iteration_name) {
-	export_base_stats(iteration_name);
+void FESS::export_meta_parameters(vector<string>*_) {
+	string feasibility_filtering = "use feasibility filtering = ";
+	string suffix = do_feasibility_filtering ? "yes" : "no";
+	feasibility_filtering += suffix;
+	string bound_connection = "maintain boundary connection = ";
+	suffix = fea_casemanager.maintain_boundary_connection ? "yes" : "no";
+	bound_connection += suffix;
+	vector<string> additional_metaparameters = {
+		feasibility_filtering,
+		"initial greediness = " + to_string(greediness),
+		bound_connection
+	};
+	OptimizerBase::export_meta_parameters(&additional_metaparameters);
+}
+
+void FESS::export_stats(string iteration_name, bool initialize) {
+	export_base_stats();
+	string statistics_file = output_folder + "/statistics.csv";
+	cout << "Exporting statistics to " << statistics_file << endl;
+	if (initialize) IO::write_text_to_file(
+		"Iteration, Relative area, Greediness, #Cells removed",
+		statistics_file
+	);
+	IO::append_to_file(statistics_file,
+		to_string(iteration_number) + ", " + to_string(relative_area) + ", " + to_string(greediness) + ", " +
+		to_string(no_cells_removed)
+	);
 }
 
 void FESS::log_termination(string final_valid_iteration_folder, int final_valid_iteration) {
@@ -96,29 +121,27 @@ void FESS::fill_design_domain() {
 
 void FESS::run() {
 	cout << "Beginning FESS run. Saving results to " << output_folder << endl;
+	export_meta_parameters();
 	double min_stress, max_stress;
 	string final_valid_iteration_folder;
 	int final_valid_iteration = 1;
-	int i = 1;
+	int iteration_number = 1;
 	bool last_iteration_was_valid = true;
 	if (verbose) densities.print();
 
 	fill_design_domain();
 
-	while (i - 1 < max_iterations) {
-		cout << "\nFESS: Starting iteration " << i << ".\n";
+	while (iteration_number - 1 < max_iterations) {
+		cout << "\nFESS: Starting iteration " << iteration_number << ".\n";
 
 		// Create new subfolder for output of current iteration
-		iteration_folder = get_iteration_folder(i, true);
+		iteration_folder = get_iteration_folder(iteration_number, true);
 		if (last_iteration_was_valid) {
+			if (verbose) densities.print();
 			final_valid_iteration_folder = iteration_folder;
-			export_stats(iteration_name);
+			relative_area = (float)(densities.count()) / (float)(densities.size);
+			export_stats(iteration_name, iteration_number == 1);
 		}
-
-		// Reset densities object (keeping only the density values themselves)
-		/*grd::Densities2d _densities = grd::Densities2d(densities.dim_x, mesh.diagonal, iteration_folder);
-		_densities.copy_from(&densities);
-		densities = _densities;*/
 		densities.output_folder = iteration_folder;
 
 		// Generate new FE mesh using modified density distribution
@@ -127,7 +150,7 @@ void FESS::run() {
 		msh::create_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
 
-		create_sif_files(&densities, &fe_mesh, verbose);
+		create_sif_files(&densities, &fe_mesh);
 
 		// Export newly generated FE mesh
 		msh::export_as_elmer_files(&fe_mesh, iteration_folder);
@@ -142,7 +165,6 @@ void FESS::run() {
 		// Call Elmer to run FEA on new FE mesh
 		string batch_file = msh::create_batch_file(iteration_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
-		FILE* pipe;
 		fessga::phys::call_elmer(iteration_folder, &fea_casemanager);
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
@@ -154,26 +176,49 @@ void FESS::run() {
 		min_stress = densities.fea_results.min;
 		cout << "FESS: Current maximum stress: " << std::setprecision(3) << std::scientific << max_stress << endl;
 		cout << "FESS: Current minimum stress: " << std::setprecision(3) << std::scientific << min_stress << endl;
+		
+		int no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
 
 		// Check if maximum stress exceeds threshold
 		if (max_stress > fea_casemanager.max_stress_threshold) {
 			cout << std::setprecision(3) << std::scientific;
-			cout << "FESS: highest stress in FE result (" << max_stress
-				<< ") EXCEEDS MAXIMUM THRESHOLD (" << fea_casemanager.max_stress_threshold << ")\n";
-			final_valid_iteration_folder = get_iteration_folder(i - 1);
-			log_termination(final_valid_iteration_folder, final_valid_iteration);
-			break;
+			cout << "FESS: Highest stress in FE result (" << max_stress
+				<< ") exceeds maximum stress threshold (" << fea_casemanager.max_stress_threshold << ")\n";
+
+			// Decrease greediness and load snapshot, so that optimization can be retried in a less agressive manner.
+			if (no_cells_to_remove > 1) {
+				float old_greediness = greediness;
+				greediness /= 2.0;
+				cout << "Re-trying optimization with reduced greediness...\n";
+				cout << "Reducing greediness from " << old_greediness << " to " << greediness << endl;
+				densities.load_snapshot();
+				no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
+			}
+			else {
+				// If greediness was already at a minimal level (meaning only single cells were removed in 
+				// each iteration), terminate FESS altogether.
+				final_valid_iteration_folder = get_iteration_folder(iteration_number - 1);
+				log_termination(final_valid_iteration_folder, final_valid_iteration);
+				break;
+			}
 		}
 
 		// If termination conditions were not met, prepare density distribution for next iteration by removing 
 		// elements with lowest stress
-		int no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
-		densities.remove_low_stress_cells(no_cells_to_remove, 0);
+		densities.save_snapshot();
+		densities.removed_cells.clear();
+		densities.redo_count();
+		int initial_no_cells = densities.count();
+		no_cells_removed = densities.remove_low_stress_cells(no_cells_to_remove, 0);
 
 		// Check if the resulting shape consists of exactly one piece. 
 		// If not, the shape has become invalid and a repair operation is necessary.
-		int no_cells_removed = handle_floating_pieces(&fe_mesh, no_cells_to_remove, densities.removed_cells.size());
-		if (last_iteration_was_valid && verbose) densities.print();
+		no_cells_removed = handle_floating_pieces(&fe_mesh, no_cells_to_remove, no_cells_removed);
+		densities.redo_count();
+
+		// Do feasibility filtering if applicable
+		if (do_feasibility_filtering) densities.do_feasibility_filtering();
+		no_cells_removed = initial_no_cells - densities.count();
 
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue
 		// optimization.
@@ -188,10 +233,10 @@ void FESS::run() {
 				<< std::fixed << (float)no_cells_removed / (float)densities.size << ", to "
 				<< (float)(densities.count()) / (float)densities.size << "\n";
 			last_iteration_was_valid = true;
-			final_valid_iteration = i;
-			densities.save_snapshot();
+			final_valid_iteration = iteration_number;
 		}
 
-		i++;
+		densities.redo_count();
+		iteration_number++;
 	}
 }

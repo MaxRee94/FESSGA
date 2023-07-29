@@ -92,8 +92,13 @@ namespace fessga {
                 for (int i = 0; i < size; i++) _count += values[i];
             }
             void update_count() {
-                if (_count == -2) redo_count(); // Values have been set using the set() function (which does not update the count) and should be recounted.
-                else if (_count == -1) cerr << "Cannot count density values because the array has not been completely filled.\n" << endl;
+                // Values have been set using the set() function (which does not update the count) and
+                // should be recounted.
+                if (_count == -2) redo_count();
+                else if (_count == -1) {
+                    cerr << "Cannot count density values because the array has not been completely filled.\n" << endl;
+                    throw("RuntimeError");
+                }
             }
             void fill(int cell) {
                 update_count();
@@ -136,17 +141,14 @@ namespace fessga {
             void remove_and_remember(int cell) {
                 update_count();
                 if (values[cell] != 0) {
-                    values[cell] = 0;
-                    _count--;
+                    del(cell);
+                    removed_cells.push_back(cell);
                 }
-                removed_cells.push_back(cell);
             }
             // Delete cells, update count, AND record the removal
             void remove_and_remember(vector<int> cells) {
-                update_count();
                 for (auto& cell : cells) {
-                    del(cell);
-                    removed_cells.push_back(cell);
+                    remove_and_remember(cell);
                 }
             }
             void set_main_piece(Piece* piece) {
@@ -231,13 +233,14 @@ namespace fessga {
             int get_no_cells_in_removed_pieces();
             void visualize_keep_cells();
             void visualize_cutout_cells();
+            void visualize_removed_cells();
             bool repair();
             bool remove_isolated_material();
             void do_single_feasibility_filtering_pass();
             void do_feasibility_filtering(bool verbose = false);
             void fill_voids(int no_true_neighbors = 4);
             int get_empty_neighbor_cell_of_line(int cell_coord, int local_line_idx);
-            double get_relative_volume();
+            double get_relative_area();
             double get_inverse_relative_volume();
             void compute_center_of_mass(bool verbose = false);
             void compute_area(bool verbose = false);
@@ -254,6 +257,7 @@ namespace fessga {
             Vector2d diagonal;
             phys::FEACaseManager* fea_casemanager = 0;
             phys::FEAResults2D fea_results;
+            phys::FEAResults2D fea_results_snapshot;
             vector<int> removed_cells = {};
             vector<Piece> pieces;
             vector<Piece> removed_pieces;

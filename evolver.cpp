@@ -4,6 +4,7 @@
 #include <thread>
 
 int NO_FEA_THREADS = 6; // must be even number
+int NO_RESULTS_THREADS = 2; // must be even number
 
 
 /*
@@ -23,16 +24,17 @@ void run_FEA_batch(
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 
 		// Communicate that FEA is finished and that the .vtk file is therefore ready to be read.
-		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt"); 
+		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt");
+		if (i == pop_size - 1) cout << "About to finish FEA for all children.\n";
 	}
 }
 
 // Obtain FEA results
 void load_physics_batch(
-	vector<evo::Individual2d>* population, int offset, int pop_size, msh::SurfaceMesh* mesh, bool verbose = true
+	vector<evo::Individual2d>* population, int offset, int thread_offset, int pop_size,
+	msh::SurfaceMesh* mesh, bool verbose = true
 ) {
-	cout << "Starting results loader...\n";
-	for (int i = offset; i < (offset + pop_size); i++) {
+	for (int i = offset + thread_offset; i < (offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		while (!IO::file_exists(fea_finish_confirmation_file)) {}
@@ -71,6 +73,22 @@ float get_variation(vector<evo::Individual2d>* population) {
 	return variation;
 }
 
+// Get mean and standard deviation of fitnesses in current generation
+tuple<double, double> get_fitness_stats(map<int, double>* fitnesses_map) {
+	// Compute mean
+	double mean = 0;
+	for (auto& [_, fitness] : *fitnesses_map) mean += fitness;
+	mean /= (double)fitnesses_map->size();
+	
+	// Compute stdev
+	double soq = 0;
+	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - mean) * (fitness - mean);
+	double variance = soq / (fitnesses_map->size() - 1);
+	double stdev = sqrt(variance);
+
+	return { mean, stdev };
+}
+
 /*
 Termination condition based on the 'variation' within the population.
 */
@@ -82,24 +100,28 @@ bool variation_minimum_passed(vector<evo::Individual2d>* population, float thres
 
 void Evolver::collect_stats() {
 	variation = get_variation(&population);
+	auto [_fitness_mean, _fitness_stdev] = get_fitness_stats(&fitnesses_map);
+	fitness_mean = _fitness_mean;
+	fitness_stdev = _fitness_stdev;
 }
 
-void Evolver::export_stats(string iteration_name, bool initialize) {
+void Evolver::export_stats(string iteration_name, bool initialize, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
-	cout << "Exporting statistics to " << statistics_file << endl;
-	export_base_stats(iteration_name);
+	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
+	export_base_stats();
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Best fitness, Variation, Best individual",
+		"Iteration, Best fitness, Variation, Fitness mean, Fitness stdev",
 		statistics_file
 	);
 	IO::append_to_file(
 		statistics_file,
 		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " +
-		to_string(variation) + ", " + current_best_solution_folder
+		to_string(variation) + ", " + to_string(fitness_mean) + ", " +
+		to_string(fitness_stdev)
 	);
 	vector<string> stats = {
-		"Current variation: " + to_string(variation),
-		"current best individual (folder location): " + current_best_solution_folder
+		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
+		"Fitness stdev = " + to_string(fitness_stdev)
 	};
 	cout << help::join(&stats, ", ") << endl;
 }
@@ -240,8 +262,14 @@ void Evolver::init_population(bool verbose) {
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
 	cout << "Generating initial population finished.\n";
+
 	// Start a thread to read the results of the FEA
-	thread results_thread(load_physics_batch, &population, 0, pop_size, &mesh, verbose);
+	cout << "Starting results loaders...\n";
+	thread results_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
+
+	// Also start a reader in the main thread
+	load_physics_batch(&population, 0, 1, pop_size, &mesh, verbose);
+
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
@@ -253,9 +281,9 @@ void Evolver::init_population(bool verbose) {
 	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
-void Evolver::write_densities_to_image() {
+void Evolver::write_densities_to_image(bool verbose) {
 	string image_iteration_folder = image_folder + "/" + iteration_name;
-	cout << "Exporting individuals to image files at directory location " << image_iteration_folder << endl;
+	if (verbose) cout << "Exporting individuals to images at directory location " << image_iteration_folder << endl;
 	IO::create_folder_if_not_exists(image_iteration_folder);
 	for (int i = 0; i < population.size(); i++) {
 		img::write_distribution_to_image(
@@ -417,7 +445,11 @@ void Evolver::create_children(bool verbose) {
 	cout << "Finished generating children.\n";
 
 	// Start a thread to read the results of the FEA
-	thread results_thread(load_physics_batch, &population, pop_size, pop_size, &mesh, verbose);
+	cout << "Starting results loaders...\n";
+	thread results_thread(load_physics_batch, &population, pop_size, 0, pop_size, &mesh, verbose);
+	
+	// Also start a reader in the main thread
+	load_physics_batch(&population, pop_size, 1, pop_size, &mesh, verbose);
 
 	// Join threads
 	fea_thread1.join();
@@ -426,7 +458,6 @@ void Evolver::create_children(bool verbose) {
 	fea_thread4.join();
 	fea_thread5.join();
 	fea_thread6.join();
-	cout << "Finished FEA for all children.\n";
 	results_thread.join();
 	cout << "Finished reading FEA results for all children.\n";
 }
@@ -440,7 +471,7 @@ void Evolver::export_meta_parameters(vector<string>* _) {
 		"mutation rate level 0 = " + to_string(mutation_rate_level0),
 		"mutation rate level 1 = " + to_string(mutation_rate_level1),
 		"max iterations since fitness change = " + to_string(max_iterations_without_change),
-		"crossover method = " + crossover_method
+		"crossover method = " + crossover_method,
 	};
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }
@@ -461,7 +492,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
 			fitness = _max_stress / fea_casemanager.max_stress_threshold;
 		}
-		else fitness = population[i].get_relative_volume();
+		else fitness = population[i].get_relative_area();
 		fitnesses_map.insert(pair(i, fitness));
 
 		// Update best fitness if improved
