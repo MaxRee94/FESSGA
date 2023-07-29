@@ -106,7 +106,6 @@ namespace fessga {
             );
             vector<int> get_additional_bound_cells(vector<int>* origin_cells, vector<int>* cells_to_avoid);
             void update_casepaths(string case_folder);
-            void get_vtk_paths(vector<string>& vtk_paths);
 
             vector<phys::FEACase> sources, targets, active_cases;
             vector<map<string, vector<Vector2d>>> migration_vectors;
@@ -160,31 +159,31 @@ namespace fessga {
         }
 
         static bool load_2d_physics_data(
-            vector<string> filenames, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size,
+            vector<string> filenames, FEAResults2D& results, int dim_x, int dim_y, Vector2d cell_size,
             Vector3d _offset, char* data_type)
         {
-            // Initialize data map to contain only 0's
-            for (int i = 0; i < dim_x * dim_y; i++) results->data_map.insert(pair(i, 0));
-
-            // For each coordinate, retain the maximum value out of all FEA runs  
+            // For each coordinate, retain the maximum value out of all FEA runs
+            // We thereby obtain a superposition of stress distributions.
             for (auto& filename : filenames) {
                 FEAResults2D single_run_results;
-                load_single_FE_run(filename, &single_run_results, dim_x, dim_y, cell_size, _offset, data_type);
-                for (int coord = 0; coord < dim_x * dim_y; coord++) {
-                    if (single_run_results.data_map[coord] > results->data_map[coord]) {
-                        results->data_map[coord] = single_run_results.data_map[coord];
+                load_single_VTK_file(filename, &single_run_results, dim_x, dim_y, cell_size, _offset, data_type);
+                for (auto& [coord, stress] : single_run_results.data_map) {
+                    if (single_run_results.data_map[coord] > results.data_map[coord]) {
+                        results.data_map[coord] = single_run_results.data_map[coord];
                     }
                 }
-                if (single_run_results.max > results->max) results->max = single_run_results.max;
+                if (single_run_results.max > results.max) results.max = single_run_results.max;
+                if (single_run_results.min < results.min) results.min = single_run_results.min;
             }
-            help::sort(results->data_map, results->data);
+            help::sort(results.data_map, results.data);
 
             return true;
         }
 
-        static bool load_single_FE_run(
-            string filename, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, char* data_type)
-        {
+        static bool load_single_VTK_file(
+            string filename, FEAResults2D* results, int dim_x, int dim_y, Vector2d cell_size,
+            Vector3d _offset, char* data_type
+        ) {
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
             reader->SetFileName(filename.c_str());
@@ -222,16 +221,16 @@ namespace fessga {
                 results_nodewise[coord] = (double)results_array->GetValue(i);
             }
 
-            // Create cellwise results distribution by averaging all groups of 4 corners of a cell
+            // Create cellwise results distribution by taking maximum of each group of 4 corners of a cell
             double min_stress = 1e30;
             double max_stress = 0;
             for (int i = 0; i < coords.size(); i++) {
-                int coord = coords[i];
-                int x = coord / (dim_y + 1);
-                int y = coord % (dim_y + 1);
+                int node_coord = coords[i];
+                int x = node_coord / (dim_y + 1);
+                int y = node_coord % (dim_y + 1);
                 if (x == dim_x || y == dim_y) continue; // Skip coordinates outside cell domain
                 Vector4d neighbors;
-                neighbors[0] = results_nodewise[coord];
+                neighbors[0] = results_nodewise[node_coord];
                 neighbors[1] = results_nodewise[(x + 1) * (dim_y + 1) + y];
                 neighbors[2] = results_nodewise[(x + 1) * (dim_y + 1) + (y + 1)];
                 neighbors[3] = results_nodewise[x * (dim_y + 1) + (y + 1)];
@@ -242,7 +241,6 @@ namespace fessga {
                 int cell_coord = x * dim_y + y;
                 results->data_map.insert(pair(cell_coord, cell_stress));
             }
-            help::sort(results->data_map, results->data);
             results->min = min_stress;
             results->max = max_stress;
 

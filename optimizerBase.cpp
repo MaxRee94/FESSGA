@@ -3,6 +3,7 @@
 
 
 void load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verbose) {
+	// Obtain vtk file paths
 	vector<string> vtk_paths;
 	msh::get_vtk_paths(densities, vtk_paths);
 	for (auto& vtk_path : vtk_paths) {
@@ -12,10 +13,21 @@ void load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 			exit(1);
 		}
 	}
+
+	// Initialize data map to contain only 0's
+	densities->fea_results.data_map.clear();
+	for (auto& [coord, stress] : densities->fea_results.data_map) cout << "coord: " << coord << endl;
+	for (int i = 0; i < densities->dim_x * densities->dim_y; i++) {
+		if (densities->at(i)) densities->fea_results.data_map.insert(pair(i, 0));
+	}
+
+	// Load physics
 	bool physics_loaded = fessga::phys::load_2d_physics_data(
-		vtk_paths, &densities->fea_results, densities->dim_x,
-		densities->dim_y, densities->cell_size, mesh->offset, "Vonmises"
+		vtk_paths, densities->fea_results, densities->dim_x, densities->dim_y,
+		densities->cell_size, mesh->offset, "Vonmises"
 	);
+
+	// Check if loading was successful
 	if (physics_loaded && verbose) cout << "OptimizerBase: Finished reading stress distribution from .vtk file." << endl;
 	else if (!physics_loaded) {
 		cout << "OptimizerBase: Error: Unable to read physics data." << endl;
