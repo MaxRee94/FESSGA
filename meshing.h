@@ -250,7 +250,7 @@ namespace fessga {
                 Element line = fe_mesh->lines[i];
 
                 // Encode line idx, boundary id, p1, p2, and type
-                int parent_id = line.id >> 2;
+                int parent_id = line.id >> 2 + 1;
                 string _line = to_string(line.id) + " " + to_string(line.boundary_id) + " " + to_string(parent_id) + " 0 202";
 
                 // Encode member node ids
