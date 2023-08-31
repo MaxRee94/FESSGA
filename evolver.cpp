@@ -16,25 +16,62 @@ void run_FEA_batch(
 	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
+	bool is_2nd_attempt = false;
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
 		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
 		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
 		fessga::phys::call_elmer(individual_folders[i], fea_casemanager);
-		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
-			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+		
+		// Get vtk paths
+		vector<string> vtk_paths;
+		msh::get_vtk_paths(fea_casemanager, individual_folders[i], vtk_paths);
+
+		// Wait for all case files to appear on disk
+		time_t start = time(0);
+		bool do_retry = false;
+		for (auto& vtk_path : vtk_paths) {
+			while (!IO::file_exists(vtk_path)) {
+				float seconds_since_start = difftime(time(0), start);
+				if (seconds_since_start > 10) {
+					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
+					if (!is_2nd_attempt) {
+						cout << "--      WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						do_retry = true;
+						is_2nd_attempt = true;
+						break;
+					}
+					else {
+						cout << "--      ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						exit(1);
+					}
+				}
+			}
+			if (do_retry) break;
+		}
+		if (do_retry) {
+			cout << "Re-running Elmer bat file in individual folder '" << individual_folders[i] << "'\n";
+			i -= NO_FEA_THREADS;
+			continue;
+		}
+		is_2nd_attempt = false;
 
 		// Communicate that FEA is finished and that the .vtk file is therefore ready to be read.
 		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt");
 		if (i == pop_size - 1) cout << "About to finish FEA for all children.\n";
+		
+		// Log progress to stdout
+		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
+			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+
 	}
 }
 
 // Obtain FEA results
 void load_physics_batch(
-	vector<evo::Individual2d>* population, int offset, int thread_offset, int pop_size,
+	vector<evo::Individual2d>* population, int pop_offset, int thread_offset, int pop_size,
 	msh::SurfaceMesh* mesh, bool verbose = true
 ) {
-	for (int i = offset + thread_offset; i < (offset + pop_size); i += NO_RESULTS_THREADS) {
+	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		while (!IO::file_exists(fea_finish_confirmation_file)) {}
@@ -42,7 +79,7 @@ void load_physics_batch(
 		// Load physics
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
-			cout << "- Read stress distribution for individual " << i - offset + 1 << " / " << pop_size << "\n";
+			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << "\n";
 	}
 }
 
@@ -108,17 +145,15 @@ void Evolver::collect_stats() {
 void Evolver::export_stats(string iteration_name, bool initialize, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
-	export_base_stats();
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Best fitness, Variation, Fitness mean, Fitness stdev",
+		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev",
 		statistics_file
 	);
-	IO::append_to_file(
-		statistics_file,
-		to_string(iteration_number) + ", " + to_string(best_fitness) + ", " +
-		to_string(variation) + ", " + to_string(fitness_mean) + ", " +
-		to_string(fitness_stdev)
-	);
+	export_base_stats();
+	stats.push_back(to_string(best_fitness));
+	stats.push_back(to_string(variation));
+	stats.push_back(to_string(fitness_mean));
+	stats.push_back(to_string(fitness_stdev));
 	vector<string> stats = {
 		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
 		"Fitness stdev = " + to_string(fitness_stdev)
@@ -337,7 +372,12 @@ void Evolver::do_setup() {
 	export_meta_parameters();
 	create_iteration_directories(iteration_number);
 	if (verbose) densities.print();
+	
+	time_t start = time(0);
 	init_population();
+	float seconds_since_start = difftime(time(0), start);
+	cout << "seconds since start: " << seconds_since_start << endl;
+
 	evaluate_fitnesses(0);
 	help::sort(fitnesses_map, fitnesses_pairset);
 	best_individual_idx = (*fitnesses_pairset.begin()).first;
@@ -539,6 +579,7 @@ void Evolver::cleanup() {
 
 void Evolver::evolve() {
 	do_setup();
+	start_time = time(0);
 	while (!termination_condition_reached()) {
 		iteration_number++;
 		cout << "\nStarting iteration " << iteration_number << "...\n";

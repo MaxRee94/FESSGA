@@ -96,6 +96,8 @@ namespace fessga {
 
 		static string join(vector<string>* strings, string separator);
 
+		static string join(list<string>* strings, string separator);
+
 		static void remove_largest_vector(vector<vector<int>>* vectors, int& max_size);
 
 		static bool ends_with(string full_string, string ending);

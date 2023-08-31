@@ -45,6 +45,14 @@ string fessga::grd::Densities2d::do_export(string output_path) {
     return output_path;
 }
 
+void fessga::grd::Densities2d::init_vtk_paths() {
+    vtk_paths.clear();
+    for (auto& fea_case : fea_casemanager->active_cases) {
+        vtk_paths.push_back(output_folder + "/" + fea_case.name + "_0001.vtk");
+    }
+}
+
+
 /*
 * Export 3d density distribution to given path
 */

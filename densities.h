@@ -247,6 +247,7 @@ namespace fessga {
             void fill_level1_voids_and_fix_pinches(bool verbose = false);
             void fix_level1_void_or_pinch(vector<pair<int, int>>* offsets, int x, int y);
             void invert();
+            void init_vtk_paths();
 
             int dim_x = 0;
             int dim_y = 0;
@@ -264,6 +265,7 @@ namespace fessga {
             Piece main_piece = Piece();
             float com_x, com_y;
             double area;
+            vector<string> vtk_paths;
 
         protected:
             uint* values = 0;

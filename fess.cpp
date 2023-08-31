@@ -18,17 +18,16 @@ void FESS::export_meta_parameters(vector<string>*_) {
 }
 
 void FESS::export_stats(string iteration_name, bool initialize) {
-	export_base_stats();
-	string statistics_file = output_folder + "/statistics.csv";
 	cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Relative area, Greediness, #Cells removed",
+		"Iteration, Iteration time, Relative area, Greediness, #Cells removed",
 		statistics_file
 	);
-	IO::append_to_file(statistics_file,
-		to_string(iteration_number) + ", " + to_string(relative_area) + ", " + to_string(greediness) + ", " +
-		to_string(no_cells_removed)
-	);
+	stats.push_back(to_string(iteration_number));
+	stats.push_back(to_string(relative_area));
+	stats.push_back(to_string(greediness));
+	stats.push_back(to_string(no_cells_removed));
+	export_base_stats();
 }
 
 void FESS::log_termination(string final_valid_iteration_folder, int final_valid_iteration) {

@@ -98,6 +98,12 @@ string fessga::help::join(vector<string>* strings, string separator) {
     return result;
 }
 
+string fessga::help::join(list<string>* _strings, string separator) {
+    vector<string> strings;
+    for (auto const& string : *_strings) strings.push_back(string);
+    return join(&strings, separator);
+}
+
 void fessga::help::print_vector(std::vector<int>* vec) {
     for (int i = 0; i < vec->size(); i++) {
         if (i > 0) cout << ", ";

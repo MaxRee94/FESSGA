@@ -469,9 +469,9 @@ namespace fessga {
                 fea_case->content, "Output File Name = case\n", "Output File Name = " + fea_case->name + "_\n");
         }
 
-        static void get_vtk_paths(grd::Densities2d* densities, vector<string>& vtk_paths) {
-            for (auto& fea_case : densities->fea_casemanager->active_cases) {
-                vtk_paths.push_back(densities->output_folder + "/" + fea_case.name + "_0001.vtk");
+        static void get_vtk_paths(phys::FEACaseManager* fea_casemanager, string output_folder, vector<string>& vtk_paths) {
+            for (auto& fea_case : fea_casemanager->active_cases) {
+                vtk_paths.push_back(output_folder + "/" + fea_case.name + "_0001.vtk");
             }
         }
 

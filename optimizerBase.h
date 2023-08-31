@@ -6,11 +6,12 @@
 #include <algorithm>
 #include <map>
 #include "images.h"
+#include <list>
 
 using namespace fessga;
 
 
-void load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verbose = false);
+bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verbose = false);
 
 class OptimizerBase {
 public:
@@ -34,6 +35,7 @@ public:
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 		fea_casemanager = _fea_casemanager;
 		densities.fea_casemanager = &fea_casemanager;
+		statistics_file = output_folder + "/statistics.csv";
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -44,7 +46,10 @@ public:
 	int iteration_number = 0;
 	bool export_msh = false;
 	phys::FEACaseManager fea_casemanager;
+	string statistics_file;
+	list<string> stats;
 	double min_stress, max_stress;
+	time_t start_time;
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
@@ -72,9 +77,18 @@ public:
 		IO::write_text_to_file(content, output_folder + "/metaparameters.txt");
 	}
 
-	// Function to write statistics, images, and other generated data to files
+	// Function to write statistics, images, and other generated data to files (called once per iteration)
 	void export_base_stats() {
 		write_densities_to_image();
+
+		// Collect universal stats
+		stats.push_front(to_string(difftime(time(0), start_time)));
+		stats.push_front(to_string(iteration_number));
+
+		// Append the stats to the stats file
+		IO::append_to_file(statistics_file, help::join(&stats, ", "));
+		stats.clear();
+		start_time = time(0);
 	}
 
 	// Copy all files in a solution folder (iteration folder for FESS, individual folder for emma) to the specified target folder
