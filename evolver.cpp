@@ -11,16 +11,26 @@ int NO_RESULTS_THREADS = 2; // must be even number
 * Method to run a batch of FEA jobs on all given output folders
 */
 void run_FEA_batch(
-	vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
+	string iteration_folder, vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
 ) {
 	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
 	bool is_2nd_attempt = false;
+	vector<float> memory_status = help::get_free_memory();
+	string memory_string = help::join_as_string(memory_status, ", ");
+	vector<string> memory_history = { memory_string };
+	vector<time_t> system_times = { std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) };
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
 		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
 		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
 		fessga::phys::call_elmer(individual_folders[i], fea_casemanager);
+
+		// Record system time and RAM occupancy
+		vector<float> memory_status = help::get_free_memory();
+		string memory_string = help::join_as_string(memory_status, ", ");
+		memory_history.push_back(memory_string);
+		system_times.push_back(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
 		
 		// Get vtk paths
 		vector<string> vtk_paths;
@@ -28,29 +38,48 @@ void run_FEA_batch(
 
 		// Wait for all case files to appear on disk
 		time_t start = time(0);
-		bool do_retry = false;
+		bool fea_failed = false;
 		for (auto& vtk_path : vtk_paths) {
 			while (!IO::file_exists(vtk_path)) {
 				float seconds_since_start = difftime(time(0), start);
 				if (seconds_since_start > 10) {
 					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
+					fea_failed = true;
+					string logpath = iteration_folder + "/log_FEAthread_" + to_string(thread_offset + 1) + ".txt";
 					if (!is_2nd_attempt) {
-						cout << "--      WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-						do_retry = true;
-						is_2nd_attempt = true;
-						break;
+						cout << "- WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						if (!IO::file_exists(logpath)) IO::write_text_to_file("System time, RAM available (GB), Virtual Memory available (GB), Pagefile available (GB), Percent memory used", logpath);
 					}
 					else {
-						cout << "--      ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-						exit(1);
+						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
+
+					// Write system time- and memory occupancy history for the current thread to a logfile
+					string txt = "";
+					for (int i = 0; i < memory_history.size(); i++) {
+						string line = to_string(system_times[i]) + ", " + memory_history[i];
+						txt += line + "\n";
+					}
+					IO::append_to_file(logpath, txt);
+					memory_history.clear();
+					system_times.clear();
+
+					if (is_2nd_attempt) exit(1);
+
+					break;
 				}
 			}
-			if (do_retry) break;
+			if (fea_failed) break;
 		}
-		if (do_retry) {
+		if (fea_failed) {
+			if (is_2nd_attempt) { // After two attempts to run the FEA, signal that FEA has failed by creating a file 'FEA_FAILED.txt'.
+				IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FAILED.txt");
+				is_2nd_attempt = false;
+				continue;
+			}
 			cout << "Re-running Elmer bat file in individual folder '" << individual_folders[i] << "'\n";
 			i -= NO_FEA_THREADS;
+			is_2nd_attempt = true;
 			continue;
 		}
 		is_2nd_attempt = false;
@@ -62,7 +91,6 @@ void run_FEA_batch(
 		// Log progress to stdout
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
-
 	}
 }
 
@@ -74,7 +102,17 @@ void load_physics_batch(
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
-		while (!IO::file_exists(fea_finish_confirmation_file)) {}
+		string fea_failed_confirmation_file = population->at(i).output_folder + "/FEA_FAILED.txt";
+		bool fea_failed = false;
+		while (!IO::file_exists(fea_finish_confirmation_file)) {
+			if (IO::file_exists(fea_failed_confirmation_file)) {
+				fea_failed = true;
+				cout << "WARNING: Setting fitness to infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
+				population->at(i).fitness = INFINITY;
+				break;
+			}
+		}
+		if (fea_failed) continue;
 
 		// Load physics
 		load_physics(&population->at(i), mesh);
@@ -111,19 +149,26 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double> get_fitness_stats(map<int, double>* fitnesses_map) {
+tuple<double, double, double> get_fitness_stats(map<int, double>* fitnesses_map, vector<evo::Individual2d>* population) {
 	// Compute mean
-	double mean = 0;
-	for (auto& [_, fitness] : *fitnesses_map) mean += fitness;
-	mean /= (double)fitnesses_map->size();
+	double fit_mean = 0;
+	for (auto& [_, fitness] : *fitnesses_map) fit_mean += fitness;
+	fit_mean /= (double)fitnesses_map->size();
 	
 	// Compute stdev
 	double soq = 0;
-	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - mean) * (fitness - mean);
+	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - fit_mean) * (fitness - fit_mean);
 	double variance = soq / (fitnesses_map->size() - 1);
-	double stdev = sqrt(variance);
+	double fit_stdev = sqrt(variance);
 
-	return { mean, stdev };
+	// Compute average relative volume
+	double relative_area_sum = 0;
+	for (auto& indiv : *population) {
+		relative_area_sum += indiv.get_relative_area();
+	}
+	double relative_area_mean = relative_area_sum / (float)population->size();
+
+	return { fit_mean, fit_stdev, relative_area_mean };
 }
 
 /*
@@ -137,16 +182,17 @@ bool variation_minimum_passed(vector<evo::Individual2d>* population, float thres
 
 void Evolver::collect_stats() {
 	variation = get_variation(&population);
-	auto [_fitness_mean, _fitness_stdev] = get_fitness_stats(&fitnesses_map);
+	auto [_fitness_mean, _fitness_stdev, _relative_area_mean] = get_fitness_stats(&fitnesses_map, &population);
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
+	relative_area_mean = _relative_area_mean;
 }
 
-void Evolver::export_stats(string iteration_name, bool initialize, bool verbose) {
+void Evolver::export_stats(string iteration_name, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev",
+		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, RAM available (GB), Virtual Memory available (GB), Pagefile available (GB), Percent memory used",
 		statistics_file
 	);
 	export_base_stats();
@@ -154,6 +200,7 @@ void Evolver::export_stats(string iteration_name, bool initialize, bool verbose)
 	stats.push_back(to_string(variation));
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
+	stats.push_back(to_string(relative_area_mean));
 	vector<string> stats = {
 		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
 		"Fitness stdev = " + to_string(fitness_stdev)
@@ -251,6 +298,7 @@ void Evolver::create_single_individual(bool verbose) {
 	individual.visualize_cutout_cells();*/
 
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
+#if 1:
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
 
 	// Run the repair pipeline on each individual, to ensure feasibility.
@@ -264,6 +312,7 @@ void Evolver::create_single_individual(bool verbose) {
 	
 	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
 	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
+#endif
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -279,12 +328,12 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	thread fea_thread1(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	int i = NO_FEA_THREADS;
 	while (population.size() < pop_size) {
@@ -385,8 +434,9 @@ void Evolver::do_setup() {
 	IO::create_folder_if_not_exists(current_best_solution_folder);
 	copy_solution_files(population[best_individual_idx].output_folder, current_best_solution_folder);
 	collect_stats();
-	export_stats(iteration_name, true);
+	export_stats(iteration_name);
 	cleanup();
+	initialize = false;
 }
 
 void Evolver::update_objective_function() {
@@ -462,12 +512,12 @@ void Evolver::create_children(bool verbose) {
 		if (verbose && (population.size() < 20 || (i + 1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	thread fea_thread1(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -522,15 +572,19 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 	// Obtain FEA results and compute fitnesses
 	for (int i = offset; i < (pop_size + offset); i++) {
-		double _max_stress = population[i].fea_results.max;
+
 		/*cout << "\nmax stress: " << _max_stress << endl;
 		cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_casemanager.max_stress_threshold) {
+		if (population[i].fitness == INFINITY) {
+			fitness = INFINITY;
+			if (!help::is_in(&iterations_with_fea_failure, iteration_number)) iterations_with_fea_failure.push_back(iteration_number);
+		}
+		else if (population[i].fea_results.max > fea_casemanager.max_stress_threshold) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = _max_stress / fea_casemanager.max_stress_threshold;
+			fitness = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_area();
 		fitnesses_map.insert(pair(i, fitness));
@@ -573,7 +627,10 @@ void Evolver::do_selection() {
 }
 
 void Evolver::cleanup() {
-	IO::remove_directory_incl_contents(iteration_folder);
+	if (iteration_number < 5) return;
+	if (help::is_in(&iterations_with_fea_failure, (iteration_number - 4))) return; // Skip removal of iterations with FEA failure
+	string _iteration_folder = get_iteration_folder(iteration_number - 4);
+	IO::remove_directory_incl_contents(_iteration_folder);
 	cout << "Cleanup: Removed iteration directory and all contained files.\n";
 }
 
@@ -591,6 +648,7 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
+		exit(0);
 	}
 }
 

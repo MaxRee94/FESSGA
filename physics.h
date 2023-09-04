@@ -1,4 +1,5 @@
 #pragma once
+#define _HAS_STD_BYTE 0
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,8 @@
 #include "vtkUnstructuredGridAlgorithm.h"
 #include "helpers.h"
 #include "io.h"
+#include <array>
+
 
 //VTK_MODULE_INIT(vtkRenderingOpenGL2)
 //#define VTK_DEBUG_LEAKS true

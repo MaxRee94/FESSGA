@@ -47,7 +47,7 @@ public:
             cout << "Created dummy mesh" << endl;
         }
         else {
-            fessga::IO::read_mesh(input.path, V, F);
+            //fessga::IO::read_mesh(input.path, V, F);
             gui.load_example(&V, &F);
             mesh = msh::SurfaceMesh(&V, &F);
         }

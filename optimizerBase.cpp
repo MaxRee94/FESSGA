@@ -9,9 +9,10 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 	for (auto& vtk_path : vtk_paths) {
 		if (!IO::file_exists(vtk_path)) {
 			cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file (expected path " << vtk_path << ")\n";
+			return false;
 			//cout << "OptimizerBase: Terminating program." << endl;
 			//exit(1);
-			cout << "OptimizerBase";
+			//cout << "OptimizerBase";
 		}
 	}
 

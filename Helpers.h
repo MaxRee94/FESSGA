@@ -4,6 +4,7 @@
 #include <map>
 #include <cstdlib>
 #include <set>
+#include <Windows.h>
 
 #define VERBOSE false
 
@@ -92,6 +93,8 @@ namespace fessga {
 
 		static string join_as_string(vector<int> numbers, string separator);
 
+		static string join_as_string(vector<float> numbers, string separator);
+
 		static string join_as_string(vector<pair<int, int>> numbers, string separator);
 
 		static string join(vector<string>* strings, string separator);
@@ -118,6 +121,9 @@ namespace fessga {
 
 		// Push back the items in vec2 to the vector <result>
 		static void append_vector(vector<string>& result, vector<string>* vec2);
+
+		// Get free RAM memory
+		static vector<float> get_free_memory();
 
 	};
 };

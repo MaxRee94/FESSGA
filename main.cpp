@@ -1,11 +1,13 @@
-#include <igl/opengl/glfw/Viewer.h>
+// debug_malloc.cpp
+// compile by using: cl /EHsc /W4 /D_DEBUG /MDd debug_malloc.cpp
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include "crtdbg.h"
+
+//#include <igl/opengl/glfw/Viewer.h>
+#define _HAS_STD_BYTE 0
 #include "controller.h"
 #include "tests.h"
-
-using namespace Eigen;
-using namespace std;
-using namespace fessga;
-
 
 
 // Parse cli args
@@ -51,6 +53,8 @@ void run_tests(Controller* controller) {
 
 int main(int argc, char* argv[])
 {
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
     // Parse arguments
     string base_folder, action;
     Input input;

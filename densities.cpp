@@ -613,6 +613,7 @@ void fessga::grd::Densities3d::fill_cells_inside_mesh(Vector3d offset, MatrixXd*
         Vector3d(0, 1.0, 0), Vector3d(1.0, 1.0, 1.0).normalized(), Vector3d(1.0, 0, 0)
     };
 
+#if 0:
     // Create list of triangles
     std::vector<tracer::Triangle> triangles;
     for (int face_idx = 0; face_idx < F->rows(); face_idx++) {
@@ -661,6 +662,7 @@ void fessga::grd::Densities3d::fill_cells_inside_mesh(Vector3d offset, MatrixXd*
         cout << "    Processed slice " << slices_done + 1 << " / " << dim_x << endl;
         slices_done++;
     }
+#endif
 }
 
 /* Generate a binary density distribution on the grid based on the given mesh

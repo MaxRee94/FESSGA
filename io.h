@@ -1,17 +1,18 @@
 #pragma once
 #include <iostream>
-#include <igl/readOFF.h>
-#include <igl/readPLY.h>
-#include <igl/readOBJ.h>
-#include <igl/writeOFF.h>
-#include <igl/writeOBJ.h>
-#include <igl/writePLY.h>
+#include <fstream>
+//#include <igl/readOFF.h>
+//#include <igl/readPLY.h>
+//#include <igl/readOBJ.h>
+//#include <igl/writeOFF.h>
+//#include <igl/writeOBJ.h>
+//#include <igl/writePLY.h>
 
 
 namespace fessga {
 	class IO {
 	public:
-		static void read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
+		//static void read_mesh(std::string fpath, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool suppress_output = false);
 
 		static void read_file_content(std::string fpath, std::vector<std::string>& content);
 

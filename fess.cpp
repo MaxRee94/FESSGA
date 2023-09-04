@@ -17,10 +17,10 @@ void FESS::export_meta_parameters(vector<string>*_) {
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }
 
-void FESS::export_stats(string iteration_name, bool initialize) {
+void FESS::export_stats(string iteration_name) {
 	cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Relative area, Greediness, #Cells removed",
+		"Iteration, Iteration time, Relative area, Greediness, #Cells removed, Available RAM",
 		statistics_file
 	);
 	stats.push_back(to_string(iteration_number));
@@ -28,6 +28,7 @@ void FESS::export_stats(string iteration_name, bool initialize) {
 	stats.push_back(to_string(greediness));
 	stats.push_back(to_string(no_cells_removed));
 	export_base_stats();
+	initialize = false;
 }
 
 void FESS::log_termination(string final_valid_iteration_folder, int final_valid_iteration) {
@@ -139,7 +140,7 @@ void FESS::run() {
 			if (verbose) densities.print();
 			final_valid_iteration_folder = iteration_folder;
 			relative_area = (float)(densities.count()) / (float)(densities.size);
-			export_stats(iteration_name, iteration_number == 1);
+			export_stats(iteration_name);
 		}
 		densities.output_folder = iteration_folder;
 

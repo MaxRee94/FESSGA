@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <map>
 #include "physics.h"
-#include "raytracing.h"
+//#include "raytracing.h"
 
 using namespace Eigen;
 using namespace std;

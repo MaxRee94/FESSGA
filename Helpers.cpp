@@ -81,6 +81,14 @@ string fessga::help::join_as_string(vector<int> numbers, string separator) {
     return result;
 }
 
+string fessga::help::join_as_string(vector<float> numbers, string separator) {
+    string result = "";
+    for (auto number : numbers) {
+        result += to_string(number) + separator;
+    }
+    return result;
+}
+
 string fessga::help::join_as_string(vector<pair<int, int>> numbers, string separator) {
     string result = "";
     for (auto pair : numbers) {
@@ -369,5 +377,20 @@ void fessga::help::append_vector(vector<pair<int, int>>& result, vector<pair<int
 
 void fessga::help::append_vector(vector<string>& result, vector<string>* vec2) {
     for (auto& item : *vec2) result.push_back(item);
+}
+
+vector<float> fessga::help::get_free_memory() {
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    GlobalMemoryStatusEx(&status);
+    unsigned long long RAM_bytes = status.ullAvailPhys;
+    unsigned long long VM_bytes = status.ullAvailVirtual;
+    unsigned long long Pagefile_bytes = status.ullAvailPageFile;
+    auto percent_memory = status.dwMemoryLoad;
+
+    float RAM_gigabytes = (float)RAM_bytes / (float)(1 << 30);
+    float VM_gigabytes = (float)VM_bytes / (float)(1 << 30);
+    float Pagefile_gigabytes = (float)Pagefile_bytes / (float)(1 << 30);
+    return { RAM_gigabytes, VM_gigabytes, Pagefile_gigabytes, (float)percent_memory };
 }
 

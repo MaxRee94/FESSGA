@@ -332,7 +332,7 @@ void msh::create_FE_mesh(
 
         // Create the line element
         Element line;
-        line.id = line_idx + 1;
+        line.id = line_idx;
         line.type = type;
         line.no_tags = no_tags;
         line.body = physical_entity;

@@ -250,7 +250,7 @@ namespace fessga {
                 Element line = fe_mesh->lines[i];
 
                 // Encode line idx, boundary id, p1, p2, and type
-                int parent_id = line.id >> 2 + 1;
+                int parent_id = (line.id >> 2) + 1;
                 string _line = to_string(line.id) + " " + to_string(line.boundary_id) + " " + to_string(parent_id) + " 0 202";
 
                 // Encode member node ids
@@ -381,7 +381,7 @@ namespace fessga {
                     q++;
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
-                    int cell_coord = (line.id - 1) >> 2;
+                    int cell_coord = line.id >> 2;
                     if (!help::is_in(&fea_casemanager->cells_to_keep, cell_coord)) {
                         fea_casemanager->cells_to_keep.push_back(cell_coord);
                         bound_cells.push_back(cell_coord);
