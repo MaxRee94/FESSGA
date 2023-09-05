@@ -19,7 +19,7 @@ namespace fessga{
 				size = width * height * channels;
 				densities = _densities;
 				pixels_per_cell = height / densities.dim_y;
-				vals = new unsigned char[width * height * channels];
+				vals = DBG_NEW unsigned char[width * height * channels];
 			}
 			int width, height, channels, size, pixels_per_cell;
 			unsigned char* vals = 0;

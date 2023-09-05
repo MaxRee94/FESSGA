@@ -36,14 +36,14 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 
 	// Extract red values
 	int numPixels = width * height;
-	int* redValues = new int[numPixels];
+	int* redValues = DBG_NEW int[numPixels];
 	for (int i = 0; i < numPixels; ++i) {
 		int index = i * numChannels;
 		redValues[i] = image[index];
 	}
 
 	// Extract green values
-	int* greenValues = new int[numPixels];
+	int* greenValues = DBG_NEW int[numPixels];
 	for (int i = 0; i < numPixels; ++i) {
 		int index = i * numChannels + 1;
 		greenValues[i] = image[index];
@@ -121,7 +121,7 @@ void fessga::img::singlechannel_to_rgb(unsigned char* single_channel, Image* ima
 
 void fessga::img::write_distribution_to_image(grd::Densities2d densities, string path, bool verbose) {
 	img::Image image = img::Image(path, densities.dim_x, densities.dim_y, 3, densities);
-	unsigned char* single_channel = new unsigned char[image.width * image.height];
+	unsigned char* single_channel = DBG_NEW unsigned char[image.width * image.height];
 	convert_distribution_to_single_channel_image(densities, single_channel, &image);
 	singlechannel_to_rgb(single_channel, &image);
 	stbi_write_jpg(image.path, image.width, image.height, image.channels, image.vals, 100);

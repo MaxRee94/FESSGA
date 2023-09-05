@@ -134,7 +134,7 @@ void FESS::run() {
 	while (iteration_number - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << iteration_number << ".\n";
 
-		// Create new subfolder for output of current iteration
+		// Create DBG_NEW subfolder for output of current iteration
 		iteration_folder = get_iteration_folder(iteration_number, true);
 		if (last_iteration_was_valid) {
 			if (verbose) densities.print();
@@ -144,8 +144,8 @@ void FESS::run() {
 		}
 		densities.output_folder = iteration_folder;
 
-		// Generate new FE mesh using modified density distribution
-		cout << "FESS: Generating new FE mesh...\n";
+		// Generate DBG_NEW FE mesh using modified density distribution
+		cout << "FESS: Generating DBG_NEW FE mesh...\n";
 		msh::FEMesh2D fe_mesh;
 		msh::create_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
@@ -155,14 +155,14 @@ void FESS::run() {
 		// Export newly generated FE mesh
 		msh::export_as_elmer_files(&fe_mesh, iteration_folder);
 		if (export_msh) msh::export_as_msh_file(&fe_mesh, iteration_folder);
-		if (IO::file_exists(iteration_folder + "/mesh.header")) cout << "FESS: Exported new FE mesh.\n";
-		else cout << "FESS: ERROR: Failed to export new FE mesh.\n";
+		if (IO::file_exists(iteration_folder + "/mesh.header")) cout << "FESS: Exported DBG_NEW FE mesh.\n";
+		else cout << "FESS: ERROR: Failed to export DBG_NEW FE mesh.\n";
 
 		// Export density distribution
 		string densities_file = densities.do_export(iteration_folder + "/distribution2d.dens");
 		cout << "FESS: Exported current density distribution.\n";
 
-		// Call Elmer to run FEA on new FE mesh
+		// Call Elmer to run FEA on DBG_NEW FE mesh
 		string batch_file = msh::create_batch_file(iteration_folder);
 		cout << "FESS: Calling Elmer .bat file...\n";
 		fessga::phys::call_elmer(iteration_folder, &fea_casemanager);

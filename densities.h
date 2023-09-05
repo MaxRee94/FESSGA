@@ -66,9 +66,9 @@ namespace fessga {
             virtual void construct_grid() {
                 dim_y = round(diagonal(1) / cell_size(1));
                 size = dim_x * dim_y;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
+                values = DBG_NEW uint[size];
+                snapshot = DBG_NEW uint[size];
+                snapshot_internal = DBG_NEW uint[size];
                 delete_all(); // Initialize all values to zero
             }
             int get_idx(int x, int y) {
@@ -307,9 +307,9 @@ namespace fessga {
                 dim_y = round(diagonal(1) / cell_size(1));
                 dim_z = round(diagonal(2) / cell_size(2));
                 size = dim_x * dim_y * dim_z;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
+                values = DBG_NEW uint[size];
+                snapshot = DBG_NEW uint[size];
+                snapshot_internal = DBG_NEW uint[size];
                 delete_all(); // Initialize all values to zero
             }
             string do_export(string output_path);

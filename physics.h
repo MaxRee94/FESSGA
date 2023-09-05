@@ -1,4 +1,19 @@
 #pragma once
+
+// debug_malloc.cpp
+// compile by using: cl /EHsc /W4 /D_DEBUG /MDd debug_malloc.cpp
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include "crtdbg.h"
+
+#ifdef _DEBUG
+    #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+    // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+    // allocations to be of _CLIENT_BLOCK type
+#else
+    #define DBG_NEW new
+#endif
+
 #define _HAS_STD_BYTE 0
 #include <iostream>
 #include <stdio.h>
@@ -196,7 +211,7 @@ namespace fessga {
 
             // Initially, populate results array with zeroes (nodes on the grid which are part of the FE mesh will
             // have their corresponding values in the results array overwritten later)
-            double* results_nodewise = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+            double* results_nodewise = DBG_NEW double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
             help::populate_with_zeroes(results_nodewise, dim_x + 1, dim_y + 1);
 
             // Get point data (this object contains the physics data)
@@ -209,7 +224,7 @@ namespace fessga {
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
             vtkPoints* points = output->GetPoints();
-            double* point = new double[3];
+            double* point = DBG_NEW double[3];
             vector<int> coords = {};
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             Vector2d offset = Vector2d(_offset(0), _offset(1));

@@ -445,7 +445,7 @@ void Evolver::update_objective_function() {
 		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
 			<< fea_casemanager.max_stress_threshold + 1e5 <<
 			") to (" << fea_casemanager.max_stress_threshold << ").\n";
-		cout << "-- Updating fitnesses according to new objective function.\n";
+		cout << "-- Updating fitnesses according to DBG_NEW objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
 	}
@@ -482,8 +482,8 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 	msh::export_as_elmer_files(&individual->fe_mesh, individual->output_folder);
 	if (export_msh) msh::export_as_msh_file(&individual->fe_mesh, individual->output_folder);
 	if (verbose && IO::file_exists(individual->output_folder + "/mesh.header")) cout <<
-		"emma: Exported new FE mesh to " << individual->output_folder << endl;
-	else if (verbose) cout << "emma: ERROR: Failed to export new FE mesh.\n";
+		"emma: Exported DBG_NEW FE mesh to " << individual->output_folder << endl;
+	else if (verbose) cout << "emma: ERROR: Failed to export DBG_NEW FE mesh.\n";
 	string densities_file = individual->do_export(individual->output_folder + "/distribution2d.dens");
 	string batch_file = msh::create_batch_file(individual->output_folder);
 }
@@ -596,7 +596,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 	}
 	if (iterations_since_fitness_change == 0) {
-		cout << "EMMA: New best fitness: " << best_fitness << endl;
+		cout << "EMMA: DBG_NEW best fitness: " << best_fitness << endl;
 	}
 	else {
 		cout << "EMMA: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
@@ -618,7 +618,7 @@ void Evolver::do_selection() {
 	population = new_population;
 	fitnesses_map = new_fitnesses_map;
 
-	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
+	// If current iteration produced a DBG_NEW best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
 		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
@@ -636,6 +636,9 @@ void Evolver::cleanup() {
 
 void Evolver::evolve() {
 	do_setup();
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+	_CrtDumpMemoryLeaks();
+	exit(0);
 	start_time = time(0);
 	while (!termination_condition_reached()) {
 		iteration_number++;
@@ -648,7 +651,6 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
-		exit(0);
 	}
 }
 

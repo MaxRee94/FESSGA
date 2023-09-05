@@ -110,7 +110,7 @@ public:
 		}
 	}
 
-	// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
+	// Create and export DBG_NEW versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
 	void create_sif_files(grd::Densities2d* densities, msh::FEMesh2D* fe_mesh, bool verbose = false) {
 		densities->fea_casemanager->update_casepaths(densities->output_folder);
 		for (auto& fea_case : densities->fea_casemanager->active_cases) {

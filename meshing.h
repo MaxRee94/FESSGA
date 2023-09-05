@@ -92,7 +92,7 @@ namespace fessga {
                 vector<double> node = { (double)(node_coord + 1), cell_size(0) * x + offset(0), cell_size(1) * y + offset(1), 0.0};
                 nodes.push_back(node);
                 _node_idx++;
-                //cout << "node for (" << x << ", " << y << " ) does not exist.Created new node " << _node_idx-1 << endl;
+                //cout << "node for (" << x << ", " << y << " ) does not exist.Created DBG_NEW node " << _node_idx-1 << endl;
             }
             else {
                 node_idx = node_coords[x * dim_y + y];

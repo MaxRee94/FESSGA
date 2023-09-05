@@ -1,13 +1,8 @@
-// debug_malloc.cpp
-// compile by using: cl /EHsc /W4 /D_DEBUG /MDd debug_malloc.cpp
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include "crtdbg.h"
-
 //#include <igl/opengl/glfw/Viewer.h>
 #define _HAS_STD_BYTE 0
 #include "controller.h"
 #include "tests.h"
+
 
 
 // Parse cli args
