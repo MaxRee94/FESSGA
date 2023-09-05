@@ -601,7 +601,10 @@ void Evolver::do_selection() {
 }
 
 void Evolver::cleanup() {
-	IO::remove_directory_incl_contents(iteration_folder);
+	if (iteration_number < 5) return;
+	if (help::is_in(&iterations_with_fea_failure, (iteration_number - 4))) return; // Skip removal of iterations with FEA failure
+	string _iteration_folder = get_iteration_folder(iteration_number - 4);
+	IO::remove_directory_incl_contents(_iteration_folder);
 	cout << "Cleanup: Removed iteration directory and all contained files.\n";
 }
 
