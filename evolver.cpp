@@ -28,7 +28,7 @@ void run_FEA_batch(
 
 		// Wait for all case files to appear on disk
 		time_t start = time(0);
-		bool do_retry = false;
+		bool fea_failed = false;
 		for (auto& vtk_path : vtk_paths) {
 			while (!IO::file_exists(vtk_path)) {
 				float seconds_since_start = difftime(time(0), start);
@@ -41,16 +41,21 @@ void run_FEA_batch(
 						break;
 					}
 					else {
-						cout << "--      ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-						exit(1);
+						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
 				}
 			}
-			if (do_retry) break;
+			if (fea_failed) break;
 		}
-		if (do_retry) {
+		if (fea_failed) {
+			if (is_2nd_attempt) { // After two attempts to run the FEA, signal that FEA has failed by creating a file 'FEA_FAILED.txt'.
+				IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FAILED.txt");
+				is_2nd_attempt = false;
+				continue;
+			}
 			cout << "Re-running Elmer bat file in individual folder '" << individual_folders[i] << "'\n";
 			i -= NO_FEA_THREADS;
+			is_2nd_attempt = true;
 			continue;
 		}
 		is_2nd_attempt = false;
@@ -62,7 +67,6 @@ void run_FEA_batch(
 		// Log progress to stdout
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
-
 	}
 }
 
@@ -74,7 +78,17 @@ void load_physics_batch(
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
-		while (!IO::file_exists(fea_finish_confirmation_file)) {}
+		string fea_failed_confirmation_file = population->at(i).output_folder + "/FEA_FAILED.txt";
+		bool fea_failed = false;
+		while (!IO::file_exists(fea_finish_confirmation_file)) {
+			if (IO::file_exists(fea_failed_confirmation_file)) {
+				fea_failed = true;
+				cout << "WARNING: Setting fitness to infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
+				population->at(i).fitness = INFINITY;
+				break;
+			}
+		}
+		if (fea_failed) continue;
 
 		// Load physics
 		load_physics(&population->at(i), mesh);
