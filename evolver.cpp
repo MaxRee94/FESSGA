@@ -11,16 +11,26 @@ int NO_RESULTS_THREADS = 2; // must be even number
 * Method to run a batch of FEA jobs on all given output folders
 */
 void run_FEA_batch(
-	vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
+	string iteration_folder, vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
 ) {
 	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
 	bool is_2nd_attempt = false;
+	vector<float> memory_status = help::get_free_memory();
+	string memory_string = help::join_as_string(memory_status, ", ");
+	vector<string> memory_history = { memory_string };
+	vector<time_t> system_times = { std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) };
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
 		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
 		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
 		fessga::phys::call_elmer(individual_folders[i], fea_casemanager);
+
+		// Record system time and RAM occupancy
+		vector<float> memory_status = help::get_free_memory();
+		string memory_string = help::join_as_string(memory_status, ", ");
+		memory_history.push_back(memory_string);
+		system_times.push_back(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
 		
 		// Get vtk paths
 		vector<string> vtk_paths;
@@ -35,13 +45,27 @@ void run_FEA_batch(
 				if (seconds_since_start > 10) {
 					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
 					fea_failed = true;
+					string logpath = iteration_folder + "/log_FEAthread_" + to_string(thread_offset + 1) + ".txt";
 					if (!is_2nd_attempt) {
-						cout << "--      WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-						do_retry = true;
+						cout << "- WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						if (!IO::file_exists(logpath)) IO::write_text_to_file("System time, RAM available (GB), Virtual Memory available (GB), Pagefile available (GB), Percent memory used", logpath);
 					}
 					else {
 						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
+
+					// Write system time- and memory occupancy history for the current thread to a logfile
+					string txt = "";
+					for (int i = 0; i < memory_history.size(); i++) {
+						string line = to_string(system_times[i]) + ", " + memory_history[i];
+						txt += line + "\n";
+					}
+					IO::append_to_file(logpath, txt);
+					memory_history.clear();
+					system_times.clear();
+
+					if (is_2nd_attempt) exit(1);
+
 					break;
 				}
 			}
@@ -274,6 +298,7 @@ void Evolver::create_single_individual(bool verbose) {
 	individual.visualize_cutout_cells();*/
 
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
+#if 1:
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
 
 	// Run the repair pipeline on each individual, to ensure feasibility.
@@ -287,6 +312,7 @@ void Evolver::create_single_individual(bool verbose) {
 	
 	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
 	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
+#endif
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -302,12 +328,12 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	thread fea_thread1(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	int i = NO_FEA_THREADS;
 	while (population.size() < pop_size) {
@@ -486,12 +512,12 @@ void Evolver::create_children(bool verbose) {
 		if (verbose && (population.size() < 20 || (i + 1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	thread fea_thread1(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 0, verbose);
+	thread fea_thread2(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	thread fea_thread3(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 2, verbose);
+	thread fea_thread4(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread5(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, iteration_folder, individual_folders, &fea_casemanager, pop_size, 5, verbose);
 
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
