@@ -546,15 +546,19 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 	// Obtain FEA results and compute fitnesses
 	for (int i = offset; i < (pop_size + offset); i++) {
-		double _max_stress = population[i].fea_results.max;
+
 		/*cout << "\nmax stress: " << _max_stress << endl;
 		cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
 
 		// Compute fitness
 		double fitness;
-		if (_max_stress > fea_casemanager.max_stress_threshold) {
+		if (population[i].fitness == INFINITY) {
+			fitness = INFINITY;
+			if (!help::is_in(&iterations_with_fea_failure, iteration_number)) iterations_with_fea_failure.push_back(iteration_number);
+		}
+		else if (population[i].fea_results.max > fea_casemanager.max_stress_threshold) {
 			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = _max_stress / fea_casemanager.max_stress_threshold;
+			fitness = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_area();
 		fitnesses_map.insert(pair(i, fitness));
@@ -566,7 +570,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 	}
 	if (iterations_since_fitness_change == 0) {
-		cout << "EMMA: New best fitness: " << best_fitness << endl;
+		cout << "EMMA: new best fitness: " << best_fitness << endl;
 	}
 	else {
 		cout << "EMMA: Fitness (" << best_fitness << ") has remained unchanged for " << iterations_since_fitness_change << " iterations. " <<
