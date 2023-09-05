@@ -34,15 +34,15 @@ void run_FEA_batch(
 				float seconds_since_start = difftime(time(0), start);
 				if (seconds_since_start > 10) {
 					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
+					fea_failed = true;
 					if (!is_2nd_attempt) {
 						cout << "--      WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 						do_retry = true;
-						is_2nd_attempt = true;
-						break;
 					}
 					else {
 						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
+					break;
 				}
 			}
 			if (fea_failed) break;
