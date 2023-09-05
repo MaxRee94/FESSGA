@@ -50,6 +50,7 @@ public:
 	list<string> stats;
 	double min_stress, max_stress;
 	time_t start_time;
+	bool initialize = true;
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
@@ -81,8 +82,15 @@ public:
 	void export_base_stats() {
 		write_densities_to_image();
 
-		// Collect universal stats
-		stats.push_front(to_string(difftime(time(0), start_time)));
+		// Collect memory stats
+		vector<float> memory_status = help::get_free_memory();
+		string memory_string = help::join_as_string(memory_status, ", ");
+		stats.push_back(memory_string);
+
+		// Collect other universal stats
+		float iteration_time = 0;
+		if (!initialize) iteration_time = difftime(time(0), start_time);
+		stats.push_front(to_string(iteration_time));
 		stats.push_front(to_string(iteration_number));
 
 		// Append the stats to the stats file

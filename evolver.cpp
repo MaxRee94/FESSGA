@@ -111,19 +111,26 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double> get_fitness_stats(map<int, double>* fitnesses_map) {
+tuple<double, double, double> get_fitness_stats(map<int, double>* fitnesses_map, vector<evo::Individual2d>* population) {
 	// Compute mean
-	double mean = 0;
-	for (auto& [_, fitness] : *fitnesses_map) mean += fitness;
-	mean /= (double)fitnesses_map->size();
+	double fit_mean = 0;
+	for (auto& [_, fitness] : *fitnesses_map) fit_mean += fitness;
+	fit_mean /= (double)fitnesses_map->size();
 	
 	// Compute stdev
 	double soq = 0;
-	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - mean) * (fitness - mean);
+	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - fit_mean) * (fitness - fit_mean);
 	double variance = soq / (fitnesses_map->size() - 1);
-	double stdev = sqrt(variance);
+	double fit_stdev = sqrt(variance);
 
-	return { mean, stdev };
+	// Compute average relative volume
+	double relative_area_sum = 0;
+	for (auto& indiv : *population) {
+		relative_area_sum += indiv.get_relative_area();
+	}
+	double relative_area_mean = relative_area_sum / (float)population->size();
+
+	return { fit_mean, fit_stdev, relative_area_mean };
 }
 
 /*
@@ -137,16 +144,17 @@ bool variation_minimum_passed(vector<evo::Individual2d>* population, float thres
 
 void Evolver::collect_stats() {
 	variation = get_variation(&population);
-	auto [_fitness_mean, _fitness_stdev] = get_fitness_stats(&fitnesses_map);
+	auto [_fitness_mean, _fitness_stdev, _relative_area_mean] = get_fitness_stats(&fitnesses_map, &population);
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
+	relative_area_mean = _relative_area_mean;
 }
 
-void Evolver::export_stats(string iteration_name, bool initialize, bool verbose) {
+void Evolver::export_stats(string iteration_name, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev",
+		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, RAM available (GB), Virtual Memory available (GB), Pagefile available (GB), Percent memory used",
 		statistics_file
 	);
 	export_base_stats();
@@ -154,6 +162,7 @@ void Evolver::export_stats(string iteration_name, bool initialize, bool verbose)
 	stats.push_back(to_string(variation));
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
+	stats.push_back(to_string(relative_area_mean));
 	vector<string> stats = {
 		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
 		"Fitness stdev = " + to_string(fitness_stdev)
@@ -385,8 +394,9 @@ void Evolver::do_setup() {
 	IO::create_folder_if_not_exists(current_best_solution_folder);
 	copy_solution_files(population[best_individual_idx].output_folder, current_best_solution_folder);
 	collect_stats();
-	export_stats(iteration_name, true);
+	export_stats(iteration_name);
 	cleanup();
+	initialize = false;
 }
 
 void Evolver::update_objective_function() {

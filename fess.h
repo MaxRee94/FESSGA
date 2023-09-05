@@ -35,7 +35,7 @@ public:
 		msh::FEMesh2D* fe_mesh, int no_cells_to_remove, int no_cells_removed, bool recurse = true
 	);
 	void fill_design_domain();
-	void export_stats(string iteration_name, bool initialize);
+	void export_stats(string iteration_name);
 	void export_meta_parameters(vector<string>* _ = 0);
 };
 
