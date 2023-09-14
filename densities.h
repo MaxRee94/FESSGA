@@ -199,6 +199,11 @@ namespace fessga {
                 }
                 return true;
             }
+            void delete_arrays() {
+                if (values != nullptr) delete[] values;
+                if (snapshot != nullptr) delete[] snapshot;
+                if (snapshot_internal != nullptr) delete[] snapshot_internal;
+            }
 
             void move_piece_to_trash(Piece* piece);
             void move_piece_from_trash(Piece* piece);
@@ -215,7 +220,8 @@ namespace fessga {
             vector<int> get_empty_neighbors(int x, int y, bool get_diagonal_neighbors = false);
             vector<int> get_empty_neighbors(int idx, bool get_diagonal_neighbors = false);
             void remove_smaller_pieces(
-                vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true, bool check_if_single_piece = false
+                vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true,
+                bool check_if_single_piece = false
             );
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);

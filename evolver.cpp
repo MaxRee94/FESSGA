@@ -584,9 +584,13 @@ void Evolver::do_selection() {
 	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
 	for (auto& [pop_idx, fitness] : fitnesses_pairset) {
-		new_fitnesses_map.insert(pair(new_population.size(), fitness));
-		new_population.push_back(population[pop_idx]);
-		if (new_population.size() == pop_size) break;
+		if (new_population.size() < pop_size) { // selection: Individual is allowed to remain in population
+			new_fitnesses_map.insert(pair(new_population.size(), fitness));
+			new_population.push_back(population[pop_idx]);
+		}
+		else { // Destroy the individual and delete its values arrays
+			population[pop_idx].delete_arrays();
+		}
 	}
 	population = new_population;
 	fitnesses_map = new_fitnesses_map;
