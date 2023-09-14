@@ -793,17 +793,19 @@ void fessga::grd::Densities2d::fill_level1_voids_and_fix_pinches(bool verbose) {
 }
 
 void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
-    grd::Densities2d previous_state(this);
+    uint* previous_state = new uint[size];
+    copy(values, previous_state, size, size);
     bool filtering_had_effect = true;
     int i = 1;
 
     // Run level0 (meaning 'acting on individual cells') filtering loop 
     while (filtering_had_effect) {
         do_single_feasibility_filtering_pass();
-        filtering_had_effect = !previous_state.is_identical_to(values);
-        previous_state.copy_from(this);
+        filtering_had_effect = is_identical_to(previous_state);
+        copy(values, previous_state, size, size);
         i++;
     }
+    delete[] previous_state;
 
     // Fill level1 voids (2x2 pockets of cells that are empty)
     fill_level1_voids_and_fix_pinches(verbose);
