@@ -127,4 +127,5 @@ void fessga::img::write_distribution_to_image(grd::Densities2d densities, string
 	stbi_write_jpg(image.path, image.width, image.height, image.channels, image.vals, 100);
 	if (verbose) cout << "Exported distribution to image. Path: " << image.path << endl;
 	delete[] single_channel;
+	delete[] image.vals;
 }
