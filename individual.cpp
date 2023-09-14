@@ -8,7 +8,7 @@ void fessga::evo::Individual2d::copy_from_individual(Individual2d* source) {
 }
 
 void fessga::evo::Individual2d::update_phenotype() {
-	_copy(values, phenotype, _count, _phenotype_count);
+	copy(values, phenotype, _count, _phenotype_count);
 	do_ground_element_filtering();
 }
 
