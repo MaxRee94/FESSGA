@@ -23,6 +23,7 @@
 #include "helpers.h"
 #include "io.h"
 
+
 //VTK_MODULE_INIT(vtkRenderingOpenGL2)
 //#define VTK_DEBUG_LEAKS true
 
@@ -109,8 +110,8 @@ namespace fessga {
 
             vector<phys::FEACase> sources, targets, active_cases;
             vector<map<string, vector<Vector2d>>> migration_vectors;
-            vector<int> cells_to_keep;
-            vector<int> cutout_cells;
+            vector<int> cells_to_keep = {};
+            vector<int> cutout_cells = {};
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;
             int dim_x, dim_y;
@@ -206,12 +207,13 @@ namespace fessga {
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
             vtkPoints* points = output->GetPoints();
-            double* point = new double[3];
-            vector<int> coords = {};
+            double point[2];
+            vector<int> coords;
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             Vector2d offset = Vector2d(_offset(0), _offset(1));
             for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-                point = points->GetData()->GetTuple(i);
+                point[0] = points->GetData()->GetTuple(i)[0];
+                point[1] = points->GetData()->GetTuple(i)[1];
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
@@ -243,6 +245,7 @@ namespace fessga {
             }
             results->min = min_stress;
             results->max = max_stress;
+            delete[] results_nodewise;
 
             return true;
         }
