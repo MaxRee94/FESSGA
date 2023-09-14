@@ -874,7 +874,7 @@ void fessga::grd::Densities2d::copy_from(Densities2d* source) {
 }
 
 // Copy the density values from one array to another
-void fessga::grd::Densities2d::_copy(uint* source, uint* target, int source_count, int target_count) {
+void fessga::grd::Densities2d::copy(uint* source, uint* target, int source_count, int target_count) {
     for (int i = 0; i < size; i++) values[i] = source[i];
     target_count = source_count;
 }

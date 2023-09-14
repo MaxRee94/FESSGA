@@ -254,6 +254,7 @@ namespace fessga {
             void fix_level1_void_or_pinch(vector<pair<int, int>>* offsets, int x, int y);
             void invert();
             void init_vtk_paths();
+            void copy(uint* source, uint* target, int source_count, int target_count);
 
             int dim_x = 0;
             int dim_y = 0;
@@ -295,7 +296,6 @@ namespace fessga {
                 cell_size = Vector2d(_cell_size, _cell_size);
                 diagonal = Vector2d(diagonal(0), _cell_size * (float)dim_y);
             }
-            void _copy(uint* source, uint* target, int source_count, int target_count);
         };
 
         class Densities3d : public Densities2d {
