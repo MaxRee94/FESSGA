@@ -92,6 +92,9 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			}
 		}
 	}
+
+	delete[] greenValues;
+	delete[] redValues;
 }
 
 void fessga::img::convert_distribution_to_single_channel_image(
