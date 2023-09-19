@@ -584,24 +584,48 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
 	help::sort(fitnesses_map, fitnesses_pairset);
-	vector<evo::Individual2d> new_population;
+	//vector<evo::Individual2d> new_population;
 	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
+	
 	vector<float> memory_start = help::get_free_memory();
 	cout << "selection 0: " << memory_start[0] << endl;
+
+	// Create population indices map (maps from original index to updated index.
+	// Needed because deletions cause the index to change)
+	map<int, int> pop_indices;
+	for (int i = 0; i < pop_size * 2; i++) pop_indices[i] = i;
+
+	// Do selection on the current population
 	for (auto& [pop_idx, fitness] : fitnesses_pairset) {
-		if (new_population.size() < pop_size) { // selection: Individual is allowed to remain in population
-			new_fitnesses_map.insert(pair(new_population.size(), fitness));
-			new_population.push_back(population[pop_idx]);
+		if (new_fitnesses_map.size() < pop_size) {
+			// Individual is selected to remain in the population
+			new_fitnesses_map.insert(pair(new_fitnesses_map.size(), fitness));
 		}
-		else { // Destroy the individual and delete its values arrays
-			population[pop_idx].delete_arrays();
+		else {
+			// Remove the individual from the population
+			population[pop_indices[pop_idx]].delete_arrays();
+			population.erase(population.begin() + pop_indices[pop_idx]);
+
+			// Update population indices map
+			for (auto& [orig_idx, new_idx] : pop_indices) {
+				if (orig_idx > pop_idx) pop_indices[orig_idx]--;
+			}
 		}
 	}
-	population = new_population;
-	fitnesses_map = new_fitnesses_map;
 	vector<float> memory_1 = help::get_free_memory();
 	cout << "selection 1: " << memory_1[0] << endl;
+
+	//population = new_population;
+	//population.clear();
+	fitnesses_map.clear();
+	for (int i = 0; i < pop_size; i++) {
+		//population.push_back(new_population[i]);
+		fitnesses_map.insert(pair(i, new_fitnesses_map[i]));
+	}
+	//new_population.clear();
+	new_fitnesses_map.clear();
+
 	vector<float> memory_2 = help::get_free_memory();
 	cout << "selection 2: " << memory_2[0] << endl;
 
