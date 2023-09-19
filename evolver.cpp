@@ -6,6 +6,7 @@
 int NO_FEA_THREADS = 6; // must be even number
 int NO_RESULTS_THREADS = 2; // must be even number
 
+//#define FEA_IGNORE
 
 /*
 * Method to run a batch of FEA jobs on all given output folders
@@ -485,13 +486,14 @@ void Evolver::create_children(bool verbose) {
 		if (verbose && (population.size() < 20 || (i + 1) % (pop_size / 10) == 0))
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
+#ifndef FEA_IGNORE
 	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
 	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
 	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
-
+#endif
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
 		vector<evo::Individual2d> parents;
@@ -507,6 +509,7 @@ void Evolver::create_children(bool verbose) {
 	}
 	cout << "Finished generating children.\n";
 
+#ifndef FEA_IGNORE
 	// Start a thread to read the results of the FEA
 	cout << "Starting results loaders...\n";
 	thread results_thread(load_physics_batch, &population, pop_size, 0, pop_size, &mesh, verbose);
@@ -523,6 +526,7 @@ void Evolver::create_children(bool verbose) {
 	fea_thread6.join();
 	results_thread.join();
 	cout << "Finished reading FEA results for all children.\n";
+#endif
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
