@@ -45,7 +45,8 @@ string fessga::IO::create_folder_if_not_exists(std::string folder_path) {
 
 bool fessga::IO::file_exists(std::string fpath) {
     struct stat buffer;
-    return (stat(fpath.c_str(), &buffer) == 0);
+    bool exists = stat(fpath.c_str(), &buffer) == 0;
+    return exists;
 }
 
 void fessga::IO::copy_file(std::string _source, std::string _target, bool verbose) {
@@ -76,6 +77,7 @@ void fessga::IO::rename_file(string _source, string _target, bool verbose) {
         perror("Error deleting file");
     else
         if (verbose) { puts("File successfully deleted"); }
+    delete[] source;
 }
 
 void fessga::IO::write_to_csv(string csv_path, vector<string> data, string headers) {
@@ -196,6 +198,8 @@ std::string fessga::IO::get_fullpath(string relative_path) {
     char* _absolute_path = _fullpath(buffer, _relative_path, 1024);
     string absolute_path(_absolute_path);
     absolute_path = help::replace_occurrences(absolute_path, "\\", "/");
+
+    free(_absolute_path);
 
     return absolute_path;
 }
