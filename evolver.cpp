@@ -399,7 +399,7 @@ void Evolver::do_setup() {
 	time_t start = time(0);
 	init_population();
 	float seconds_since_start = difftime(time(0), start);
-	cout << "seconds since start: " << seconds_since_start << endl;
+	cout << "Time taken to generate initial population: " << seconds_since_start << endl;
 
 	evaluate_fitnesses(0);
 	help::sort(fitnesses_map, fitnesses_pairset);
@@ -584,12 +584,8 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
 	help::sort(fitnesses_map, fitnesses_pairset);
-	//vector<evo::Individual2d> new_population;
 	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
-	
-	vector<float> memory_start = help::get_free_memory();
-	cout << "selection 0: " << memory_start[0] << endl;
 
 	// Create population indices map (maps from original index to updated index.
 	// Needed because deletions cause the index to change)
@@ -613,40 +609,13 @@ void Evolver::do_selection() {
 			}
 		}
 	}
-	vector<float> memory_1 = help::get_free_memory();
-	cout << "selection 1: " << memory_1[0] << endl;
-
-	//population = new_population;
-	//population.clear();
-	fitnesses_map.clear();
-	for (int i = 0; i < pop_size; i++) {
-		//population.push_back(new_population[i]);
-		fitnesses_map.insert(pair(i, new_fitnesses_map[i]));
-	}
-	//new_population.clear();
-	new_fitnesses_map.clear();
-
-	vector<float> memory_2 = help::get_free_memory();
-	cout << "selection 2: " << memory_2[0] << endl;
+	fitnesses_map = new_fitnesses_map;
 
 	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
-		vector<float> memory_3 = help::get_free_memory();
-		cout << "selection (copy part 1): " << memory_3[0] << endl;
-
 		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
-
-		vector<float> memory_4 = help::get_free_memory();
-		cout << "selection (copy part 2): " << memory_4[0] << endl;
-
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
-		vector<float> memory_5 = help::get_free_memory();
-		cout << "selection (copy part 3): " << memory_5[0] << endl;
-		
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
-
-		vector<float> memory_6 = help::get_free_memory();
-		cout << "selection (copy part 4): " << memory_6[0] << endl;
 	}
 }
 
@@ -663,31 +632,15 @@ void Evolver::evolve() {
 	start_time = time(0);
 	while (!termination_condition_reached()) {
 		iteration_number++;
-		vector<float> memory_start = help::get_free_memory();
 		cout << "\nStarting iteration " << iteration_number << "...\n";
-		cout << "-- RAM start: " << memory_start[0] << endl;
 		if (fea_casemanager.dynamic) update_objective_function();
 		create_iteration_directories(iteration_number);
 		create_children();
-		vector<float> memory_1 = help::get_free_memory();
-		cout << "-- RAM 1: " << memory_1[0] << endl;
 		evaluate_fitnesses(pop_size);
-		vector<float> memory_2 = help::get_free_memory();
-		cout << "-- RAM 2: " << memory_2[0] << endl;
 		do_selection();
-		vector<float> memory_3 = help::get_free_memory();
-		cout << "-- RAM 3: " << memory_3[0] << endl;
 		collect_stats();
 		export_stats(iteration_name);
-		vector<float> memory_4 = help::get_free_memory();
-		cout << "-- RAM 4: " << memory_4[0] << endl;
 		cleanup();
-		time_t _time = time(0);
-		time_t el_time = 0;
-		cout << "TAKE SNAPSHOT\n";
-		while (el_time < 5) {
-			el_time = time(0) - _time;
-		}
 	}
 }
 
