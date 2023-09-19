@@ -801,7 +801,7 @@ void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
     // Run level0 (meaning 'acting on individual cells') filtering loop 
     while (filtering_had_effect) {
         do_single_feasibility_filtering_pass();
-        filtering_had_effect = is_identical_to(previous_state);
+        filtering_had_effect = !is_identical_to(previous_state);
         copy(values, previous_state, size, size);
         i++;
     }
@@ -877,7 +877,7 @@ void fessga::grd::Densities2d::copy_from(Densities2d* source) {
 
 // Copy the density values from one array to another
 void fessga::grd::Densities2d::copy(uint* source, uint* target, int source_count, int target_count) {
-    for (int i = 0; i < size; i++) values[i] = source[i];
+    for (int i = 0; i < size; i++) target[i] = source[i];
     target_count = source_count;
 }
 
