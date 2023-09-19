@@ -26,6 +26,9 @@ namespace fessga {
 				cell_size = individual->cell_size;
 				fea_results = individual->fea_results;
 				fea_casemanager = individual->fea_casemanager;
+				fe_mesh = individual->fe_mesh;
+				fitness = individual->fitness;
+				output_folder = individual->output_folder;
 				copy_from_individual(individual);
 			}
 			int phenotype_count() {
