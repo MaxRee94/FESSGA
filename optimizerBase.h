@@ -104,10 +104,19 @@ public:
 		if (verbose) cout << "Copying solution files from directory " << source_dir << " to " << target_dir << endl;
 		vector<string> filepaths;
 		IO::get_files_in_directory(filepaths, source_dir);
+		if (verbose) cout << "Starting copy process...\n";
+
+		vector<float> memory_1 = help::get_free_memory();
+		cout << "copy solutions 1: " << memory_1[0] << endl;
+
 		for (auto& fpath : filepaths) {
+			if (verbose) cout << "Copying file " << fpath << endl;
+			if (!IO::file_exists(fpath)) cout << "ERROR: File " << fpath << " does not exist.\n";
 			string target_path = help::replace_occurrences(fpath, source_dir, target_dir);
 			IO::copy_file(fpath, target_path);
 		}
+		vector<float> memory_2 = help::get_free_memory();
+		cout << "copy solutions 2 (post-loop): " << memory_1[0] << endl;
 	}
 
 	// Create and export new versions of the case.sif files by updating the boundary ids to fit the topology of the current FE mesh
