@@ -168,7 +168,7 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, RAM available (GB), Virtual Memory available (GB), Pagefile available (GB), Percent memory used",
+		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
 		statistics_file
 	);
 	export_base_stats();
@@ -177,6 +177,8 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
 	stats.push_back(to_string(relative_area_mean));
+	stats.push_back(to_string(mutation_rate_level0));
+	stats.push_back(to_string(mutation_rate_level1));
 	vector<string> stats = {
 		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
 		"Fitness stdev = " + to_string(fitness_stdev)
@@ -630,6 +632,8 @@ void Evolver::cleanup() {
 void Evolver::evolve() {
 	do_setup();
 	start_time = time(0);
+	bool mutation_boost = false;
+	float mutation_boost_size = 3.0;
 	while (!termination_condition_reached()) {
 		iteration_number++;
 		cout << "\nStarting iteration " << iteration_number << "...\n";
@@ -641,6 +645,24 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
+		if (iterations_since_fitness_change > (max_iterations_without_change / 2) && !mutation_boost) {
+			// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
+			// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
+			// Only do so if the rates have not been boosted already.
+			mutation_rate_level0 *= mutation_boost_size;
+			mutation_rate_level1 *= mutation_boost_size;
+			cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
+			cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
+			mutation_boost = true;
+		}
+		else if (mutation_boost) {
+			// If 'iterations_since_fitness_change' has been reset due to fitness increase, turn mutation boost off.
+			// Also set the mutation rates back to their original values.
+			mutation_rate_level0 /= mutation_boost_size;
+			mutation_rate_level1 /= mutation_boost_size;
+			cout << "MUTATION BOOST OFF - Restored mutation rate to original values.\n";
+			mutation_boost = false;
+		}
 	}
 }
 
