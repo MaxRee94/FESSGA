@@ -246,6 +246,7 @@ namespace fessga {
             results->min = min_stress;
             results->max = max_stress;
             delete[] results_nodewise;
+            reader->Delete();
 
             return true;
         }
