@@ -58,6 +58,8 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
        "ant_load",
        "mid_load",
        "post_load",
+       "pull_ant",
+       "pull_mid"
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
