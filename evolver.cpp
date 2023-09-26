@@ -3,6 +3,8 @@
 #include <iostream>
 #include <thread>
 
+#define UNIFORM_POPULATION
+
 int NO_FEA_THREADS = 6; // must be even number
 int NO_RESULTS_THREADS = 2; // must be even number
 
@@ -275,6 +277,7 @@ void Evolver::create_single_individual(bool verbose) {
 	cout << "cutout cells:\n";
 	individual.visualize_cutout_cells();*/
 
+#ifndef UNIFORM_POPULATION:
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
 
@@ -289,6 +292,7 @@ void Evolver::create_single_individual(bool verbose) {
 	
 	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
 	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
+#endif
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
@@ -552,8 +556,8 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	// Obtain FEA results and compute fitnesses
 	for (int i = offset; i < (pop_size + offset); i++) {
 
-		/*cout << "\nmax stress: " << _max_stress << endl;
-		cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
+		if (verbose) cout << "\nmax stress: " << population[i].fea_results.max << endl;
+		//cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
 
 		// Compute fitness
 		double fitness;
