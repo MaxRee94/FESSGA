@@ -46,69 +46,47 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	}
 	stbi_image_free(image);
 
-	// Sample green values with intervals to derive which cells should be filled and which should be void
+	// Sample r,g,b values with intervals to derive which cells should be cutout cells, which should be filled, and which should be inactive
 	int x_offset = (densities.dim_x / 2);
 	x_offset = 0;
 	for (int y = 0; y < densities.dim_y; y++) {
 		for (int x = 0; x < densities.dim_x; x++) {
 			int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
-			int pixel_count = 0;
+			int red_count = 0;
+			int green_count = 0;
+			int blue_count = 0;
 			// Count all pixel values in the cell
 			for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
 				int _y = i / pixels_per_cell;
 				int _x = i % pixels_per_cell;
 				int _img_idx = img_idx + _y * width + _x;
-				pixel_count += greenValues[_img_idx];
+				red_count += redValues[_img_idx] * 2 - greenValues[_img_idx] - blueValues[_img_idx];
+				green_count += greenValues[_img_idx];
+				blue_count += blueValues[_img_idx] * 2 - greenValues[_img_idx] - redValues[_img_idx];
 			}
-			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
-			densities.set((x + 1) * densities.dim_y - y - 1, cell_value);
-		}
-	}
-	densities.update_count();
-	densities.do_feasibility_filtering();
+			int coord = (x + 1) * densities.dim_y - y - 1;
 
-	// Sample blue values with intervals to derive which cells are inactive; i.e. topologically constrained and ignored when evaluating solution fitness.
-	for (int y = 0; y < densities.dim_y; y++) {
-		for (int x = 0; x < densities.dim_x; x++) {
-			int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
-			int pixel_count = 0;
-			// Count all pixel values in the cell
-			for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
-				int _y = i / pixels_per_cell;
-				int _x = i % pixels_per_cell;
-				int _img_idx = img_idx + _y * width + _x;
-				pixel_count += blueValues[_img_idx] * 2 - greenValues[_img_idx] - redValues[_img_idx];
-			}
-			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
-			bool is_inactive = cell_value;
-			if (is_inactive) {
-				int coord = (x + 1) * densities.dim_y - y - 1;
-				densities.fea_casemanager->inactive_cells.push_back(coord);
-			}
-		}
-	}
-
-	// Sample red values with intervals to derive which cells are cutout cells that are not allowed to become filled
-	for (int y = 0; y < densities.dim_y; y++) {
-		for (int x = 0; x < densities.dim_x; x++) {
-			int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
-			int pixel_count = 0;
-			// Count all pixel values in the cell
-			for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
-				int _y = i / pixels_per_cell;
-				int _x = i % pixels_per_cell;
-				int _img_idx = img_idx + _y * width + _x;
-				pixel_count += redValues[_img_idx] * 2 - greenValues[_img_idx] - blueValues[_img_idx];
-			}
-			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
-			bool is_cutout = cell_value;
+			// Store filled cells
+			int cell_value = round((float)green_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
+			densities.set(coord, cell_value);
+			
+			// Store cutout cells
+			bool is_cutout = round((float)red_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			if (is_cutout) {
 				int coord = (x + 1) * densities.dim_y - y - 1;
 				densities.fea_casemanager->cutout_cells.push_back(coord);
 				densities.del(coord);
 			}
+
+			// Store inactive cells
+			bool is_inactive = round((float)blue_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
+			if (is_inactive) {
+				densities.fea_casemanager->inactive_cells.push_back(coord);
+			}
 		}
 	}
+	densities.update_count();
+	densities.do_feasibility_filtering();
 
 	cout << "Loaded densities from image.\n";
 	cout << " - filled cell count: " << densities.count() << endl;
