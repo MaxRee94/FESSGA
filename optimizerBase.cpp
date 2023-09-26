@@ -25,7 +25,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 
 	// Load physics
 	bool physics_loaded = fessga::phys::load_2d_physics_data(
-		vtk_paths, densities->fea_results, densities->dim_x, densities->dim_y,
+		vtk_paths, densities->fea_results, densities->fea_casemanager, densities->dim_x, densities->dim_y,
 		densities->cell_size, mesh->offset, "Vonmises"
 	);
 
