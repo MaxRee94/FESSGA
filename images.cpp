@@ -34,19 +34,15 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	_densities.fea_casemanager->dim_x = _densities.dim_x + 1; _densities.fea_casemanager->dim_y = _densities.dim_y + 1;;
 	densities = _densities;
 
-	// Extract red values
+	// Extract red, green, and blue values
 	int numPixels = width * height;
 	int* redValues = new int[numPixels];
-	for (int i = 0; i < numPixels; ++i) {
-		int index = i * numChannels;
-		redValues[i] = image[index];
-	}
-
-	// Extract green values
 	int* greenValues = new int[numPixels];
+	int* blueValues = new int[numPixels];
 	for (int i = 0; i < numPixels; ++i) {
-		int index = i * numChannels + 1;
-		greenValues[i] = image[index];
+		redValues[i] = image[i * numChannels];
+		greenValues[i] = image[i * numChannels + 1];
+		blueValues[i] = image[i * numChannels + 2];
 	}
 	stbi_image_free(image);
 
@@ -71,6 +67,27 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	densities.update_count();
 	densities.do_feasibility_filtering();
 
+	// Sample blue values with intervals to derive which cells are inactive; i.e. topologically constrained and ignored when evaluating solution fitness.
+	for (int y = 0; y < densities.dim_y; y++) {
+		for (int x = 0; x < densities.dim_x; x++) {
+			int img_idx = y * width * pixels_per_cell + (x - x_offset) * pixels_per_cell;
+			int pixel_count = 0;
+			// Count all pixel values in the cell
+			for (int i = 0; i < pixels_per_cell * pixels_per_cell; i++) {
+				int _y = i / pixels_per_cell;
+				int _x = i % pixels_per_cell;
+				int _img_idx = img_idx + _y * width + _x;
+				pixel_count += blueValues[_img_idx] * 2 - greenValues[_img_idx] - redValues[_img_idx];
+			}
+			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
+			bool is_inactive = cell_value;
+			if (is_inactive) {
+				int coord = (x + 1) * densities.dim_y - y - 1;
+				densities.fea_casemanager->inactive_cells.push_back(coord);
+			}
+		}
+	}
+
 	// Sample red values with intervals to derive which cells are cutout cells that are not allowed to become filled
 	for (int y = 0; y < densities.dim_y; y++) {
 		for (int x = 0; x < densities.dim_x; x++) {
@@ -81,7 +98,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 				int _y = i / pixels_per_cell;
 				int _x = i % pixels_per_cell;
 				int _img_idx = img_idx + _y * width + _x;
-				pixel_count += redValues[_img_idx] - greenValues[_img_idx];
+				pixel_count += redValues[_img_idx] * 2 - greenValues[_img_idx] - blueValues[_img_idx];
 			}
 			int cell_value = round((float)pixel_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			bool is_cutout = cell_value;
@@ -93,6 +110,13 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 		}
 	}
 
+	cout << "Loaded densities from image.\n";
+	cout << " - filled cell count: " << densities.count() << endl;
+	cout << " - no inactive cells: " << densities.fea_casemanager->inactive_cells.size() << endl;
+	cout << " - no cutout cells: " << densities.fea_casemanager->cutout_cells.size() << endl;
+	cout << " - no keep cells: " << densities.fea_casemanager->cells_to_keep.size() << endl;
+
+	delete[] blueValues;
 	delete[] greenValues;
 	delete[] redValues;
 }

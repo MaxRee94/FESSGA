@@ -412,8 +412,8 @@ namespace fessga {
                 bound_cell_map["keep"] = keep_cells;
                 fea_case.bound_cond_cells[bound_name] = bound_cell_map;
             }
-            cout << "no boundary cells: " << fea_casemanager->cells_to_keep.size() << endl;
-            cout << "no boundary lines: " << q << endl;
+            //cout << "no boundary cells: " << fea_casemanager->cells_to_keep.size() << endl;
+            //cout << "no boundary lines: " << q << endl;
         }
 
         // Create map containing a vector of boundary ids corresponding to the given fe mesh for each boundary condition name
@@ -490,6 +490,7 @@ namespace fessga {
                 fea_case.name = case_name;
                 msh::derive_boundary_conditions(fea_case, *densities, *mesh, fea_casemanager);
                 fea_cases->push_back(fea_case);
+                cout << "Finished initializing FEA case " << fea_case.name << endl;
             }
         }
 

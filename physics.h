@@ -112,6 +112,7 @@ namespace fessga {
             vector<map<string, vector<Vector2d>>> migration_vectors;
             vector<int> cells_to_keep = {};
             vector<int> cutout_cells = {};
+            vector<int> inactive_cells = {};
             double max_stress_threshold = INFINITY;
             bool maintain_boundary_connection = true;
             int dim_x, dim_y;
