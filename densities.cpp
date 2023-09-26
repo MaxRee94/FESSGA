@@ -23,7 +23,7 @@ void fessga::grd::Densities2d::filter(int no_neighbors, bool restore_bound_cells
     }
     if (restore_bound_cells) {
         // Restore cells marked as 'to keep'
-        for (auto& cell : fea_casemanager->cells_to_keep) {
+        for (auto& cell : fea_casemanager->keep_cells) {
             fill(cell);
         }
     }
@@ -160,7 +160,7 @@ int fessga::grd::Densities2d::get_no_connected_cells(int cell_coord, Piece& piec
                 piece.cells.push_back(neighbors[j]);
                 if (piece.is_removable) {
                     // If the piece was flagged as removable but one of its cells is a boundary cell, flag it as non-removable.
-                    if (fea_casemanager && help::is_in(&fea_casemanager->cells_to_keep, neighbors[j])) {
+                    if (fea_casemanager && help::is_in(&fea_casemanager->keep_cells, neighbors[j])) {
                         piece.is_removable = false;
                     }
                 }
@@ -182,7 +182,7 @@ bool fessga::grd::Densities2d::cell_is_safe_to_delete(int cell_coord, int& no_de
         // Therefore we either delete the neighboring cell too, or - in case the neighbor is a bound condition cell - skip deletion alltogether.
         if (sub_neighbors.size() <= 1) {
             // If the cell has a line on which a boundary condition was applied, skip deletion
-            if (help::is_in(&fea_casemanager->cells_to_keep, neighbor)) {
+            if (help::is_in(&fea_casemanager->keep_cells, neighbor)) {
                 return false;
             }
             no_deleted_neighbors++;
@@ -241,7 +241,7 @@ void fessga::grd::Densities2d::init_pieces(int _start_cell) {
             if (neighbors.size() > 0) { start_cell = neighbors[0]; break; }
         }
     }
-    else start_cell = fea_casemanager->cells_to_keep[0]; // If no removed cells were stored, pick a cell on which a boundary condition was applied
+    else start_cell = fea_casemanager->keep_cells[0]; // If no removed cells were stored, pick a cell on which a boundary condition was applied
     init_pieces(&visited_cells, cells_left, start_cell);
 }
 
@@ -256,7 +256,7 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
         // If the piece has boundary cells and it is the largest piece, it is considered the main piece
         if (
             fea_casemanager && piece.cells.size() > main_piece.cells.size() &&
-            help::have_overlap(&piece.cells, &fea_casemanager->cells_to_keep)
+            help::have_overlap(&piece.cells, &fea_casemanager->keep_cells)
             ) {
             set_main_piece(&piece);
         }
@@ -286,10 +286,10 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
 
 // Visualize distribution and highlight keep cells
 void fessga::grd::Densities2d::visualize_keep_cells() {
-    //for (auto& cell : fea_case->cells_to_keep) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
-    for (auto& cell : fea_casemanager->cells_to_keep) set(cell, 5);
+    //for (auto& cell : fea_case->keep_cells) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
+    for (auto& cell : fea_casemanager->keep_cells) set(cell, 5);
     print();
-    for (auto& cell : fea_casemanager->cells_to_keep) set(cell, 1);
+    for (auto& cell : fea_casemanager->keep_cells) set(cell, 1);
 }
 
 // Visualize distribution and highlight cutout cells
@@ -367,7 +367,7 @@ bool fessga::grd::Densities2d::is_single_piece(int _start_cell, bool verbose) {
     Piece piece = Piece();
     int start_cell;
     if (_start_cell > -1) start_cell = _start_cell;
-    else start_cell = fea_casemanager->cells_to_keep[0];
+    else start_cell = fea_casemanager->keep_cells[0];
     int piece_size = get_no_connected_cells(start_cell, piece);
     if (verbose) {
         cout << "\npiece size: " << piece_size << endl;
@@ -424,7 +424,7 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         //if (no_iterations_without_removal > 100) cout << "before boundcells\n";
         
         // If the cell has a line on which a boundary condition was applied, skip deletion
-        if (help::is_in(&fea_casemanager->cells_to_keep, cell)) {
+        if (help::is_in(&fea_casemanager->keep_cells, cell)) {
             continue;
         }
 
@@ -504,7 +504,7 @@ bool fessga::grd::Densities2d::remove_floating_piece(
         // Figure out why.
         bool cell_cannot_be_removed = (
             fea_results.data_map[cell] > fea_casemanager->max_stress_threshold ||
-            help::is_in(&fea_casemanager->cells_to_keep, cell)
+            help::is_in(&fea_casemanager->keep_cells, cell)
         );
         if (cell_cannot_be_removed) {
             if (fea_casemanager->maintain_boundary_connection) {

@@ -82,6 +82,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			bool is_inactive = round((float)blue_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
 			if (is_inactive) {
 				densities.fea_casemanager->inactive_cells.push_back(coord);
+				densities.fea_casemanager->keep_cells.push_back(coord);
 			}
 		}
 	}
@@ -92,7 +93,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	cout << " - filled cell count: " << densities.count() << endl;
 	cout << " - no inactive cells: " << densities.fea_casemanager->inactive_cells.size() << endl;
 	cout << " - no cutout cells: " << densities.fea_casemanager->cutout_cells.size() << endl;
-	cout << " - no keep cells: " << densities.fea_casemanager->cells_to_keep.size() << endl;
+	cout << " - no keep cells: " << densities.fea_casemanager->keep_cells.size() << endl;
 
 	delete[] blueValues;
 	delete[] greenValues;

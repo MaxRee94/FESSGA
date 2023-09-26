@@ -545,8 +545,8 @@ void phys::FEACaseManager::interpolate_cells(FEACase* source, FEACase* target, F
 
 		// Store found boundary cells
 		help::append_vector(bound_cells["cutout"], &extra_cutout_cells);
-		help::append_vector(cells_to_keep, &bound_cells["keep"]);
-		help::append_vector(cells_to_keep, &bound_cells["bound"]);
+		help::append_vector(keep_cells, &bound_cells["keep"]);
+		help::append_vector(keep_cells, &bound_cells["bound"]);
 		help::append_vector(cutout_cells, &bound_cells["cutout"]);		
 		active_case->bound_cond_cells[bound_name] = bound_cells;
 		
@@ -560,7 +560,7 @@ void phys::FEACaseManager::interpolate_cells(FEACase* source, FEACase* target, F
 
 void phys::FEACaseManager::interpolate(float fraction) {
 	// Reset
-	cells_to_keep.clear();
+	keep_cells.clear();
 	cutout_cells.clear();
 	for (int i = 0; i < active_cases.size(); i++) active_cases[i].bound_cond_cells.clear();
 

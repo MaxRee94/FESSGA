@@ -382,8 +382,8 @@ namespace fessga {
 
                     // Store the parent cell coordinates; this cell should not be removed during optimization
                     int cell_coord = line.id >> 2;
-                    if (!help::is_in(&fea_casemanager->cells_to_keep, cell_coord)) {
-                        fea_casemanager->cells_to_keep.push_back(cell_coord);
+                    if (!help::is_in(&fea_casemanager->keep_cells, cell_coord)) {
+                        fea_casemanager->keep_cells.push_back(cell_coord);
                         bound_cells.push_back(cell_coord);
                     }
 
@@ -400,8 +400,8 @@ namespace fessga {
                     // Store the filled cells neighboring the boundary cell as cells to keep
                     vector<int> neighbors = densities.get_neighbors(cell_coord);
                     for (auto& neighbor : neighbors) {
-                        if (!help::is_in(&fea_casemanager->cells_to_keep, neighbor)) {
-                            fea_casemanager->cells_to_keep.push_back(neighbor);
+                        if (!help::is_in(&fea_casemanager->keep_cells, neighbor)) {
+                            fea_casemanager->keep_cells.push_back(neighbor);
                             keep_cells.push_back(neighbor);
                         }
                     }
@@ -412,7 +412,7 @@ namespace fessga {
                 bound_cell_map["keep"] = keep_cells;
                 fea_case.bound_cond_cells[bound_name] = bound_cell_map;
             }
-            //cout << "no boundary cells: " << fea_casemanager->cells_to_keep.size() << endl;
+            //cout << "no boundary cells: " << fea_casemanager->keep_cells.size() << endl;
             //cout << "no boundary lines: " << q << endl;
         }
 
