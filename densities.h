@@ -254,6 +254,7 @@ namespace fessga {
             void fix_level1_void_or_pinch(vector<pair<int, int>>* offsets, int x, int y);
             void invert();
             void init_vtk_paths();
+            void enforce_keeps_and_cutouts();
             void copy(uint* source, uint* target, int source_count, int target_count);
 
             int dim_x = 0;

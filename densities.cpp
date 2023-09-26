@@ -737,8 +737,14 @@ void fessga::grd::Densities2d::fill_voids(int target_no_neighbors) {
             }
         }
     }
+}
+
+void fessga::grd::Densities2d::enforce_keeps_and_cutouts() {
     for (auto& cutout_cell : fea_casemanager->cutout_cells) {
         del(cutout_cell);
+    }
+    for (auto& keep_cell : fea_casemanager->keep_cells) {
+        fill(keep_cell);
     }
 }
 
@@ -825,6 +831,9 @@ void fessga::grd::Densities2d::do_single_feasibility_filtering_pass() {
 
     // Step 4: Remove solid elements that have exactly 1 true neighbor
     filter(1, true);
+
+    // Step 5: Ensure that keep cells remain filled and cutout cells remain empty despite the filtering process
+    enforce_keeps_and_cutouts();
 }
 
 // Get empty neighbor that shares the cell's given line
