@@ -71,7 +71,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			densities.set(coord, cell_value);
 			
 			// Store cutout cells
-			bool is_cutout = round((float)red_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
+			bool is_cutout = round((float)red_count / (float)(255 * (pixels_per_cell * pixels_per_cell))) > 0;
 			if (is_cutout) {
 				int coord = (x + 1) * densities.dim_y - y - 1;
 				densities.fea_casemanager->cutout_cells.push_back(coord);
@@ -79,7 +79,8 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 			}
 
 			// Store inactive cells
-			bool is_inactive = round((float)blue_count / (float)(255 * (pixels_per_cell * pixels_per_cell)));
+			float blue_sum = (float)blue_count / (float)(255 * (pixels_per_cell * pixels_per_cell));
+			bool is_inactive = round(blue_sum) > 0;
 			if (is_inactive) {
 				densities.fea_casemanager->inactive_cells.push_back(coord);
 				densities.fea_casemanager->keep_cells.push_back(coord);
