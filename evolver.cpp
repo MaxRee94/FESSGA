@@ -3,12 +3,12 @@
 #include <iostream>
 #include <thread>
 
-#define UNIFORM_POPULATION
+//#define UNIFORM_POPULATION
+//#define FEA_IGNORE
 
 int NO_FEA_THREADS = 6; // must be even number
 int NO_RESULTS_THREADS = 2; // must be even number
 
-//#define FEA_IGNORE
 
 /*
 * Method to run a batch of FEA jobs on all given output folders
@@ -81,8 +81,14 @@ void load_physics_batch(
 		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
 		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
 		string fea_failed_confirmation_file = population->at(i).output_folder + "/FEA_FAILED.txt";
+		cout << "individual (created in iteration " << population->at(i).iteration << ") output folder : " << population->at(i).output_folder << endl;
 		bool fea_failed = false;
+		time_t start = time(0);
 		while (!IO::file_exists(fea_finish_confirmation_file)) {
+			if ((time(0) - start) > 20) {
+				cout << "FEA Loader " << thread_offset << ": Not finding FEA confirmation file (" << fea_finish_confirmation_file << ").\n";
+				start += 1e10;
+			}
 			if (IO::file_exists(fea_failed_confirmation_file)) {
 				fea_failed = true;
 				cout << "WARNING: Setting fitness to infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
@@ -325,7 +331,7 @@ void Evolver::init_population(bool verbose) {
 		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
-	cout << "Generating initial population finished.\n";
+	cout << "Finished generating initial population.\n";
 
 	// Start a thread to read the results of the FEA
 	cout << "Starting results loaders...\n";
@@ -470,6 +476,7 @@ void Evolver::create_individual_mesh(evo::Individual2d* individual, bool verbose
 
 void Evolver::export_individual(evo::Individual2d* individual, string folder) {
 	individual->output_folder = folder;
+	individual->iteration = iteration_number;
 	create_individual_mesh(individual);
 	create_sif_files(individual, &individual->fe_mesh, verbose);
 }
@@ -508,6 +515,13 @@ void Evolver::create_children(bool verbose) {
 		create_valid_child_densities(&parents, children);
 		for (int j = 0; j < 2; j++) {
 			export_individual(&children[j], individual_folders[i * 2 + j]);
+			//if (children[j].iteration != iteration_number) cout << "------- CHILD WITH WRONG ITERATION NUMBER (in 'rest batch'): " << children[j].iteration << endl;
+			cout << "pushing back child with iteration number: " << children[j].iteration << endl;
+			cout << "population iterations:\n";
+			for (int i = 0; i < population.size(); i++) {
+				cout << population[i].iteration << ", ";
+			}
+			cout << endl;
 			population.push_back(children[j]);
 		}
 		if (verbose && (population.size() < 20 || (i+1) % (pop_size / 10) == 0))
@@ -554,9 +568,10 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	iterations_since_fitness_change++;
 
 	// Obtain FEA results and compute fitnesses
+	cout << "population size at time of evaluation: " << population.size() << endl;
 	for (int i = offset; i < (pop_size + offset); i++) {
 
-		if (verbose) cout << "\nmax stress: " << population[i].fea_results.max << endl;
+		if (verbose && (i % (pop_size / 5) == 0)) cout << "max stress: " << population[i].fea_results.max << endl;
 		//cout << "max stress threshold: " << fea_casemanager.max_stress_threshold << endl;*/
 
 		// Compute fitness
@@ -570,6 +585,9 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			fitness = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
 		}
 		else fitness = population[i].get_relative_area();
+		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
+		
+		if (help::get_value(&fitnesses_map, i) != -1) cout << "key " << i << " already in fitnesses_map.\n";
 		fitnesses_map.insert(pair(i, fitness));
 
 		// Update best fitness if improved
@@ -578,6 +596,8 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			iterations_since_fitness_change = 0;
 		}
 	}
+	cout << "---  Fitnesses map size after evaluation: " << fitnesses_map.size() << endl;
+	cout << "---  Population size + offset: " << pop_size + offset << endl;
 	if (iterations_since_fitness_change == 0) {
 		cout << "EMMA: new best fitness: " << best_fitness << endl;
 	}
@@ -592,35 +612,52 @@ void Evolver::do_selection() {
 	help::sort(fitnesses_map, fitnesses_pairset);
 	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
+	vector<int> individuals_to_remove;
+	cout << "fitness map (old) size: " << fitnesses_map.size() << endl;
 
-	// Create population indices map (maps from original index to updated index.
-	// Needed because deletions cause the index to change)
-	map<int, int> pop_indices;
-	for (int i = 0; i < pop_size * 2; i++) pop_indices[i] = i;
-
-	// Do selection on the current population
+	// Store indices of individuals to be removed from population. Also store the fitness of individuals which will survive.
 	for (auto& [pop_idx, fitness] : fitnesses_pairset) {
 		if (new_fitnesses_map.size() < pop_size) {
 			// Individual is selected to remain in the population
-			new_fitnesses_map.insert(pair(new_fitnesses_map.size(), fitness));
+			new_fitnesses_map.insert(pair(pop_idx, fitness));
 		}
 		else {
-			// Remove the individual from the population
-			population[pop_indices[pop_idx]].delete_arrays();
-			population.erase(population.begin() + pop_indices[pop_idx]);
-
-			// Update population indices map
-			for (auto& [orig_idx, new_idx] : pop_indices) {
-				if (orig_idx > pop_idx) pop_indices[orig_idx]--;
-			}
+			// Store the individual's index. Removal happens later.
+			individuals_to_remove.push_back(pop_idx);
 		}
 	}
 	fitnesses_map = new_fitnesses_map;
+	cout << "fitness pairset size: " << fitnesses_pairset.size() << endl;
+	for (auto& item : new_fitnesses_map) cout << item.first << ", ";
+	cout << endl;
+
+	// Sort removal vector in reverse order, so that individuals last in population will be removed first (done so that next individual's indices are not affected).
+	sort(individuals_to_remove.begin(), individuals_to_remove.end(), greater<int>());
+	
+	// Erase individuals marked for removal from population
+	for (auto& remove_idx : individuals_to_remove) {
+		population[remove_idx].delete_arrays();
+		population.erase(population.begin() + remove_idx);
+
+		// Decrement all population indices larger than the removed index by one
+		// The fitnesses_map is thereby made to track the shifts in the population.
+		map<int, double> _fitnesses_map;
+		for (auto& [keep_idx, fitness] : fitnesses_map) {
+			if (keep_idx > remove_idx) {
+				_fitnesses_map[keep_idx - 1] = fitness;
+			}
+			else _fitnesses_map[keep_idx] = fitness;
+		}
+		fitnesses_map = _fitnesses_map;
+	}
+	cout << "population size after selection: " << population.size() << endl;
+	cout << "no individuals to remove: " << individuals_to_remove.size() << endl;
+	cout << "new fitness map size: " << fitnesses_map.size() << endl;
 
 	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
 		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
-		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
+		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name, true);
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
 	}
 }

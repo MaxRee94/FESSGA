@@ -41,6 +41,7 @@ namespace fessga {
 			void fill_smaller_fenestrae(int target_no_cells, bool verbose = false);
 			double fitness = 0;
 			msh::FEMesh2D fe_mesh;
+			int iteration = 0;
 		protected:
 			uint* phenotype = 0;
 			int _phenotype_count = -1;
