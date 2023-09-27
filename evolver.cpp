@@ -593,9 +593,11 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		// Update best fitness if improved
 		if (fitness < best_fitness) {
 			best_fitness = fitness;
+			best_individual_idx = i;
 			iterations_since_fitness_change = 0;
 		}
 	}
+
 	cout << "---  Fitnesses map size after evaluation: " << fitnesses_map.size() << endl;
 	cout << "---  Population size + offset: " << pop_size + offset << endl;
 	if (iterations_since_fitness_change == 0) {
@@ -610,7 +612,6 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
 	help::sort(fitnesses_map, fitnesses_pairset);
-	best_individual_idx = 0;
 	map<int, double> new_fitnesses_map;
 	vector<int> individuals_to_remove;
 	cout << "fitness map (old) size: " << fitnesses_map.size() << endl;
@@ -635,6 +636,7 @@ void Evolver::do_selection() {
 	sort(individuals_to_remove.begin(), individuals_to_remove.end(), greater<int>());
 	
 	// Erase individuals marked for removal from population
+	cout << "-- Best individual idx (before update): " << best_individual_idx << endl;
 	for (auto& remove_idx : individuals_to_remove) {
 		population[remove_idx].delete_arrays();
 		population.erase(population.begin() + remove_idx);
@@ -648,6 +650,7 @@ void Evolver::do_selection() {
 			}
 			else _fitnesses_map[keep_idx] = fitness;
 		}
+		if (best_individual_idx > remove_idx) best_individual_idx--;
 		fitnesses_map = _fitnesses_map;
 	}
 	cout << "population size after selection: " << population.size() << endl;
@@ -656,6 +659,7 @@ void Evolver::do_selection() {
 
 	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
+		cout << "-- Best individual idx (after update): " << best_individual_idx << endl;
 		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name, true);
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
