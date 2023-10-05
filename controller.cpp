@@ -55,14 +55,15 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     fea_casemanager = *densities2d.fea_casemanager;
     string case_folder = base_folder + "/cases";
     vector<string> case_names = {
-       "ant_load",
-       "mid_load",
-       "post_load",
-       "pull_ant",
-       "pull_mid"
+       "constrained_mid_impact",
+       "constrained_ant_impact",
+       "constrained_pull_and_bite",
+       "constrained_pull_concentrated_and_antload",
+       "constrained_pull_concentrated_and_postload"
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
+    densities2d.visualize_keep_cells();
 }
 
 void Controller::run_fess(FESS& _fess) {
@@ -169,9 +170,9 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 156; // NOTE: must be divisible by 6
-    float mutation_rate_level0 = 0.0008;
-    float mutation_rate_level1 = 0.0002;
+    int pop_size = 240; // NOTE: must be >10 and divisible by 6
+    float mutation_rate_level0 = 0.0015;
+    float mutation_rate_level1 = 0.0004;
     int max_iterations_without_change = 150;
     float variation_trigger = 1.5;
     int no_static_iterations_trigger = 6;
