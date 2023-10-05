@@ -2,6 +2,7 @@
 #include "evolver.h"
 #include <iostream>
 #include <thread>
+#include <math.h>
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
@@ -590,6 +591,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	iterations_since_fitness_change++;
 
 	// Obtain FEA results and compute fitnesses
+	float RELATIVE_MAX_STRESS_INFLUENCE = 1.0 / 3.0;
 	for (int i = offset; i < (pop_size + offset); i++) {
 		if (verbose && (i % (pop_size / 5) == 0)) cout << "max stress: " << population[i].fea_results.max << endl;
 
@@ -600,17 +602,20 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			if (!help::is_in(&iterations_with_fea_failure, iteration_number)) iterations_with_fea_failure.push_back(iteration_number);
 		}
 		else if (population[i].fea_results.max > fea_casemanager.max_stress_threshold) {
-			// Compute fraction by which largest found stress value is larger than maximum threshold.
-			fitness = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
+			fitness = 1.0 - fea_casemanager.max_stress_threshold / population[i].fea_results.max;
 		}
-		else fitness = population[i].get_relative_area();
+		else {
+			double relative_maximum_stress = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
+			double relative_stress_fitness_contribution = 1.0 - (RELATIVE_MAX_STRESS_INFLUENCE * relative_maximum_stress);
+			fitness = 1.0 - (1.0 / (population[i].get_relative_area() * relative_stress_fitness_contribution));
+		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
 
 		// Add fitness to map
 		fitnesses_map.insert(pair(i, fitness));
 
 		// Update best fitness if improved
-		if (fitness < best_fitness) {
+		if (fitness > best_fitness) {
 			best_fitness = fitness;
 			best_individual_idx = i;
 			iterations_since_fitness_change = 0;
@@ -628,12 +633,22 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 
 void Evolver::do_selection() {
 	cout << "Performing truncation selection...\n";
+
+	// Obtain a list of population indices sorted according to fitness values
 	help::sort(fitnesses_map, fitnesses_pairset);
+	vector<pair<int, double>> individuals_and_fitnesses;
+	for (auto& _pair : fitnesses_pairset) individuals_and_fitnesses.push_back(_pair);
+
+	// Reverse the list so that it is ordered from large fitness values to small ones
+	reverse(individuals_and_fitnesses.begin(), individuals_and_fitnesses.end());
+
+	// Create a new fitness map (mapping pop indices to fitnesses) and a list of population indices corresponding to individuals
+	// that should be removed from the population.
 	map<int, double> new_fitnesses_map;
 	vector<int> individuals_to_remove;
 
 	// Store indices of individuals to be removed from population. Also store the fitness of individuals which will survive.
-	for (auto& [pop_idx, fitness] : fitnesses_pairset) {
+	for (auto& [pop_idx, fitness] : individuals_and_fitnesses) {
 		if (new_fitnesses_map.size() < pop_size) {
 			// Individual is selected to remain in the population
 			new_fitnesses_map.insert(pair(pop_idx, fitness));
@@ -698,7 +713,7 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
-		if ((variation < 0.5 || (iteration_number * pop_size) > 15000) && best_fitness > 1.0) {
+		if ((variation < 0.5 || (iteration_number * pop_size) > 15000) && best_fitness < 0) {
 			// If failing to meet max stress threshold criterium, change the criterium
 			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold * best_fitness + 1;
 			export_meta_parameters();
