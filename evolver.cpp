@@ -174,10 +174,13 @@ void Evolver::collect_stats() {
 void Evolver::export_stats(string iteration_name, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
-	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
-		statistics_file
-	);
+	if (initialize) {
+		IO::write_text_to_file(
+			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
+			statistics_file
+		);
+		return;
+	}
 	export_base_stats();
 	stats.push_back(to_string(best_fitness));
 	stats.push_back(to_string(variation));
@@ -293,7 +296,9 @@ void Evolver::create_single_individual(bool verbose) {
 	float min_fraction_cells = 0.8;
 	float max_fraction_cells = 1.2;
 	// If the individual has more than the prescribed range of cells, discard it
-	if (individual.count() > max_fraction_cells * densities.count()) return;
+	if (individual.count() > max_fraction_cells * densities.count()) {
+		return;
+	}
 	
 	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
 	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
@@ -411,6 +416,14 @@ void Evolver::do_setup() {
 	init_population();
 	float seconds_since_start = difftime(time(0), start);
 	cout << "Time taken to generate initial population: " << seconds_since_start << endl;
+	for (auto& indiv : population) {
+		for (auto& keepcell : indiv.fea_casemanager->keep_cells) {
+			if (!indiv[keepcell]) {
+				cout << "Invidiual with output folder " << indiv.output_folder << endl;
+				indiv.print();
+			}
+		}
+	}
 
 	evaluate_fitnesses(0);
 	help::sort(fitnesses_map, fitnesses_pairset);
