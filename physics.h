@@ -202,8 +202,10 @@ namespace fessga {
             vtkPointData* point_data = output->GetPointData();
 
             // Obtain Von Mises stress array
-            vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
-            if (results_array->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
+            //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
+            vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
+            vtkDoubleArray* stress_yy = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
+            if (stress_xx->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
@@ -221,7 +223,11 @@ namespace fessga {
                 int x = coord / (dim_y + 1);
                 int y = coord % (dim_y + 1);
                 coords.push_back(coord);
-                results_nodewise[coord] = (double)results_array->GetValue(i);
+                double stress_xx_value = (double)stress_xx->GetValue(i);
+                double stress_yy_value = (double)stress_yy->GetValue(i);
+                double compressive_xx = max(-stress_xx_value, 0.0);
+                double compressive_yy = max(-stress_yy_value, 0.0);
+                results_nodewise[coord] = max(compressive_xx, compressive_yy);
             }
 
             // Create cellwise results distribution by taking maximum of each group of 4 corners of a cell
