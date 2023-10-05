@@ -287,20 +287,24 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
 // Visualize distribution and highlight keep cells
 void fessga::grd::Densities2d::visualize_keep_cells() {
     //for (auto& cell : fea_case->keep_cells) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
+    int tempcount = count();
     for (auto& cell : fea_casemanager->keep_cells) set(cell, 5);
     print();
     for (auto& cell : fea_casemanager->keep_cells) set(cell, 1);
+    _count = tempcount;
 }
 
 // Visualize distribution and highlight cutout cells
 void fessga::grd::Densities2d::visualize_cutout_cells() {
     //for (auto& cell : fea_casemanager->cutout_cells) !values[cell] ? set(cell, 5) : throw("Error: Cutout cell is filled.\n");
+    int tempcount = count();
     for (auto& cell : fea_casemanager->cutout_cells) {
         if (!values[cell]) set(cell, 5);
         else set(cell, 8);
     }
     print();
     for (auto& cell : fea_casemanager->cutout_cells) set(cell, 0);
+    _count = tempcount;
 }
 
 // Visualize distribution and highlight removed cells
@@ -706,10 +710,21 @@ void fessga::grd::Densities3d::create_slice(grd::Densities2d& densities2d, int d
     densities2d.update_count();
 }
 
+bool fessga::grd::Densities2d::check_keep_cutout_cells() {
+    for (auto& keepcell : fea_casemanager->keep_cells) {
+        if (!at(keepcell)) return false;
+    }
+    for (auto& cutoutcell : fea_casemanager->cutout_cells) {
+        if (at(cutoutcell)) return false;
+    }
+    return true;
+}
+
 bool fessga::grd::Densities2d::repair() {
+    enforce_keeps_and_cutouts();
     do_feasibility_filtering();
     bool _is_single_piece = remove_isolated_material();
-    bool is_valid = _is_single_piece;
+    bool is_valid = _is_single_piece && check_keep_cutout_cells();
     return is_valid;
 }
 
@@ -718,6 +733,7 @@ bool fessga::grd::Densities2d::remove_isolated_material() {
     init_pieces();
     if (pieces.size() == 1) return true;
     remove_smaller_pieces();
+    update_count();
     return pieces.size() == 1;
 }
 
