@@ -681,6 +681,11 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
+		if ((variation < 0.5 || (iteration_number * pop_size) > 15000) && best_fitness > 1.0) {
+			// If failing to meet max stress threshold criterium, change the criterium
+			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold * best_fitness + 1;
+			export_meta_parameters();
+		}
 		if (iterations_since_fitness_change > (max_iterations_without_change / 2)) {
 			// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
 			// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
