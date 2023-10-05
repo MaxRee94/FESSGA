@@ -89,6 +89,7 @@ void fessga::img::load_distribution_from_image(grd::Densities2d& densities, msh:
 	}
 	densities.update_count();
 	densities.do_feasibility_filtering();
+	densities.update_count();
 
 	cout << "Loaded densities from image.\n";
 	cout << " - filled cell count: " << densities.count() << endl;
