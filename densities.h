@@ -212,6 +212,7 @@ namespace fessga {
             int get_cell_not_in_vector(vector<int>* cells_vector);
             int get_no_connected_cells(int cell_coord, Piece& piece, bool verbose = false);
             int get_unvisited_cell(vector<int>* visited_cells);
+            bool check_keep_cutout_cells();
             bool is_in(vector<Piece>* pieces, Piece* piece);
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_path);
