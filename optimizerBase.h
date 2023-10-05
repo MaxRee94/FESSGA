@@ -75,7 +75,9 @@ public:
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");
-		IO::write_text_to_file(content, output_folder + "/metaparameters.txt");
+		string outpath = output_folder + "/metaparameters.txt";
+		if (IO::file_exists(outpath)) outpath = IO::get_unique_file_path(outpath);
+		IO::write_text_to_file(content, outpath);
 	}
 
 	// Function to write statistics, images, and other generated data to files (called once per iteration)
