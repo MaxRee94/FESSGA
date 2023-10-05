@@ -83,6 +83,6 @@ private:
 	string best_solutions_folder;
 	string best_individuals_images_folder;
 	string crossover_method;
-	double fitness_mean, fitness_stdev, relative_area_mean;
+	double fitness_mean, fitness_stdev, relative_area_mean, relative_area_stdev, relative_max_stress_mean, relative_max_stress_stdev;
 	vector<int> iterations_with_fea_failure;
 };

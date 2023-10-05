@@ -229,7 +229,7 @@ void FESS::run() {
 			break;
 		}
 		else {
-			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. Relative volume decreased by "
+			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. relative area decreased by "
 				<< std::fixed << (float)no_cells_removed / (float)densities.size << ", to "
 				<< (float)(densities.count()) / (float)densities.size << "\n";
 			last_iteration_was_valid = true;

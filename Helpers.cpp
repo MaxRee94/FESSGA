@@ -394,3 +394,21 @@ vector<float> fessga::help::get_free_memory() {
     return { RAM_gigabytes, VM_gigabytes, Pagefile_gigabytes, (float)percent_memory };
 }
 
+double fessga::help::get_mean(vector<double>* distribution) {
+    double sum = 0;
+    for (double& sample : *distribution) {
+        sum += sample;
+    }
+    return sum / distribution->size();
+}
+
+double fessga::help::get_stdev(vector<double>* distribution, double mean) {
+    if (mean == -999999) {
+        mean = get_mean(distribution);
+    }
+    double sos = 0;
+    for (auto& sample : *distribution) sos += (sample - mean) * (sample - mean);
+    double variance = sos / (distribution->size() - 1);
+    return sqrt(variance);
+}
+

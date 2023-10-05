@@ -125,5 +125,10 @@ namespace fessga {
 		// Get free RAM memory
 		static vector<float> get_free_memory();
 
+		// Get stdev
+		static double get_stdev(vector<double>* distribution, double mean = -999999);
+
+		// Get mean
+		static double get_mean(vector<double>* distribution);
 	};
 };

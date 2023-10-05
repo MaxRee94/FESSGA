@@ -132,26 +132,37 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double, double> get_fitness_stats(map<int, double>* fitnesses_map, vector<evo::Individual2d>* population) {
+tuple<double, double, double, double, double, double> get_fitness_stats(map<int, double>* fitnesses_map, vector<evo::Individual2d>* population) {
 	// Compute mean
-	double fit_mean = 0;
-	for (auto& [_, fitness] : *fitnesses_map) fit_mean += fitness;
-	fit_mean /= (double)fitnesses_map->size();
+	vector<double> fitnesses;
+	for (auto& [_, fitness] : *fitnesses_map) fitnesses.push_back(fitness);
+	double fit_mean = help::get_mean(&fitnesses);
 	
 	// Compute stdev
-	double soq = 0;
-	for (auto& [_, fitness] : *fitnesses_map) soq += (fitness - fit_mean) * (fitness - fit_mean);
-	double variance = soq / (fitnesses_map->size() - 1);
-	double fit_stdev = sqrt(variance);
+	double fit_stdev = help::get_stdev(&fitnesses);
 
-	// Compute average relative volume
-	double relative_area_sum = 0;
+	// Compute mean relative area
+	vector<double> relative_areas;
 	for (auto& indiv : *population) {
-		relative_area_sum += indiv.get_relative_area();
+		relative_areas.push_back(indiv.get_relative_area());
 	}
-	double relative_area_mean = relative_area_sum / (float)population->size();
+	double relative_area_mean = help::get_mean(&relative_areas);
 
-	return { fit_mean, fit_stdev, relative_area_mean };
+	// Compute stdev relative area
+	double relative_area_stdev = help::get_stdev(&relative_areas, relative_area_mean);
+
+	// Compute maximum stress relative to threshold mean
+	vector<double> relative_maximum_stresses;
+	for (auto& indiv : *population) {
+		double relative_maximum_stress = indiv.fea_results.max / indiv.fea_casemanager->max_stress_threshold;
+		relative_maximum_stresses.push_back(relative_maximum_stress);
+	}
+	double relative_maximum_stress_mean = help::get_mean(&relative_maximum_stresses);
+
+	// Compute maximum stress relative to threshold stdev
+	double relative_maximum_stress_stdev = help::get_stdev(&relative_maximum_stresses, relative_maximum_stress_mean);
+
+	return { fit_mean, fit_stdev, relative_area_mean, relative_area_stdev, relative_maximum_stress_mean, relative_maximum_stress_stdev };
 }
 
 /*
@@ -165,10 +176,13 @@ bool variation_minimum_passed(vector<evo::Individual2d>* population, float thres
 
 void Evolver::collect_stats() {
 	variation = get_variation(&population);
-	auto [_fitness_mean, _fitness_stdev, _relative_area_mean] = get_fitness_stats(&fitnesses_map, &population);
+	auto [_fitness_mean, _fitness_stdev, _relative_area_mean, _relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev] = get_fitness_stats(&fitnesses_map, &population);
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
 	relative_area_mean = _relative_area_mean;
+	relative_area_stdev = _relative_area_stdev;
+	relative_max_stress_mean = _relative_max_stress_mean;
+	relative_max_stress_stdev = _relative_max_stress_stdev;
 }
 
 void Evolver::export_stats(string iteration_name, bool verbose) {
@@ -176,7 +190,7 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) {
 		IO::write_text_to_file(
-			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
+			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
 			statistics_file
 		);
 		return;
@@ -187,6 +201,9 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
 	stats.push_back(to_string(relative_area_mean));
+	stats.push_back(to_string(relative_area_stdev));
+	stats.push_back(to_string(relative_max_stress_mean));
+	stats.push_back(to_string(relative_max_stress_stdev));
 	stats.push_back(to_string(mutation_rate_level0));
 	stats.push_back(to_string(mutation_rate_level1));
 	vector<string> stats = {
