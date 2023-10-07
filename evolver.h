@@ -64,6 +64,8 @@ private:
 	int pop_size = 1;
 	float mutation_rate_level0, mutation_rate_level1, initial_perturb_level0, initial_perturb_level1;
 	float initial_perturbation_size = 0;
+	vector<float> fitness_time_series;
+	float fitness_time_derivative = 0;
 	bool last_iteration_was_valid = true;
 	int final_valid_iteration = 1;
 	int no_static_iterations_trigger = 100;
@@ -72,7 +74,7 @@ private:
 	map<int, double> fitnesses_map;
 	PairSet fitnesses_pairset;
 	vector<FILE*> pipes;
-	double best_fitness = INFINITY;
+	double best_fitness = -INFINITY;
 	float variation = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
