@@ -91,8 +91,8 @@ void load_physics_batch(
 			}
 			if (IO::file_exists(fea_failed_confirmation_file)) {
 				fea_failed = true;
-				cout << "WARNING: Setting fitness to infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
-				population->at(i).fitness = INFINITY;
+				cout << "WARNING: Setting fitness to -infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
+				population->at(i).fitness = -INFINITY;
 				break;
 			}
 		}
@@ -133,14 +133,33 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double, double, double, double, double> get_fitness_stats(map<int, double>* fitnesses_map, vector<evo::Individual2d>* population) {
-	// Compute mean
+tuple<double, double, double, double, double, double, double> get_fitness_stats(
+	map<int, double>* fitnesses_map, vector<float>& fitness_time_series, double best_fitness, vector<evo::Individual2d>* population
+) {
+	// Compute fitness mean
 	vector<double> fitnesses;
 	for (auto& [_, fitness] : *fitnesses_map) fitnesses.push_back(fitness);
 	double fit_mean = help::get_mean(&fitnesses);
 	
-	// Compute stdev
+	// Compute fitness stdev
 	double fit_stdev = help::get_stdev(&fitnesses);
+
+	// Compute fitness time derivative
+	fitness_time_series.push_back(best_fitness);
+	float weights = 0;
+	float fitness_time_derivative = 0;
+	int NO_DERIVATIVE_SAMPLES = 20;
+
+	// Only consider the last NO_DERIVATIVE_SAMPLES fitness samples from the time series
+	int first_sample = int(max((double)(fitness_time_series.size() - NO_DERIVATIVE_SAMPLES), 1.0)); 
+	for (int i = first_sample; i < fitness_time_series.size(); i++) {
+		float weight = 1.0 / ((float)i * sqrt((float)i));
+		float fitness_difference = fitness_time_series[i] - fitness_time_series[i - 1];
+		float weighted_difference = fitness_difference * weight;
+		weights += weight;
+		fitness_time_derivative += weighted_difference;
+	}
+	fitness_time_derivative /= weights;
 
 	// Compute mean relative area
 	vector<double> relative_areas;
@@ -163,7 +182,7 @@ tuple<double, double, double, double, double, double> get_fitness_stats(map<int,
 	// Compute maximum stress relative to threshold stdev
 	double relative_maximum_stress_stdev = help::get_stdev(&relative_maximum_stresses, relative_maximum_stress_mean);
 
-	return { fit_mean, fit_stdev, relative_area_mean, relative_area_stdev, relative_maximum_stress_mean, relative_maximum_stress_stdev };
+	return { fit_mean, fit_stdev, fitness_time_derivative, relative_area_mean, relative_area_stdev, relative_maximum_stress_mean, relative_maximum_stress_stdev };
 }
 
 /*
@@ -177,13 +196,17 @@ bool variation_minimum_passed(vector<evo::Individual2d>* population, float thres
 
 void Evolver::collect_stats() {
 	variation = get_variation(&population);
-	auto [_fitness_mean, _fitness_stdev, _relative_area_mean, _relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev] = get_fitness_stats(&fitnesses_map, &population);
+	auto [
+		_fitness_mean, _fitness_stdev, _fitness_time_derivative, _relative_area_mean,
+			_relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev
+	] = get_fitness_stats(&fitnesses_map, fitness_time_series, best_fitness, &population);
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
 	relative_area_mean = _relative_area_mean;
 	relative_area_stdev = _relative_area_stdev;
 	relative_max_stress_mean = _relative_max_stress_mean;
 	relative_max_stress_stdev = _relative_max_stress_stdev;
+	fitness_time_derivative = _fitness_time_derivative;
 }
 
 void Evolver::export_stats(string iteration_name, bool verbose) {
@@ -191,7 +214,7 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) {
 		IO::write_text_to_file(
-			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
+			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Fitness Derivative, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
 			statistics_file
 		);
 		return;
@@ -201,6 +224,7 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(variation));
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
+	stats.push_back(to_string(fitness_time_derivative));
 	stats.push_back(to_string(relative_area_mean));
 	stats.push_back(to_string(relative_area_stdev));
 	stats.push_back(to_string(relative_max_stress_mean));
@@ -591,23 +615,22 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	iterations_since_fitness_change++;
 
 	// Obtain FEA results and compute fitnesses
-	float RELATIVE_MAX_STRESS_INFLUENCE = 1.0 / 3.0;
+	float STRESS_INFLUENCE_ON_FITNESS = 0.7; // Should be a fraction between 0 and 1
 	for (int i = offset; i < (pop_size + offset); i++) {
 		if (verbose && (i % (pop_size / 5) == 0)) cout << "max stress: " << population[i].fea_results.max << endl;
 
 		// Determine fitness
 		double fitness;
-		if (population[i].fitness == INFINITY) {
-			fitness = INFINITY;
+		if (population[i].fitness == -INFINITY) {
+			fitness = -INFINITY;
 			if (!help::is_in(&iterations_with_fea_failure, iteration_number)) iterations_with_fea_failure.push_back(iteration_number);
 		}
 		else if (population[i].fea_results.max > fea_casemanager.max_stress_threshold) {
-			fitness = 1.0 - fea_casemanager.max_stress_threshold / population[i].fea_results.max;
+			fitness = 1.0 - population[i].fea_results.max / fea_casemanager.max_stress_threshold;
 		}
 		else {
-			double relative_maximum_stress = population[i].fea_results.max / fea_casemanager.max_stress_threshold;
-			double relative_stress_fitness_contribution = 1.0 - (RELATIVE_MAX_STRESS_INFLUENCE * relative_maximum_stress);
-			fitness = 1.0 - (1.0 / (population[i].get_relative_area() * relative_stress_fitness_contribution));
+			double relative_maximum_stress = (fea_casemanager.max_stress_threshold - population[i].fea_results.max) / fea_casemanager.max_stress_threshold;
+			fitness = (relative_maximum_stress * STRESS_INFLUENCE_ON_FITNESS + 1.0) / (population[i].get_relative_area());
 		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
 
@@ -713,9 +736,9 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
-		if ((variation < 0.5 || (iteration_number * pop_size) > 15000) && best_fitness < 0) {
+		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
 			// If failing to meet max stress threshold criterium, change the criterium
-			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold * best_fitness + 1;
+			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold / (1.0 + best_fitness) + 1;
 			export_meta_parameters();
 		}
 		if (iterations_since_fitness_change > (max_iterations_without_change / 2)) {

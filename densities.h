@@ -51,10 +51,13 @@ namespace fessga {
                 construct_grid();
                 output_folder = _output_folder;
                 fea_results = phys::FEAResults2D(dim_x, dim_y);
+                id = help::get_rand_uint(0, 10e30);
             }
             Densities2d(int _dim_x, Vector3d _diagonal, string _output_folder) : Densities2d(
                 _dim_x, Vector2d(_diagonal(0), _diagonal(1)), _output_folder
-            ) {};
+            ) {
+                id = help::get_rand_uint(0, 10e30);
+            };
             Densities2d(Densities2d* densities) {
                 cell_size = densities->cell_size;
                 diagonal = densities->diagonal;
@@ -62,6 +65,7 @@ namespace fessga {
                 construct_grid();
                 fea_results = densities->fea_results;
                 fea_casemanager = densities->fea_casemanager;
+                id = help::get_rand_uint(0, 10e30);
             }
             virtual void construct_grid() {
                 dim_y = round(diagonal(1) / cell_size(1));
@@ -275,6 +279,7 @@ namespace fessga {
             float com_x, com_y;
             double area;
             vector<string> vtk_paths;
+            float id = 0;
 
         protected:
             uint* values = 0;

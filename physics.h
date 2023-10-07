@@ -9,6 +9,7 @@
 #include <vtkProperty.h>
 #include <vtkSmartPointer.h>
 #include <vtkUnstructuredGridReader.h>
+#include <vtkUnstructuredGridWriter.h>
 #include <vtkAutoInit.h>
 #include <vtkTypedDataArray.h>
 #include <vtkTypedDataArrayIterator.h>
@@ -182,6 +183,81 @@ namespace fessga {
             return true;
         }
 
+        // Return the indices of the filled cell neighbors of the given node coordinates
+        static vector<int> get_neighbors(int x, int y, int dim_x, int dim_y, uint* _values) {
+            vector<pair<int, int>> offsets = { pair(0,0), pair(-1,0), pair(-1, -1), pair(0, -1) };
+            vector<int> cell_neighbors;
+            for (auto& offset : offsets) {
+                int _x = x + offset.first;
+                int _y = y + offset.second;
+                if (_x == dim_x || _y == dim_y || _x < 0 || _y < 0) continue;
+                int neighbor_coord = _x * dim_y + _y;
+                if (_values[neighbor_coord] == 1) cell_neighbors.push_back(neighbor_coord);
+            }
+            return cell_neighbors;
+        }
+
+        static bool write_results_superposition(string infile, string outfile, FEAResults2D* results, FEACaseManager* fea_casemanager,
+            int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, uint* densities, char* data_type)
+        {
+            // Read data from file
+            vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
+            reader->SetFileName(infile.c_str());
+            reader->ReadAllScalarsOn();
+            reader->Update();
+            vtkUnstructuredGrid* output = reader->GetOutput();
+
+            // Get point data (this object contains the physics data)
+            vtkPointData* point_data = output->GetPointData();
+
+            // Obtain Von Mises stress array
+            vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
+            if (stress_xx->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
+            
+            // Get node coords
+            vtkPoints* points = output->GetPoints();
+            double point[2];
+            vector<int> node_coords;
+            Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
+            Vector2d offset = Vector2d(_offset(0), _offset(1));
+            for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+                point[0] = points->GetData()->GetTuple(i)[0];
+                point[1] = points->GetData()->GetTuple(i)[1];
+                Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
+                Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
+                int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
+                node_coords.push_back(coord);
+            }
+
+            // Overwrite grid values with values from results array, averaged across neighboring cells
+            for (int i = 0; i < node_coords.size(); i++) {
+                int node_coord = node_coords[i];
+                int x = node_coord / (dim_y + 1);
+                int y = node_coord % (dim_y + 1);
+                int cell_coord = x * dim_y + y;
+                vector<int> neighbor_cells = get_neighbors(x, y, dim_x, dim_y, densities);
+                double node_value = 0;
+                for (auto& cell : neighbor_cells) {
+                    node_value += results->data_map[cell];
+                }
+                node_value /= (double)neighbor_cells.size();
+                stress_xx->SetValue(node_coords[i], node_value);
+            }
+
+            // Write to vtk OUTFILE
+            vtkUnstructuredGridWriter* writer = vtkUnstructuredGridWriter::New();
+            writer->SetFileName(outfile.c_str());
+            writer->SetFileTypeToASCII();
+            writer->SetInputData(reader->GetOutput());
+            writer->Update();
+
+            // Delete writer and reader
+            reader->Delete();
+            writer->Delete();
+
+            return true;
+        }
+
         static bool load_single_VTK_file(
             string filename, FEAResults2D* results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
             Vector3d _offset, char* data_type
@@ -220,8 +296,6 @@ namespace fessga {
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
-                int x = coord / (dim_y + 1);
-                int y = coord % (dim_y + 1);
                 coords.push_back(coord);
                 double stress_xx_value = (double)stress_xx->GetValue(i);
                 double stress_yy_value = (double)stress_yy->GetValue(i);
