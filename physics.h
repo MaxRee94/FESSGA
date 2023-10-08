@@ -126,6 +126,7 @@ namespace fessga {
             FEAResults2D(int dim_x, int dim_y) { x = dim_x, y = dim_y; }
             PairSet data;
             map<int, double> data_map;
+            //map<int, double> mean_map;
             int x, y;
             string type;
             double min = INFINITY;
@@ -234,10 +235,12 @@ namespace fessga {
                 int node_coord = node_coords[i];
                 int x = node_coord / (dim_y + 1);
                 int y = node_coord % (dim_y + 1);
-                int cell_coord = x * dim_y + y;
+                //cout << "node coord: " << x << ", " << y << endl;
                 vector<int> neighbor_cells = get_neighbors(x, y, dim_x, dim_y, densities);
                 double node_value = 0;
                 for (auto& cell : neighbor_cells) {
+                    //cout << "neighbor cell: " << cell / dim_y << ", " << cell % dim_y << endl;
+                    //node_value += results->mean_map[cell];
                     node_value += results->data_map[cell];
                 }
                 node_value /= (double)neighbor_cells.size();
@@ -328,6 +331,7 @@ namespace fessga {
                 if (cell_stress > max_stress) max_stress = cell_stress;
                 if (cell_stress < min_stress) min_stress = cell_stress;
                 results->data_map.insert(pair(cell_coord, cell_stress));
+                //results->mean_map.insert(pair(cell_coord, neighbors.mean()));
             }
             results->min = min_stress;
             results->max = max_stress;

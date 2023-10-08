@@ -230,6 +230,7 @@ namespace fessga {
             );
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
+            void copy_to(uint* target);
             void do_import(string path, float width);
             void filter(int no_neighbors = 0, bool restore_bound_cells = false);
             void init_pieces(int _start_cell = -1);

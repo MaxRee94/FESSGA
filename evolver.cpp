@@ -706,9 +706,19 @@ void Evolver::do_selection() {
 
 	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
-		IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
+		string target_folder = IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
+		
+		// Also write a superposition of stress values to the target folder as a .vtk file
+		uint* densities = new uint[population[best_individual_idx].dim_x * population[best_individual_idx].dim_y];
+		population[best_individual_idx].copy_to(densities);
+		phys::write_results_superposition(
+			population[best_individual_idx].vtk_paths[0], target_folder + "/SuperPosition.vtk", &population[best_individual_idx].fea_results, 
+			population[best_individual_idx].fea_casemanager, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
+			population[best_individual_idx].cell_size, mesh.offset, densities, "Vonmises"
+		);
+		delete[] densities;
 	}
 }
 

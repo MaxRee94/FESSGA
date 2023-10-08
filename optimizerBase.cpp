@@ -15,6 +15,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 			//cout << "OptimizerBase";
 		}
 	}
+	densities->vtk_paths = vtk_paths;
 
 	// Initialize data map to contain only 0's
 	densities->fea_results.data_map.clear();
@@ -34,6 +35,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 	else if (!physics_loaded) {
 		cout << "OptimizerBase: Error: Unable to read physics data." << endl;
 	}
+
 
 	return true;
 }
