@@ -750,6 +750,14 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
+		if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
+			// If the surface area of the best individual is lower than the original input shape, shift the optimum 
+			cout << std::setprecision(3) << std::scientific;
+			cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.max_stress_threshold << " to " << minimum_stress << endl;
+			cout << std::fixed;
+			fea_casemanager.max_stress_threshold = minimum_stress;
+			export_meta_parameters();
+		}
 		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
 			// If failing to meet max stress threshold criterium, change the criterium
 			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold / (1.0 + best_fitness) + 1;

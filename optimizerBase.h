@@ -31,6 +31,7 @@ public:
 		no_cells = densities.size;
 		max_iterations = _max_iterations;
 		verbose = _verbose;
+		initial_count = _densities.count();
 		IO::create_folder_if_not_exists(output_folder);
 		image_folder = IO::create_folder_if_not_exists(output_folder + "/image_output");
 		fea_casemanager = _fea_casemanager;
@@ -44,6 +45,7 @@ public:
 	bool verbose = true;
 	int max_iterations = 0;
 	int iteration_number = 0;
+	int initial_count = 0;
 	bool export_msh = false;
 	phys::FEACaseManager fea_casemanager;
 	string statistics_file;
