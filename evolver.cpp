@@ -637,6 +637,11 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		// Add fitness to map
 		fitnesses_map.insert(pair(i, fitness));
 
+		// Store stress value of strongest (i.e. lowest-stress) individual 
+		if (population[i].fea_results.max < minimum_stress) {
+			minimum_stress = population[i].fea_results.max;
+		}
+
 		// Update best fitness if improved
 		if (fitness > best_fitness) {
 			best_fitness = fitness;
@@ -714,9 +719,8 @@ void Evolver::do_selection() {
 		uint* densities = new uint[population[best_individual_idx].dim_x * population[best_individual_idx].dim_y];
 		population[best_individual_idx].copy_to(densities);
 		phys::write_results_superposition(
-			population[best_individual_idx].vtk_paths[0], target_folder + "/SuperPosition.vtk", &population[best_individual_idx].fea_results, 
-			population[best_individual_idx].fea_casemanager, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
-			population[best_individual_idx].cell_size, mesh.offset, densities, "Vonmises"
+			population[best_individual_idx].vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
+			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.stress_type
 		);
 		delete[] densities;
 	}

@@ -32,11 +32,9 @@ public:
         fea_casemanager = phys::FEACaseManager();
         max_stress = input.max_stress;
         max_iterations = input.max_iterations;
-        
+
         // Initialize RNG
         help::init_RNG();
-
-        cout << "size (controller): " << input.size << endl;
 
         // Load mesh
         MatrixXd V;

@@ -75,6 +75,7 @@ private:
 	PairSet fitnesses_pairset;
 	vector<FILE*> pipes;
 	double best_fitness = -INFINITY;
+	double minimum_stress = INFINITY;
 	float variation = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
