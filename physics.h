@@ -271,9 +271,8 @@ namespace fessga {
 
             // Obtain Von Mises stress array
             //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
-            vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
-            vtkDoubleArray* stress_yy = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
-            if (stress_xx->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
+            vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
+            if (vonmises->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
@@ -290,7 +289,7 @@ namespace fessga {
                 int x = coord / (dim_y + 1);
                 int y = coord % (dim_y + 1);
                 coords.push_back(coord);
-                stress_xx->SetValue(i, nodewise_results[coord]);
+                vonmises->SetValue(i, nodewise_results[coord]);
             }
 
             // Write to vtk OUTFILE
