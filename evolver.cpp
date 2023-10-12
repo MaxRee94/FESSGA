@@ -615,7 +615,6 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 	iterations_since_fitness_change++;
 
 	// Obtain FEA results and compute fitnesses
-	float STRESS_INFLUENCE_ON_FITNESS = 0.7; // Should be a fraction between 0 and 1
 	for (int i = offset; i < (pop_size + offset); i++) {
 		if (verbose && (i % (pop_size / 5) == 0)) cout << "max stress: " << population[i].fea_results.max << endl;
 
@@ -630,7 +629,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 		else {
 			double relative_maximum_stress = (fea_casemanager.max_stress_threshold - population[i].fea_results.max) / fea_casemanager.max_stress_threshold;
-			fitness = (relative_maximum_stress * STRESS_INFLUENCE_ON_FITNESS + 1.0) / (population[i].get_relative_area());
+			fitness = (relative_maximum_stress * stress_fitness_factor + 1.0) / (population[i].get_relative_area());
 		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
 
@@ -750,14 +749,14 @@ void Evolver::evolve() {
 		collect_stats();
 		export_stats(iteration_name);
 		cleanup();
-		if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
-			// If the surface area of the best individual is lower than the original input shape, shift the optimum 
-			cout << std::setprecision(3) << std::scientific;
-			cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.max_stress_threshold << " to " << minimum_stress << endl;
-			cout << std::fixed;
-			fea_casemanager.max_stress_threshold = minimum_stress;
-			export_meta_parameters();
-		}
+		//if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
+		//	// If the surface area of the best individual is lower than the original input shape, shift the optimum 
+		//	cout << std::setprecision(3) << std::scientific;
+		//	cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.max_stress_threshold << " to " << minimum_stress << endl;
+		//	cout << std::fixed;
+		//	fea_casemanager.max_stress_threshold = minimum_stress;
+		//	export_meta_parameters();
+		//}
 		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
 			// If failing to meet max stress threshold criterium, change the criterium
 			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold / (1.0 + best_fitness) + 1;
