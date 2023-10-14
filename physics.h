@@ -213,10 +213,10 @@ namespace fessga {
             vtkPointData* point_data = output->GetPointData();
 
             // Obtain stress array(s)
-            vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
-            vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
-            vtkDoubleArray* stress_yy = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
-            if (stress_xx->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
+            //vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
+            //vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
+            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Displacement"));
+            if (displacements->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
@@ -231,13 +231,11 @@ namespace fessga {
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
                 coords.push_back(coord);
-                double stress_xx_value = (double)stress_xx->GetValue(i);
-                double stress_yy_value = (double)stress_yy->GetValue(i);
-                double xx = max(stress_xx_value, 0.0);
-                double yy = max(stress_yy_value, 0.0);
-                results_nodewise[coord] = max(xx, yy);
-                //results_nodewise[coord] = (double)vonmises->GetValue(i);
-                //cout << "coord: " << coord << ", stress: " << results_nodewise[coord] << endl;
+                double displacement_x = (double)displacements->GetValue(i);
+                double displacement_y = (double)displacements->GetValue(i + 1);
+                double magnitude = Vector2d(displacement_x, displacement_y).norm();
+                magnitude = max(magnitude, 0.0);
+                results_nodewise[coord] = magnitude;
             }
             reader->Delete();
         }
@@ -271,8 +269,8 @@ namespace fessga {
 
             // Obtain Von Mises stress array
             //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
-            vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
-            if (vonmises->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
+            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Displacement"));
+            if (displacements->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
@@ -289,7 +287,7 @@ namespace fessga {
                 int x = coord / (dim_y + 1);
                 int y = coord % (dim_y + 1);
                 coords.push_back(coord);
-                vonmises->SetValue(i, nodewise_results[coord]);
+                displacements->SetValue(i, nodewise_results[coord]);
             }
 
             // Write to vtk OUTFILE
@@ -327,9 +325,10 @@ namespace fessga {
 
             // Obtain Von Mises stress array
             //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
-            vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
-            vtkDoubleArray* stress_yy = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
-            if (stress_xx->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
+            //vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
+            //vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
+            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
+            if (displacements->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
@@ -338,18 +337,20 @@ namespace fessga {
             vector<int> coords;
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             Vector2d offset = Vector2d(_offset(0), _offset(1));
-            for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-                point[0] = points->GetData()->GetTuple(i)[0];
-                point[1] = points->GetData()->GetTuple(i)[1];
+            for (int i = 0; i < points->GetNumberOfPoints(); i+=3) {
+                point[0] = points->GetData()->GetTuple(i/3)[0];
+                point[1] = points->GetData()->GetTuple(i/3)[1];
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
                 coords.push_back(coord);
-                double stress_xx_value = (double)stress_xx->GetValue(i);
-                double stress_yy_value = (double)stress_yy->GetValue(i);
-                double compressive_xx = max(stress_xx_value, 0.0);
-                double compressive_yy = max(stress_yy_value, 0.0);
-                results_nodewise[coord] = max(compressive_xx, compressive_yy);
+                double displacement_x = (double)displacements->GetValue(i);
+                double displacement_y = (double)displacements->GetValue(i+1);
+                double magnitude = Vector2d(displacement_x, displacement_y).norm();
+                magnitude = max(magnitude, 0.0);
+                //cout << "displacement x: " << displacement_x << endl;
+                //cout << "magnitude: " << magnitude << endl;
+                results_nodewise[coord] = magnitude;
             }
 
             // Create cellwise results distribution by taking maximum of each group of 4 corners of a cell
