@@ -40,6 +40,7 @@ void parse_args(
     input.name = string(argv[6]);
     input.max_stress = atof(argv[7]);
     input.max_iterations = atoi(argv[8]);
+    input.stress_type = argv[9];
 }
 
 

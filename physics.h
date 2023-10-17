@@ -118,7 +118,8 @@ namespace fessga {
             bool maintain_boundary_connection = true;
             int dim_x, dim_y;
             bool dynamic = false;
-            string stress_type = "tensile";
+            string stress_type = "";
+            int displacement_measurement_cell = -1;
         };
 
         class FEAResults2D {
@@ -164,7 +165,7 @@ namespace fessga {
 
         static bool load_2d_physics_data(
             vector<string> filenames, FEAResults2D& results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, char* data_type)
+            Vector3d _offset, string data_type)
         {
             // For each coordinate, retain the maximum value out of all FEA runs
             // We thereby obtain a superposition of stress distributions.
@@ -269,7 +270,7 @@ namespace fessga {
 
             // Obtain Von Mises stress array
             //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
-            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Displacement"));
+            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(stress_type.c_str()));
             if (displacements->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
@@ -306,7 +307,7 @@ namespace fessga {
 
         static bool load_single_VTK_file(
             string filename, FEAResults2D* results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, char* data_type
+            Vector3d _offset, string data_type
         ) {
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
@@ -327,7 +328,7 @@ namespace fessga {
             //vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type));
             //vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
             //vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
-            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
+            vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(data_type.c_str()));
             if (displacements->GetSize() == 0) return false; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
@@ -337,23 +338,25 @@ namespace fessga {
             vector<int> coords;
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             Vector2d offset = Vector2d(_offset(0), _offset(1));
-            for (int i = 0; i < points->GetNumberOfPoints(); i+=3) {
-                point[0] = points->GetData()->GetTuple(i/3)[0];
-                point[1] = points->GetData()->GetTuple(i/3)[1];
+            for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+                point[0] = points->GetData()->GetTuple(i)[0];
+                point[1] = points->GetData()->GetTuple(i)[1];
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
                 coords.push_back(coord);
-                double displacement_x = (double)displacements->GetValue(i);
-                double displacement_y = (double)displacements->GetValue(i+1);
-                double magnitude = Vector2d(displacement_x, displacement_y).norm();
-                magnitude = max(magnitude, 0.0);
+                if (data_type == "Displacement") {
+                    double displacement_x = (double)displacements->GetValue(i * 3);
+                    double displacement_y = (double)displacements->GetValue(i * 3 + 1);
+                    double magnitude = Vector2d(displacement_x, displacement_y).norm();
+                    magnitude = max(magnitude, 0.0);
+                    results_nodewise[coord] = magnitude;
+                }
                 //cout << "displacement x: " << displacement_x << endl;
                 //cout << "magnitude: " << magnitude << endl;
-                results_nodewise[coord] = magnitude;
             }
 
-            // Create cellwise results distribution by taking maximum of each group of 4 corners of a cell
+            // Create cellwise results distribution by taking mean of each group of 4 corners of a cell
             double min_stress = 1e30;
             double max_stress = 0;
             for (int i = 0; i < coords.size(); i++) {
@@ -367,17 +370,24 @@ namespace fessga {
                     results->data_map.insert(pair(cell_coord, -9999));
                     continue;
                 }
+                if (data_type == "Displacement" && cell_coord != fea_casemanager->displacement_measurement_cell) {
+                    continue;
+                }
                 Vector4d neighbors;
                 neighbors[0] = results_nodewise[node_coord];
                 neighbors[1] = results_nodewise[(x + 1) * (dim_y + 1) + y];
                 neighbors[2] = results_nodewise[(x + 1) * (dim_y + 1) + (y + 1)];
                 neighbors[3] = results_nodewise[x * (dim_y + 1) + (y + 1)];
                 if (neighbors.minCoeff() == 0) continue; // Skip cells with corners that have stress value 0
-                double cell_stress = neighbors.maxCoeff();
-                if (cell_stress > max_stress) max_stress = cell_stress;
-                if (cell_stress < min_stress) min_stress = cell_stress;
-                //results->data_map.insert(pair(cell_coord, cell_stress));
+                double cell_value = neighbors.mean();
                 results->data_map.insert(pair(cell_coord, neighbors.mean()));
+                if (data_type == "Displacement") {
+                    max_stress = cell_value;
+                }
+                else {
+                    if (cell_value > max_stress) max_stress = cell_value;
+                    if (cell_value < min_stress) min_stress = cell_value;
+                }
             }
             results->min = min_stress;
             results->max = max_stress;

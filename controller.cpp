@@ -63,6 +63,16 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
+    if (fea_casemanager.stress_type == "Displacement") {
+        int visited_x = 0;
+        for (auto& bound_cell : fea_casemanager.keep_cells) {
+            int x = bound_cell / densities2d.dim_y;
+            if (x > visited_x) {
+                fea_casemanager.displacement_measurement_cell = bound_cell; // Use rightmost keep cell
+                visited_x = x;
+            }
+        }
+    }
     densities2d.visualize_keep_cells();
 }
 
@@ -170,7 +180,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 240; // NOTE: must be >10 and divisible by 6
+    int pop_size = 12; // NOTE: must be >10 and divisible by 6
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
     int max_iterations_without_change = 150;

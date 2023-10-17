@@ -17,6 +17,7 @@ struct Input {
     string path;
     string name;
     float size;
+    string stress_type;
 };
 
 class Controller {
@@ -30,6 +31,7 @@ public:
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
         fea_casemanager = phys::FEACaseManager();
+        fea_casemanager.stress_type = input.stress_type;
         max_stress = input.max_stress;
         max_iterations = input.max_iterations;
 

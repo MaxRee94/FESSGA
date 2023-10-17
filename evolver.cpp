@@ -171,7 +171,7 @@ tuple<double, double, double, double, double, double, double> get_fitness_stats(
 	// Compute stdev relative area
 	double relative_area_stdev = help::get_stdev(&relative_areas, relative_area_mean);
 
-	// Compute maximum stress relative to threshold mean
+	// Compute mean maximum stress relative to threshold
 	vector<double> relative_maximum_stresses;
 	for (auto& indiv : *population) {
 		double relative_maximum_stress = indiv.fea_results.max / indiv.fea_casemanager->max_stress_threshold;
@@ -636,7 +636,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		// Add fitness to map
 		fitnesses_map.insert(pair(i, fitness));
 
-		// Store stress value of strongest (i.e. lowest-stress) individual 
+		// Store stress value of strongest (i.e. lowest-stress/displacement) individual 
 		if (population[i].fea_results.max < minimum_stress) {
 			minimum_stress = population[i].fea_results.max;
 		}
@@ -759,7 +759,9 @@ void Evolver::evolve() {
 		//}
 		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
 			// If failing to meet max stress threshold criterium, change the criterium
-			fea_casemanager.max_stress_threshold = (float)fea_casemanager.max_stress_threshold / (1.0 + best_fitness) + 1;
+			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.max_stress_threshold) + ((float)fea_casemanager.max_stress_threshold / 1000.0);
+			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.max_stress_threshold << " to " << new_threshold << endl;
+			fea_casemanager.max_stress_threshold = new_threshold;
 			export_meta_parameters();
 		}
 		if (iterations_since_fitness_change > (max_iterations_without_change / 2)) {
