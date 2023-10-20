@@ -16,8 +16,8 @@ struct Input {
     int max_iterations;
     string path;
     string name;
-    float size;
-    string stress_type;
+    float size, stress_fitness_influence;
+    string mechanical_constraint;
 };
 
 class Controller {
@@ -31,9 +31,10 @@ public:
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
         fea_casemanager = phys::FEACaseManager();
-        fea_casemanager.stress_type = input.stress_type;
+        fea_casemanager.mechanical_constraint = input.mechanical_constraint;
         max_stress = input.max_stress;
         max_iterations = input.max_iterations;
+        stress_fitness_influence = input.stress_fitness_influence;
 
         // Initialize RNG
         help::init_RNG();
@@ -121,6 +122,7 @@ public:
     double max_stress;
     int max_iterations;
     float cell_size = 0;
+    float stress_fitness_influence;
     string base_folder;
     Vector3d offset;
     Input input;

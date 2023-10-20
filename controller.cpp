@@ -59,11 +59,11 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
        "constrained_ant_impact",
        "constrained_pull_and_bite",
        "constrained_pull_concentrated_and_antload",
-       "constrained_pull_concentrated_and_postload"
+       //"constrained_pull_concentrated_and_postload"
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
-    if (fea_casemanager.stress_type == "Displacement") {
+    if (fea_casemanager.mechanical_constraint == "Displacement") {
         int visited_x = 0;
         for (auto& bound_cell : fea_casemanager.keep_cells) {
             int x = bound_cell / densities2d.dim_y;
@@ -191,7 +191,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     Evolver evolver(
         *fea_casemanager, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0,
         mutation_rate_level1, densities2d, variation_trigger, max_iterations, max_iterations_without_change,
-        export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method
+        export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method, stress_fitness_influence
     );
     _evolver = evolver;
     evolver.evolve();

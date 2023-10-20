@@ -606,6 +606,7 @@ void Evolver::export_meta_parameters(vector<string>* _) {
 		"mutation rate level 1 = " + to_string(mutation_rate_level1),
 		"max iterations since fitness change = " + to_string(max_iterations_without_change),
 		"crossover method = " + crossover_method,
+		"mechanical constraint = " + fea_casemanager.mechanical_constraint
 	};
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }
@@ -629,7 +630,7 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 		else {
 			double relative_maximum_stress = (fea_casemanager.max_stress_threshold - population[i].fea_results.max) / fea_casemanager.max_stress_threshold;
-			fitness = (relative_maximum_stress * stress_fitness_factor + 1.0) / (population[i].get_relative_area());
+			fitness = (relative_maximum_stress * stress_fitness_influence + 1.0) / (population[i].get_relative_area());
 		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
 
@@ -719,16 +720,16 @@ void Evolver::do_selection() {
 		population[best_individual_idx].copy_to(densities);
 		phys::write_results_superposition(
 			population[best_individual_idx].vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
-			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.stress_type
+			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint
 		);
 		delete[] densities;
 	}
 }
 
 void Evolver::cleanup() {
-	if (iteration_number < 5) return;
-	if (help::is_in(&iterations_with_fea_failure, (iteration_number - 4))) return; // Skip removal of iterations with FEA failure
-	string _iteration_folder = get_iteration_folder(iteration_number - 4);
+	if (iteration_number < 2) return;
+	if (help::is_in(&iterations_with_fea_failure, (iteration_number - 1))) return; // Skip removal of iterations with FEA failure
+	string _iteration_folder = get_iteration_folder(iteration_number - 1);
 	IO::remove_directory_incl_contents(_iteration_folder);
 	cout << "Cleanup: Removed iteration directory and all contained files.\n";
 }

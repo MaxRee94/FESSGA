@@ -18,7 +18,7 @@ public:
 		phys::FEACaseManager _fea_manager, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, int _no_static_iterations_trigger,
 		float _mutation_rate_level0, float _mutation_rate_level1, grd::Densities2d _starting_densities, double _variation_trigger, int _max_iterations,
 		int _max_iterations_without_change, bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1,
-		string _crossover_method
+		string _crossover_method, float _stress_fitness_influence
 	) : OptimizerBase(
 		_fea_manager, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
@@ -33,6 +33,7 @@ public:
 		crossover_method = _crossover_method;
 		best_solutions_folder = output_folder + "/best_solutions";
 		best_individuals_images_folder = image_folder + "/best_individuals";
+		stress_fitness_influence = _stress_fitness_influence;
 		IO::create_folder_if_not_exists(best_individuals_images_folder);
 		IO::create_folder_if_not_exists(best_solutions_folder);
 		img::write_distribution_to_image(densities, image_folder + "/starting_shape.jpg");
@@ -77,6 +78,7 @@ private:
 	double best_fitness = -INFINITY;
 	double minimum_stress = INFINITY;
 	float variation = 0;
+	float stress_fitness_influence = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
 	double variation_trigger;
