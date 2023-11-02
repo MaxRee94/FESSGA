@@ -308,7 +308,7 @@ namespace fessga {
                 compute_principal_stresses(single_run_stress_xx, single_run_stress_yy, single_run_stress_xy, single_run_principal_compressive_stresses, dim_x, dim_y, "Compressive");
                 compute_principal_stresses(single_run_stress_xx, single_run_stress_yy, single_run_stress_xy, single_run_principal_tensile_stresses, dim_x, dim_y, "Tensile");
                 for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
-                    single_run_modified_mohr[i] = get_modified_mohr_stress_envelope_intersection(
+                    single_run_modified_mohr[i] = get_modified_mohr_safety(
                         single_run_principal_tensile_stresses[i], single_run_principal_compressive_stresses[i], max_tensile_strength, max_compressive_strength
                     );
                     single_run_principal_compressive_stresses[i] = max(0.0, -single_run_principal_compressive_stresses[i]);
@@ -408,8 +408,17 @@ namespace fessga {
             return;
         }
 
-        static inline double get_modified_mohr_stress_envelope_intersection(double theta_1, double theta_3, double max_tensile_strength, double max_compressive_strength) {
-            return ((max_compressive_strength - max_tensile_strength) * theta_1) / (max_compressive_strength * max_tensile_strength) - (theta_3 / max_compressive_strength);
+        static inline double get_modified_mohr_safety(double theta_1, double theta_3, double max_tensile_strength, double max_compressive_strength) {
+            if (theta_1 < 0 && theta_3 < 0) {
+                return abs(theta_3) / max_compressive_strength;
+            }
+            else if ((theta_1 > 0 && theta_3 > 0) || (theta_1 > 0 && theta_1 > abs(theta_3))) {
+                return theta_1 / max_tensile_strength;
+            }
+            else {
+                if (theta_1 < 0 && theta_3 > 0) cout << "theta 3 is larger than theta 1. This is a bug\n";
+                return ((max_compressive_strength - max_tensile_strength) * theta_1) / (max_compressive_strength * max_tensile_strength) - (theta_3 / max_compressive_strength);
+            }
         }
 
         static void compute_principal_stresses(double* stress_xx, double* stress_yy, double* stress_xy, double* principal_stresses, int dim_x, int dim_y, string mechanical_constraint) {
@@ -472,7 +481,7 @@ namespace fessga {
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta1_nodewise, dim_x, dim_y, "Tensile");
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta3_nodewise, dim_x, dim_y, "Compressive");
                 for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
-                    principal_stresses_nodewise[i] = get_modified_mohr_stress_envelope_intersection(
+                    principal_stresses_nodewise[i] = get_modified_mohr_safety(
                         theta1_nodewise[i], theta3_nodewise[i], fea_casemanager->max_tensile_strength, fea_casemanager->max_compressive_strength
                     );
                 }
