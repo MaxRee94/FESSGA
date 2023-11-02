@@ -413,7 +413,10 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
     int cell_from_smaller_piece;
     int no_iterations_without_removal = -1;
     int initial_count = count();
+    grd::Densities2d _densities = grd::Densities2d(this);
     for (auto [cell, cell_stress] : fea_results.data) {
+        _densities.set(cell, 5);
+
         no_iterations_without_removal++;
         if (no_iterations_without_removal > 200) {
             if (true) cout << "WARNING: 200 cells in a row could not be removed. "
@@ -489,6 +492,7 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
             break;
         }
     }
+    _densities.print();
     return no_cells_removed;
 }
 

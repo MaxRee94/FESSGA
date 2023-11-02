@@ -73,6 +73,8 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
             }
         }
     }
+    fea_casemanager.max_tensile_strength = max_tensile_strength;
+    fea_casemanager.max_compressive_strength = max_compressive_strength;
     densities2d.visualize_keep_cells();
 }
 
@@ -86,7 +88,7 @@ void Controller::run_fess(FESS& _fess) {
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
     bool export_msh = true;
-    float greediness = 0.2;
+    float greediness = 0.1;
     bool do_feasibility_filtering = true;
     bool verbose = true;
 
@@ -180,7 +182,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 12; // NOTE: must be >10 and divisible by 6
+    int pop_size = 156; // NOTE: must be >10 and divisible by 6
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
     int max_iterations_without_change = 150;

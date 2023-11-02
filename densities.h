@@ -272,6 +272,7 @@ namespace fessga {
             Vector2d diagonal;
             phys::FEACaseManager* fea_casemanager = 0;
             phys::FEAResults2D fea_results;
+            vector<int> border_nodes;
             phys::FEAResults2D fea_results_snapshot;
             vector<int> removed_cells = {};
             vector<Piece> pieces;

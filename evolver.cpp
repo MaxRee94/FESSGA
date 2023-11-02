@@ -7,8 +7,8 @@
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
 
-int NO_FEA_THREADS = 6; // must be even number
-int NO_RESULTS_THREADS = 2; // must be even number
+int NO_FEA_THREADS = 4; // must be even number
+int NO_RESULTS_THREADS = 4; // must be even number
 
 
 /*
@@ -364,8 +364,8 @@ void Evolver::init_population(bool verbose) {
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	/*thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
 
 	int i = NO_FEA_THREADS;
 	while (population.size() < pop_size) {
@@ -381,19 +381,23 @@ void Evolver::init_population(bool verbose) {
 
 	// Start a thread to read the results of the FEA
 	cout << "Starting results loaders...\n";
-	thread results_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
+	thread results0_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
+	thread results1_thread(load_physics_batch, &population, 0, 1, pop_size, &mesh, verbose);
+	thread results2_thread(load_physics_batch, &population, 0, 2, pop_size, &mesh, verbose);
 
 	// Also start a reader in the main thread
-	load_physics_batch(&population, 0, 1, pop_size, &mesh, verbose);
+	load_physics_batch(&population, 0, 3, pop_size, &mesh, verbose);
 
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
+	/*fea_thread5.join();
+	fea_thread6.join();*/
 	cout << "FEA of initial population finished.\n";
-	results_thread.join();
+	results0_thread.join();
+	results1_thread.join();
+	results2_thread.join();
 	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
@@ -558,8 +562,8 @@ void Evolver::create_children(bool verbose) {
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);
+	/*thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
 #endif
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -579,19 +583,23 @@ void Evolver::create_children(bool verbose) {
 #ifndef FEA_IGNORE
 	// Start a thread to read the results of the FEA
 	cout << "Starting results loaders...\n";
-	thread results_thread(load_physics_batch, &population, pop_size, 0, pop_size, &mesh, verbose);
+	thread results0_thread(load_physics_batch, &population, pop_size, 0, pop_size, &mesh, verbose);
+	thread results1_thread(load_physics_batch, &population, pop_size, 1, pop_size, &mesh, verbose);
+	thread results2_thread(load_physics_batch, &population, pop_size, 2, pop_size, &mesh, verbose);
 	
 	// Also start a reader in the main thread
-	load_physics_batch(&population, pop_size, 1, pop_size, &mesh, verbose);
+	load_physics_batch(&population, pop_size, 3, pop_size, &mesh, verbose);
 
 	// Join threads
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
-	results_thread.join();
+	/*fea_thread5.join();
+	fea_thread6.join();*/
+	results0_thread.join();
+	results1_thread.join();
+	results2_thread.join();
 	cout << "Finished reading FEA results for all children.\n";
 #endif
 }
@@ -720,7 +728,8 @@ void Evolver::do_selection() {
 		population[best_individual_idx].copy_to(densities);
 		phys::write_results_superposition(
 			population[best_individual_idx].vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
-			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint
+			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &population[best_individual_idx].border_nodes,
+			fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
 		);
 		delete[] densities;
 	}
@@ -759,7 +768,6 @@ void Evolver::evolve() {
 		//	export_meta_parameters();
 		//}
 		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
-			// If failing to meet max stress threshold criterium, change the criterium
 			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.max_stress_threshold) + ((float)fea_casemanager.max_stress_threshold / 1000.0);
 			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.max_stress_threshold << " to " << new_threshold << endl;
 			fea_casemanager.max_stress_threshold = new_threshold;

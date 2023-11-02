@@ -11,7 +11,7 @@ using namespace std;
 Generate a 2d Finite Element mesh from the given binary density distribution
 */
 void msh::create_FE_mesh(
-    SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose
+    SurfaceMesh mesh, grd::Densities2d& densities, FEMesh2D& fe_mesh, bool verbose
 ) {
     // Create nodes and surfaces
     vector<vector<double>> nodes;
@@ -340,6 +340,8 @@ void msh::create_FE_mesh(
         line.nodes = { node1_coord + 1, node2_coord + 1 };
         line.boundary_id = i; // Add i to boundary id, creating a continuous path around the perimeter(s) for Elmer's boundary element parser to walk
         lines.push_back(line);
+
+        densities.border_nodes = ordered_boundary_node_coords;
 
         no_lines++;
     }

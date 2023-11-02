@@ -41,7 +41,11 @@ void parse_args(
     input.max_stress = atof(argv[7]);
     input.max_iterations = atoi(argv[8]);
     input.mechanical_constraint = argv[9];
-    if (help::is_in(action, "evolve")) input.stress_fitness_influence = atof(argv[10]);
+    input.stress_fitness_influence = atof(argv[10]);
+    if (help::is_in(input.mechanical_constraint, "Mohr")) {
+        input.max_tensile_strength = atof(argv[11]);
+        input.max_compressive_strength = atof(argv[12]);
+    }
 }
 
 

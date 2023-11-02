@@ -59,7 +59,7 @@ namespace fessga {
             map<string, map<string, Vector2d>> cell_barycenters;
             vector<string> names, sections;
             int dim_x, dim_y;
-            double max_stress_threshold;
+            double max_stress_threshold, max_tensile_strength, max_compressive_strength;
         };
         
         class FEACaseManager {
@@ -114,7 +114,10 @@ namespace fessga {
             vector<int> keep_cells = {};
             vector<int> cutout_cells = {};
             vector<int> inactive_cells = {};
+            vector<int> border_nodes = {};
             double max_stress_threshold = INFINITY;
+            double max_tensile_strength;
+            double max_compressive_strength;
             bool maintain_boundary_connection = true;
             int dim_x, dim_y;
             bool dynamic = false;
@@ -165,13 +168,13 @@ namespace fessga {
 
         static bool load_2d_physics_data(
             vector<string> filenames, FEAResults2D& results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, string mechanical_constraint)
+            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes)
         {
             // For each coordinate, retain the maximum value out of all FEA runs
             // We thereby obtain a superposition of stress distributions.
             for (auto& filename : filenames) {
                 FEAResults2D single_run_results;
-                load_single_VTK_file(filename, &single_run_results, fea_casemanager, dim_x, dim_y, cell_size, _offset, mechanical_constraint);
+                load_single_VTK_file(filename, &single_run_results, fea_casemanager, dim_x, dim_y, cell_size, _offset, mechanical_constraint, border_nodes);
                 for (auto& [coord, stress] : single_run_results.data_map) {
                     if (single_run_results.data_map[coord] > results.data_map[coord]) {
                         results.data_map[coord] = single_run_results.data_map[coord];
@@ -201,8 +204,10 @@ namespace fessga {
 
         static void load_nodewise_results(
             string filename, double* results_nodewise, int dim_x, int dim_y, Vector2d cell_size,
-            Vector2d offset, string mechanical_constraint, vector<int>* _coords = 0
+            Vector2d offset, string mechanical_constraint, vector<int>* border_nodes, double sign, bool clamp, vector<int>* _coords = 0
         ) {
+            if (_coords) _coords->clear();
+
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
             reader->SetFileName(filename.c_str());
@@ -230,6 +235,10 @@ namespace fessga {
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
+                //if (help::is_in(border_nodes, coord)) {
+                //    results_nodewise[coord] = 0; // Skip nodes on the border of the shape
+                //    continue;
+                //}
                 if (_coords != 0) _coords->push_back(coord);
                 else coords.push_back(coord);
                 if (mechanical_constraint == "Displacement") {
@@ -240,47 +249,88 @@ namespace fessga {
                     results_nodewise[coord] = magnitude;
                 }
                 else {
-                    results_nodewise[coord] = (double)results_array->GetValue(i);
+                    results_nodewise[coord] = sign * (double)results_array->GetValue(i);
+                    if (clamp) results_nodewise[coord] = max(0.0, results_nodewise[coord]);
                 }
             }
             reader->Delete();
         }
 
-        static void write_results_superposition(vector<string> vtk_paths, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, string outfile, string mechanical_constraint)
-        {
+        static void write_results_superposition(
+            vector<string> vtk_paths, int dim_x, int dim_y, Vector2d cell_size, Vector3d _offset, string outfile, string mechanical_constraint, vector<int>* border_nodes,
+            double max_tensile_strength, double max_compressive_strength
+        ) {
             // Initially, populate results array with zeroes (nodes on the grid which are part of the FE mesh will
             // have their corresponding values in the results array overwritten later)
             double* nodewise_tensile_xx = new double[(dim_x + 1) * (dim_y + 1)];
             double* nodewise_tensile_yy = new double[(dim_x + 1) * (dim_y + 1)];
             double* nodewise_compressive_xx = new double[(dim_x + 1) * (dim_y + 1)];
             double* nodewise_compressive_yy = new double[(dim_x + 1) * (dim_y + 1)];
+            double* nodewise_xy = new double[(dim_x + 1) * (dim_y + 1)];
             double* nodewise_displacements = new double[(dim_x + 1) * (dim_y + 1)];
+            double* nodewise_principle_compressive_stresses = new double[(dim_x + 1) * (dim_y + 1)];
+            double* nodewise_principle_tensile_stresses = new double[(dim_x + 1) * (dim_y + 1)];
+            double* nodewise_modified_mohr = new double[(dim_x + 1) * (dim_y + 1)];
+            double* nodewise_vonmises = new double[(dim_x + 1) * (dim_y + 1)];
             help::populate_with_zeroes(nodewise_tensile_xx, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_tensile_yy, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_compressive_xx, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_compressive_yy, dim_x + 1, dim_y + 1);
+            help::populate_with_zeroes(nodewise_xy, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_displacements, dim_x + 1, dim_y + 1);
+            help::populate_with_zeroes(nodewise_principle_compressive_stresses, dim_x + 1, dim_y + 1);
+            help::populate_with_zeroes(nodewise_principle_tensile_stresses, dim_x + 1, dim_y + 1);
+            help::populate_with_zeroes(nodewise_modified_mohr, dim_x + 1, dim_y + 1);
+            help::populate_with_zeroes(nodewise_vonmises, dim_x + 1, dim_y + 1);
             Vector2d offset = Vector2d(_offset(0), _offset(1));
             for (auto& casepath : vtk_paths) {
                 double* single_run_stress_xx = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
                 double* single_run_stress_yy = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                double* single_run_stress_xy = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
                 double* single_run_displacements = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                double* single_run_principal_compressive_stresses = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                double* single_run_principal_tensile_stresses = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                double* single_run_modified_mohr = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                double* single_run_vonmises = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
                 help::populate_with_zeroes(single_run_stress_xx, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(single_run_stress_yy, dim_x + 1, dim_y + 1);
+                help::populate_with_zeroes(single_run_stress_xy, dim_x + 1, (dim_y + 1));
                 help::populate_with_zeroes(single_run_displacements, dim_x + 1, (dim_y + 1));
-                phys::load_nodewise_results(casepath, single_run_stress_xx, dim_x, dim_y, cell_size, offset, "Stress_xx");
-                phys::load_nodewise_results(casepath, single_run_stress_yy, dim_x, dim_y, cell_size, offset, "Stress_yy");
-                phys::load_nodewise_results(casepath, single_run_displacements, dim_x, dim_y, cell_size, offset, "Displacement");
+                help::populate_with_zeroes(single_run_principal_compressive_stresses, dim_x + 1, (dim_y + 1));
+                help::populate_with_zeroes(single_run_principal_tensile_stresses, dim_x + 1, (dim_y + 1));
+                help::populate_with_zeroes(single_run_modified_mohr, dim_x + 1, (dim_y + 1));
+                help::populate_with_zeroes(single_run_vonmises, dim_x + 1, (dim_y + 1));
+                phys::load_nodewise_results(casepath, single_run_stress_xx, dim_x, dim_y, cell_size, offset, "Stress_xx", border_nodes, 1, false);
+                phys::load_nodewise_results(casepath, single_run_stress_yy, dim_x, dim_y, cell_size, offset, "Stress_yy", border_nodes, 1, false);
+                phys::load_nodewise_results(casepath, single_run_stress_xy, dim_x, dim_y, cell_size, offset, "Stress_xy", border_nodes, 1, false);
+                phys::load_nodewise_results(casepath, single_run_displacements, dim_x, dim_y, cell_size, offset, "Displacement", border_nodes, 1, false);
+                phys::load_nodewise_results(casepath, single_run_vonmises, dim_x, dim_y, cell_size, offset, "Vonmises", border_nodes, 1, false);
+                compute_principal_stresses(single_run_stress_xx, single_run_stress_yy, single_run_stress_xy, single_run_principal_compressive_stresses, dim_x, dim_y, "Compressive");
+                compute_principal_stresses(single_run_stress_xx, single_run_stress_yy, single_run_stress_xy, single_run_principal_tensile_stresses, dim_x, dim_y, "Tensile");
                 for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
+                    single_run_modified_mohr[i] = get_modified_mohr_stress_envelope_intersection(
+                        single_run_principal_tensile_stresses[i], single_run_principal_compressive_stresses[i], max_tensile_strength, max_compressive_strength
+                    );
+                    single_run_principal_compressive_stresses[i] = max(0.0, -single_run_principal_compressive_stresses[i]);
+                    single_run_principal_tensile_stresses[i] = max(0.0, single_run_principal_tensile_stresses[i]);
                     nodewise_tensile_xx[i] = max(nodewise_tensile_xx[i], single_run_stress_xx[i]);
                     nodewise_tensile_yy[i] = max(nodewise_tensile_yy[i], single_run_stress_yy[i]);
                     nodewise_compressive_xx[i] = min(nodewise_compressive_xx[i], single_run_stress_xx[i]);
                     nodewise_compressive_yy[i] = min(nodewise_compressive_yy[i], single_run_stress_yy[i]);
                     nodewise_displacements[i] = max(nodewise_displacements[i], single_run_displacements[i]);
+                    nodewise_principle_compressive_stresses[i] = max(nodewise_principle_compressive_stresses[i], single_run_principal_compressive_stresses[i]);
+                    nodewise_principle_tensile_stresses[i] = max(nodewise_principle_tensile_stresses[i], single_run_principal_tensile_stresses[i]);
+                    nodewise_modified_mohr[i] = max(nodewise_modified_mohr[i], single_run_modified_mohr[i]);
+                    nodewise_vonmises[i] = max(nodewise_vonmises[i], single_run_vonmises[i]);
                 }
                 delete[] single_run_stress_xx;
                 delete[] single_run_stress_yy;
+                delete[] single_run_stress_xy;
                 delete[] single_run_displacements;
+                delete[] single_run_principal_compressive_stresses;
+                delete[] single_run_principal_tensile_stresses;
+                delete[] single_run_modified_mohr;
+                delete[] single_run_vonmises;
             }
 
             // Read data from file
@@ -293,10 +343,14 @@ namespace fessga {
             // Get point data (this object contains the physics data)
             vtkPointData* point_data = output->GetPointData();
 
-            // Obtain Von Mises stress array
+            // Obtain value arrays to write to
             vtkDoubleArray* stress_xx = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xx"));
             vtkDoubleArray* stress_yy = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yy"));
             vtkDoubleArray* displacements = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Displacement"));
+            vtkDoubleArray* principal_compressive_stresses = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_xz"));
+            vtkDoubleArray* principal_tensile_stresses = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_yz"));
+            vtkDoubleArray* modified_mohr = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Stress_zz"));
+            vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
             if (displacements->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
@@ -325,6 +379,10 @@ namespace fessga {
                 }
                 else stress_yy->SetValue(i, nodewise_compressive_yy[coord]);
                 displacements->SetValue(i * 3 + 2, nodewise_displacements[coord]);
+                principal_compressive_stresses->SetValue(i, nodewise_principle_compressive_stresses[coord]);
+                principal_tensile_stresses->SetValue(i, nodewise_principle_tensile_stresses[coord]);
+                modified_mohr->SetValue(i, nodewise_modified_mohr[coord]);
+                vonmises->SetValue(i, nodewise_vonmises[coord]);
             }
 
             // Write to vtk OUTFILE
@@ -334,20 +392,40 @@ namespace fessga {
             writer->SetInputData(reader->GetOutput());
             writer->Update();
 
-            // Delete writer and reader
+            // Free used memory
             delete[] nodewise_tensile_xx;
             delete[] nodewise_tensile_yy;
             delete[] nodewise_compressive_xx;
             delete[] nodewise_compressive_yy;
+            delete[] nodewise_xy;
             delete[] nodewise_displacements;
+            delete[] nodewise_principle_compressive_stresses;
+            delete[] nodewise_principle_tensile_stresses;
+            delete[] nodewise_modified_mohr;
+            delete[] nodewise_vonmises;
             writer->Delete();
 
             return;
         }
 
+        static inline double get_modified_mohr_stress_envelope_intersection(double theta_1, double theta_3, double max_tensile_strength, double max_compressive_strength) {
+            return ((max_compressive_strength - max_tensile_strength) * theta_1) / (max_compressive_strength * max_tensile_strength) - (theta_3 / max_compressive_strength);
+        }
+
+        static void compute_principal_stresses(double* stress_xx, double* stress_yy, double* stress_xy, double* principal_stresses, int dim_x, int dim_y, string mechanical_constraint) {
+            for (int node_coord = 0; node_coord < dim_x * dim_y; node_coord++) {
+                double xx = stress_xx[node_coord];
+                double yy = stress_yy[node_coord];
+                double xy = stress_xy[node_coord];
+                double direction_wrt_mohr_circle_center = (double)((mechanical_constraint == "Tensile") ? 1 : -1);
+                double princ_stress = (xx + yy) / 2.0 + direction_wrt_mohr_circle_center * sqrt(((xx - yy) / 2.0) * ((xx - yy) / 2.0) + xy * xy);
+                principal_stresses[node_coord] = princ_stress;
+            }
+        }
+
         static bool load_single_VTK_file(
             string filename, FEAResults2D* results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, string mechanical_constraint
+            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes 
         ) {
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
@@ -356,13 +434,55 @@ namespace fessga {
             reader->Update();
             vtkUnstructuredGrid* output = reader->GetOutput();
 
-            // Initially, populate results array with zeroes (nodes on the grid which are part of the FE mesh will
+            // Initially, populate results arrays with zeroes to make sure they're initialized (nodes on the grid which are part of the FE mesh will
             // have their corresponding values in the results array overwritten later)
             Vector2d offset = Vector2d(_offset(0), _offset(1));
-            double* results_nodewise = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+            double* results1_nodewise = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+            double* results2_nodewise = 0; // Nodes grid has +1 width along each dim
+            double* results3_nodewise = 0; // Nodes grid has +1 width along each dim
+            double* principal_stresses_nodewise = 0;
             vector<int> coords;
-            help::populate_with_zeroes(results_nodewise, dim_x + 1, dim_y + 1);
-            phys::load_nodewise_results(filename, results_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint, &coords);
+            help::populate_with_zeroes(results1_nodewise, dim_x + 1, dim_y + 1);
+            string mechanical_constraint1, mechanical_constraint2, mechanical_constraint3 = mechanical_constraint;
+            double sign = 1;
+            if (!help::is_in(mechanical_constraint, "Displacement")) {
+                mechanical_constraint1 = "Stress_xx";
+                mechanical_constraint2 = "Stress_yy";
+                mechanical_constraint3 = "Stress_xy";
+                results2_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                results3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                principal_stresses_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                help::populate_with_zeroes(results2_nodewise, dim_x + 1, dim_y + 1);
+                help::populate_with_zeroes(results3_nodewise, dim_x + 1, dim_y + 1);
+                help::populate_with_zeroes(principal_stresses_nodewise, dim_x + 1, dim_y + 1);
+            }
+
+            // Obtain and process nodewise results
+            if (mechanical_constraint == "Displacement") {
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
+            }
+            if (mechanical_constraint == "ModifiedMohr") {
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &coords);
+                double* theta1_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                double* theta3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                help::populate_with_zeroes(theta1_nodewise, dim_x + 1, dim_y + 1);
+                help::populate_with_zeroes(theta3_nodewise, dim_x + 1, dim_y + 1);
+                compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta1_nodewise, dim_x, dim_y, "Tensile");
+                compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta3_nodewise, dim_x, dim_y, "Compressive");
+                for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
+                    principal_stresses_nodewise[i] = get_modified_mohr_stress_envelope_intersection(
+                        theta1_nodewise[i], theta3_nodewise[i], fea_casemanager->max_tensile_strength, fea_casemanager->max_compressive_strength
+                    );
+                }
+            }
+            else {
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &coords);
+                compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, principal_stresses_nodewise, dim_x, dim_y, mechanical_constraint);
+            }
 
             // Create cellwise results distribution by taking mean of each group of 4 corners of a cell
             double min_stress = 1e30;
@@ -379,16 +499,36 @@ namespace fessga {
                     continue;
                 }
                 if (mechanical_constraint == "Displacement" && cell_coord != fea_casemanager->displacement_measurement_cell) {
-                    continue;
+                    continue; // If using mechanical constraint 'Displacement', we only consider the displacement measurement cell and thus ignore all other cells.
                 }
                 Vector4d neighbors;
-                neighbors[0] = results_nodewise[node_coord];
-                neighbors[1] = results_nodewise[(x + 1) * (dim_y + 1) + y];
-                neighbors[2] = results_nodewise[(x + 1) * (dim_y + 1) + (y + 1)];
-                neighbors[3] = results_nodewise[x * (dim_y + 1) + (y + 1)];
-                if (neighbors.minCoeff() == 0) continue; // Skip cells with corners that have stress value 0
+                int num_neighbors = 4;
+                int node_neighbor1 = (x + 1) * (dim_y + 1) + y;
+                int node_neighbor2 = (x + 1) * (dim_y + 1) + (y + 1);
+                int node_neighbor3 = x * (dim_y + 1) + (y + 1);
+                if (mechanical_constraint == "Displacement") {
+                    neighbors[0] = results1_nodewise[node_coord];
+                    neighbors[1] = results1_nodewise[node_neighbor1];
+                    neighbors[2] = results1_nodewise[node_neighbor2];
+                    neighbors[3] = results1_nodewise[node_neighbor3];
+                }
+                else {
+                    neighbors[0] = principal_stresses_nodewise[node_coord];
+                    neighbors[1] = principal_stresses_nodewise[node_neighbor1];
+                    neighbors[2] = principal_stresses_nodewise[node_neighbor2];
+                    neighbors[3] = principal_stresses_nodewise[node_neighbor3];
+                }
                 double cell_value = neighbors.mean();
+                /*float intra_cell_variance = (cell_value - neighbors.mean());
+                if (help::is_in(border_nodes, node_coord)) { num_neighbors--; }
+                if (help::is_in(border_nodes, (x + 1) * (dim_y + 1) + y)) { num_neighbors--; }
+                if (help::is_in(border_nodes, (x + 1) * (dim_y + 1) + (y + 1))) { num_neighbors--; }
+                if (help::is_in(border_nodes, x * (dim_y + 1) + (y + 1))) { num_neighbors--; }*/
+                
+                if (help::is_in(mechanical_constraint, "Compressive")) cell_value = -cell_value;
+                cell_value = max(0.0, cell_value);
                 results->data_map.insert(pair(cell_coord, neighbors.mean()));
+                //cout << "cell stress (loader): " << neighbors.mean() << endl;
                 if (mechanical_constraint == "Displacement") {
                     max_stress = cell_value;
                 }
@@ -399,7 +539,7 @@ namespace fessga {
             }
             results->min = min_stress;
             results->max = max_stress;
-            delete[] results_nodewise;
+            delete[] results1_nodewise;
             reader->Delete();
 
             return true;

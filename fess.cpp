@@ -137,8 +137,8 @@ void FESS::run() {
 		// Create new subfolder for output of current iteration
 		iteration_folder = get_iteration_folder(iteration_number, true);
 		if (last_iteration_was_valid) {
-			if (verbose) densities.print();
 			final_valid_iteration_folder = iteration_folder;
+			if (verbose) densities.print();
 			relative_area = (float)(densities.count()) / (float)(densities.size);
 			export_stats(iteration_name);
 		}
@@ -170,6 +170,13 @@ void FESS::run() {
 
 		// Obtain vonmises stress distribution from the .vtk files
 		load_physics(&densities, &mesh, verbose);
+
+		// Write vtk file containing a superposition of stress/displacement values
+		phys::write_results_superposition(
+			densities.vtk_paths, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset,
+			iteration_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &densities.border_nodes,
+			fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
+		);
 
 		// Get minimum and maximum stress values
 		max_stress = densities.fea_results.max;

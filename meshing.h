@@ -120,7 +120,7 @@ namespace fessga {
         /* Generate a grid-based description of a FE mesh
         */
         static void create_FE_mesh(
-            SurfaceMesh mesh, grd::Densities2d densities, FEMesh2D& fe_mesh, bool verbose = false
+            SurfaceMesh mesh, grd::Densities2d& densities, FEMesh2D& fe_mesh, bool verbose = false
         );
 
         static string get_msh_element_description(Element element) {
@@ -487,6 +487,8 @@ namespace fessga {
                 phys::FEACase fea_case(
                     case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold
                 );
+                fea_case.max_tensile_strength = fea_casemanager->max_tensile_strength;
+                fea_case.max_compressive_strength = fea_casemanager->max_compressive_strength;
                 fea_case.name = case_name;
                 msh::derive_boundary_conditions(fea_case, *densities, *mesh, fea_casemanager);
                 fea_cases->push_back(fea_case);
