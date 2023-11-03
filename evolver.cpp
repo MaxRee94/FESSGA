@@ -360,11 +360,10 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
+	/*thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	/*thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
+	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
 	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
 
 	int i = NO_FEA_THREADS;
@@ -381,23 +380,23 @@ void Evolver::init_population(bool verbose) {
 
 	// Start a thread to read the results of the FEA
 	cout << "Starting results loaders...\n";
-	thread results0_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
-	thread results1_thread(load_physics_batch, &population, 0, 1, pop_size, &mesh, verbose);
-	thread results2_thread(load_physics_batch, &population, 0, 2, pop_size, &mesh, verbose);
+	//thread results0_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
+	//thread results1_thread(load_physics_batch, &population, 0, 1, pop_size, &mesh, verbose);
+	//thread results2_thread(load_physics_batch, &population, 0, 2, pop_size, &mesh, verbose);
 
 	// Also start a reader in the main thread
-	load_physics_batch(&population, 0, 3, pop_size, &mesh, verbose);
+	//load_physics_batch(&population, 0, 3, pop_size, &mesh, verbose);
 
 	fea_thread1.join();
-	fea_thread2.join();
+	/*fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
-	/*fea_thread5.join();
+	fea_thread5.join();
 	fea_thread6.join();*/
 	cout << "FEA of initial population finished.\n";
-	results0_thread.join();
-	results1_thread.join();
-	results2_thread.join();
+	//results0_thread.join();
+	//results1_thread.join();
+	//results2_thread.join();
 	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
