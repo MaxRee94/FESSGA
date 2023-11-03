@@ -18,8 +18,6 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 	densities->vtk_paths = vtk_paths;
 
 	// Initialize data map to contain only 0's
-	densities->fea_results.data_map.clear();
-	for (auto& [coord, stress] : densities->fea_results.data_map) cout << "coord: " << coord << endl;
 	for (int i = 0; i < densities->dim_x * densities->dim_y; i++) {
 		if (densities->at(i)) densities->fea_results.data_map.insert(pair(i, 0));
 	}

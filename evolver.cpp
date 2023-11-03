@@ -7,15 +7,17 @@
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
 
-int NO_FEA_THREADS = 4; // must be even number
-int NO_RESULTS_THREADS = 4; // must be even number
+int NO_FEA_THREADS = 8; // must be even number
+int NO_RESULTS_THREADS = 8; // must be even number
 
+//vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, 
 
 /*
 * Method to run a batch of FEA jobs on all given output folders
 */
 void run_FEA_batch(
-	vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, int pop_size, int thread_offset, bool verbose
+	vector<string> individual_folders, phys::FEACaseManager* fea_casemanager,
+	int pop_size, int thread_offset, bool verbose, int stepsize
 ) {
 	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
@@ -25,7 +27,7 @@ void run_FEA_batch(
 		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
 		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
 		fessga::phys::call_elmer(individual_folders[i], fea_casemanager);
-		
+
 		// Get vtk paths
 		vector<string> vtk_paths;
 		msh::get_vtk_paths(fea_casemanager, individual_folders[i], vtk_paths);
@@ -51,8 +53,7 @@ void run_FEA_batch(
 			if (fea_failed) break;
 		}
 		if (fea_failed) {
-			if (is_2nd_attempt) { // After two attempts to run the FEA, signal that FEA has failed by creating a file 'FEA_FAILED.txt'.
-				IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FAILED.txt");
+			if (is_2nd_attempt) { // After two attempts to run the FEA, consider FEA to have failed
 				is_2nd_attempt = false;
 				continue;
 			}
@@ -61,16 +62,14 @@ void run_FEA_batch(
 			is_2nd_attempt = true;
 			continue;
 		}
-		is_2nd_attempt = false;
-
-		// Communicate that FEA is finished and that the .vtk file is therefore ready to be read.
 		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt");
-		if (i == pop_size - 1) cout << "About to finish FEA for all children.\n";
-		
+
+		is_2nd_attempt = false;		
 		// Log progress to stdout
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 	}
+	cout << "FEA thread finished.\n";
 }
 
 // Obtain FEA results
@@ -79,30 +78,12 @@ void load_physics_batch(
 	msh::SurfaceMesh* mesh, bool verbose = true
 ) {
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
-		// Wait for the 'FEA_FINISHED.txt' file to appear, which indicates the .vtk files are ready.
-		string fea_finish_confirmation_file = population->at(i).output_folder + "/FEA_FINISHED.txt";
-		string fea_failed_confirmation_file = population->at(i).output_folder + "/FEA_FAILED.txt";
-		bool fea_failed = false;
-		time_t start = time(0);
-		while (!IO::file_exists(fea_finish_confirmation_file)) {
-			if ((time(0) - start) > 20) {
-				cout << "WARNING: FEA Loader " << thread_offset << " is not finding FEA confirmation file (" << fea_finish_confirmation_file << ")... This may be a bug.\n";
-				start += 1e10;
-			}
-			if (IO::file_exists(fea_failed_confirmation_file)) {
-				fea_failed = true;
-				cout << "WARNING: Setting fitness to -infinity for individual " << to_string(i - pop_offset) << " because FEA failed for one or more of its FEA cases.\n";
-				population->at(i).fitness = -INFINITY;
-				break;
-			}
-		}
-		if (fea_failed) continue;
-
 		// Load physics
 		load_physics(&population->at(i), mesh);
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
-			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << "\n";
+			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << " (thread " << thread_offset+1 << ")\n";
 	}
+	cout << "Results thread finished\n";
 }
 
 /*
@@ -359,14 +340,17 @@ Initialize a population of unique density distributions. Each differs slightly f
 void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
-	while (population.size() < NO_FEA_THREADS) create_single_individual(verbose);
-	/*thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
-	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
+	while (population.size() < NO_FEA_THREADS * 2) create_single_individual(verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose, 0);
+	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose, 0);
+	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose, 0);
+	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose, 0);
+	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose, 0);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose, 0);
+	thread fea_thread7(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 6, verbose, 0);
+	thread fea_thread8(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 7, verbose, 0);
 
-	int i = NO_FEA_THREADS;
+	int i = NO_FEA_THREADS * 2;
 	while (population.size() < pop_size) {
 		i++;
 		if (i > pop_size * 2 && population.size() == 0) {
@@ -378,25 +362,39 @@ void Evolver::init_population(bool verbose) {
 	}
 	cout << "Finished generating initial population.\n";
 
-	// Start a thread to read the results of the FEA
-	cout << "Starting results loaders...\n";
-	//thread results0_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
-	//thread results1_thread(load_physics_batch, &population, 0, 1, pop_size, &mesh, verbose);
-	//thread results2_thread(load_physics_batch, &population, 0, 2, pop_size, &mesh, verbose);
-
-	// Also start a reader in the main thread
-	//load_physics_batch(&population, 0, 3, pop_size, &mesh, verbose);
-
+	// Wait for all threads to finish
 	fea_thread1.join();
-	/*fea_thread2.join();
+	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
 	fea_thread5.join();
-	fea_thread6.join();*/
+	fea_thread6.join();
+	fea_thread7.join();
+	fea_thread8.join();
 	cout << "FEA of initial population finished.\n";
-	//results0_thread.join();
-	//results1_thread.join();
-	//results2_thread.join();
+	//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+	// Start threads to read the results of the FEA
+	cout << "Starting results loaders...\n";
+	thread results1_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
+	thread results2_thread(load_physics_batch, &population, 0, 1, pop_size, &mesh, verbose);
+	thread results3_thread(load_physics_batch, &population, 0, 2, pop_size, &mesh, verbose);
+	thread results4_thread(load_physics_batch, &population, 0, 3, pop_size, &mesh, verbose);
+	thread results5_thread(load_physics_batch, &population, 0, 4, pop_size, &mesh, verbose);
+	thread results6_thread(load_physics_batch, &population, 0, 5, pop_size, &mesh, verbose);
+	thread results7_thread(load_physics_batch, &population, 0, 6, pop_size, &mesh, verbose);
+	
+	// Also start a reader in the main thread
+	load_physics_batch(&population, 0, 7, pop_size, &mesh, verbose);
+
+	// Wait for all FEA loaders to finish
+	results1_thread.join();
+	results2_thread.join();
+	results3_thread.join();
+	results4_thread.join();
+	results5_thread.join();
+	results6_thread.join();
+	results7_thread.join();
 	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
@@ -557,10 +555,10 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
 #ifndef FEA_IGNORE
-	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose);
-	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose);
-	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose);
-	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose);
+	thread fea_thread1(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 0, verbose, 0);
+	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose, 0);
+	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose, 0);
+	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose, 0);
 	/*thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
 	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
 #endif
