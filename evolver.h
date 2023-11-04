@@ -58,6 +58,7 @@ public:
 	void collect_stats();
 	void cleanup();
 	void update_objective_function();
+	void read_FEA_results();
 	void create_single_individual(bool verbose = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	vector<evo::Individual2d> population;

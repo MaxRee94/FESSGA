@@ -62,13 +62,13 @@ void run_FEA_batch(
 			is_2nd_attempt = true;
 			continue;
 		}
-		IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt");
 
 		is_2nd_attempt = false;		
 		// Log progress to stdout
 		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 	}
+	IO::write_text_to_file(" ", individual_folders[0] + "/FEA_FINISHED.txt");
 	cout << "FEA thread finished.\n";
 }
 
@@ -372,8 +372,12 @@ void Evolver::init_population(bool verbose) {
 	fea_thread7.join();
 	fea_thread8.join();
 	cout << "FEA of initial population finished.\n";
-	//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
+	read_FEA_results();
+	cout << "Read FEA results for all individuals in initial population.\n";
+}
+
+void Evolver::read_FEA_results() {
 	// Start threads to read the results of the FEA
 	cout << "Starting results loaders...\n";
 	thread results1_thread(load_physics_batch, &population, 0, 0, pop_size, &mesh, verbose);
@@ -383,7 +387,7 @@ void Evolver::init_population(bool verbose) {
 	thread results5_thread(load_physics_batch, &population, 0, 4, pop_size, &mesh, verbose);
 	thread results6_thread(load_physics_batch, &population, 0, 5, pop_size, &mesh, verbose);
 	thread results7_thread(load_physics_batch, &population, 0, 6, pop_size, &mesh, verbose);
-	
+
 	// Also start a reader in the main thread
 	load_physics_batch(&population, 0, 7, pop_size, &mesh, verbose);
 
@@ -395,7 +399,6 @@ void Evolver::init_population(bool verbose) {
 	results5_thread.join();
 	results6_thread.join();
 	results7_thread.join();
-	cout << "Read FEA results for all individuals in individual population.\n";
 }
 
 void Evolver::write_densities_to_image(bool verbose) {
@@ -559,8 +562,10 @@ void Evolver::create_children(bool verbose) {
 	thread fea_thread2(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 1, verbose, 0);
 	thread fea_thread3(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 2, verbose, 0);
 	thread fea_thread4(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 3, verbose, 0);
-	/*thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose);
-	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose);*/
+	thread fea_thread5(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 4, verbose, 0);
+	thread fea_thread6(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 5, verbose, 0);
+	thread fea_thread7(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 6, verbose, 0);
+	thread fea_thread8(run_FEA_batch, individual_folders, &fea_casemanager, pop_size, 7, verbose, 0);
 #endif
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -578,25 +583,17 @@ void Evolver::create_children(bool verbose) {
 	cout << "Finished generating children.\n";
 
 #ifndef FEA_IGNORE
-	// Start a thread to read the results of the FEA
-	cout << "Starting results loaders...\n";
-	thread results0_thread(load_physics_batch, &population, pop_size, 0, pop_size, &mesh, verbose);
-	thread results1_thread(load_physics_batch, &population, pop_size, 1, pop_size, &mesh, verbose);
-	thread results2_thread(load_physics_batch, &population, pop_size, 2, pop_size, &mesh, verbose);
-	
-	// Also start a reader in the main thread
-	load_physics_batch(&population, pop_size, 3, pop_size, &mesh, verbose);
-
-	// Join threads
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
 	fea_thread4.join();
-	/*fea_thread5.join();
-	fea_thread6.join();*/
-	results0_thread.join();
-	results1_thread.join();
-	results2_thread.join();
+	fea_thread5.join();
+	fea_thread6.join();
+	fea_thread7.join();
+	fea_thread8.join();
+	cout << "FEA for all children finished.\n";
+
+	read_FEA_results();
 	cout << "Finished reading FEA results for all children.\n";
 #endif
 }
@@ -723,8 +720,12 @@ void Evolver::do_selection() {
 		// Also write a superposition of stress values to the target folder as a .vtk file
 		uint* densities = new uint[population[best_individual_idx].dim_x * population[best_individual_idx].dim_y];
 		population[best_individual_idx].copy_to(densities);
+
+		// Obtain vtk paths
+		vector<string> vtk_paths;
+		msh::get_vtk_paths(population[best_individual_idx].fea_casemanager, population[best_individual_idx].output_folder, vtk_paths);
 		phys::write_results_superposition(
-			population[best_individual_idx].vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
+			vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
 			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &population[best_individual_idx].border_nodes,
 			fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
 		);
