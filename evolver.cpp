@@ -6,10 +6,10 @@
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
-#define SINGLETHREADED
+//#define SINGLETHREADED
 
-int NO_FEA_THREADS = 8; // must be even number
-int NO_RESULTS_THREADS = 8; // must be even number
+#define NO_FEA_THREADS 8 // must be even number
+#define NO_RESULTS_THREADS 8 // must be even number
 
 //vector<string> individual_folders, phys::FEACaseManager* fea_casemanager, 
 
@@ -358,14 +358,9 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS * 2) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+	
+	// Run FEA
+	do_FEA(0);
 
 	int i = NO_FEA_THREADS * 2;
 	while (population.size() < pop_size) {
@@ -379,39 +374,103 @@ void Evolver::init_population(bool verbose) {
 	}
 	cout << "Finished generating initial population.\n";
 
-	// Wait for all threads to finish
-	fea_thread1.join();
-	fea_thread2.join();
-	fea_thread3.join();
-	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
-	fea_thread7.join();
-	fea_thread8.join();
-	cout << "FEA of initial population finished.\n";
-
-	read_FEA_results(0);
-	cout << "Read FEA results for all individuals in initial population.\n";
 }
 
-void Evolver::read_FEA_results(int pop_offset) {
-	// Start threads to read the results of the FEA
+void Evolver::do_FEA(int pop_offset) {
+	// Start FEA threads
+	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
+#if NO_RESULTS_THREADS >= 2:
+	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 3:
+	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 4:
+	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 5:
+	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 6:
+	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 7:
+	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
+#endif
+#if NO_RESULTS_THREADS >= 8:
+	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+#endif
+
+	// Wait for all FEA threads to finish
+	fea_thread1.join();
+#if NO_RESULTS_THREADS >= 2:
+	fea_thread2.join();
+#endif
+#if NO_RESULTS_THREADS >= 3:
+	fea_thread3.join();
+#endif
+#if NO_RESULTS_THREADS >= 4:
+	fea_thread4.join();
+#endif
+#if NO_RESULTS_THREADS >= 5:
+	fea_thread5.join();
+#endif
+#if NO_RESULTS_THREADS >= 6:
+	fea_thread6.join();
+#endif
+#if NO_RESULTS_THREADS >= 7:
+	fea_thread7.join();
+#endif
+#if NO_RESULTS_THREADS >= 8:
+	fea_thread8.join();
+#endif
+	cout << "FEA of initial population finished.\n";
+
+	// Create stress buffers for each FEA results loader
 	cout << "Starting results loaders...\n";
 	double* max_stresses1 = new double[pop_size / NO_RESULTS_THREADS];
+#if NO_RESULTS_THREADS >= 2:
 	double* max_stresses2 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 3:
 	double* max_stresses3 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 4:
 	double* max_stresses4 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 5:
 	double* max_stresses5 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 6:
 	double* max_stresses6 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 7:
 	double* max_stresses7 = new double[pop_size / NO_RESULTS_THREADS];
+#endif
+#if NO_RESULTS_THREADS >= 8:
 	double* max_stresses8 = new double[pop_size / NO_RESULTS_THREADS];
-#ifndef SINGLETHREADED:
+#endif
+
+	// Start Results threads
+#if NO_RESULTS_THREADS >= 2:
 	thread results1_thread(load_physics_batch, max_stresses1, population, pop_offset, 0, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 3:
 	thread results2_thread(load_physics_batch, max_stresses2, population, pop_offset, 1, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 4:
 	thread results3_thread(load_physics_batch, max_stresses3, population, pop_offset, 2, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 5:
 	thread results4_thread(load_physics_batch, max_stresses4, population, pop_offset, 3, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 6:
 	thread results5_thread(load_physics_batch, max_stresses5, population, pop_offset, 4, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 7:
 	thread results6_thread(load_physics_batch, max_stresses6, population, pop_offset, 5, pop_size, mesh, true);
+#endif
+#if NO_RESULTS_THREADS >= 8:
 	thread results7_thread(load_physics_batch, max_stresses7, population, pop_offset, 6, pop_size, mesh, true);
 #endif
 
@@ -419,39 +478,66 @@ void Evolver::read_FEA_results(int pop_offset) {
 	load_physics_batch(max_stresses8, population, pop_offset, 7, pop_size, mesh, true);
 
 	// Wait for all FEA loaders to finish
-#ifndef SINGLETHREADED:
+#if NO_RESULTS_THREADS >= 2:
 	results1_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 3:
 	results2_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 4:
 	results3_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 5:
 	results4_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 6:
 	results5_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 7:
 	results6_thread.join();
+#endif
+#if NO_RESULTS_THREADS >= 8:
 	results7_thread.join();
 #endif
 
 	// Retrieve max stresses
 	int j = 0;
-	for (int i = 0; i < pop_size / 8; i++) {
-		population[pop_offset + i*8].fea_results.max = max_stresses1[j];
-		population[pop_offset + i*8 + 1].fea_results.max = max_stresses2[j];
-		population[pop_offset + i*8 + 2].fea_results.max = max_stresses3[j];
-		population[pop_offset + i*8 + 3].fea_results.max = max_stresses4[j];
-		population[pop_offset + i*8 + 4].fea_results.max = max_stresses5[j];
-		population[pop_offset + i*8 + 5].fea_results.max = max_stresses6[j];
-		population[pop_offset + i*8 + 6].fea_results.max = max_stresses7[j];
-		population[pop_offset + i*8 + 7].fea_results.max = max_stresses8[j];
+	for (int i = 0; i < pop_size / NO_RESULTS_THREADS; i++) {
+		population[pop_offset + i * NO_RESULTS_THREADS].fea_results.max = max_stresses1[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 1].fea_results.max = max_stresses2[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 2].fea_results.max = max_stresses3[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 3].fea_results.max = max_stresses4[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 4].fea_results.max = max_stresses5[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 5].fea_results.max = max_stresses6[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 6].fea_results.max = max_stresses7[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 7].fea_results.max = max_stresses8[j];
 		j++;
 	}
 
 	// Cleanup
 	delete[] max_stresses1;
+#if NO_RESULTS_THREADS >= 2:
 	delete[] max_stresses2;
+#endif
+#if NO_RESULTS_THREADS >= 3:
 	delete[] max_stresses3;
+#endif
+#if NO_RESULTS_THREADS >= 4:
 	delete[] max_stresses4;
+#endif
+#if NO_RESULTS_THREADS >= 5:
 	delete[] max_stresses5;
+#endif
+#if NO_RESULTS_THREADS >= 6:
 	delete[] max_stresses6;
+#endif
+#if NO_RESULTS_THREADS >= 7:
 	delete[] max_stresses7;
+#endif
+#if NO_RESULTS_THREADS >= 8:
 	delete[] max_stresses8;
+#endif
+	cout << "Finished reading all FEA results.\n";
 }
 
 void Evolver::write_densities_to_image(bool verbose) {
@@ -613,14 +699,8 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
 #ifndef FEA_IGNORE
-	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+	// Run FEA
+	do_FEA(pop_size);
 #endif
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -636,21 +716,6 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating children.\n";
-
-#ifndef FEA_IGNORE
-	fea_thread1.join();
-	fea_thread2.join();
-	fea_thread3.join();
-	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
-	fea_thread7.join();
-	fea_thread8.join();
-	cout << "FEA for all children finished.\n";
-
-	read_FEA_results(pop_size);
-	cout << "Finished reading FEA results for all children.\n";
-#endif
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
