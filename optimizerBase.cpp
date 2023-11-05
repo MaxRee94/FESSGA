@@ -2,7 +2,7 @@
 #include "optimizerBase.h"
 
 
-bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verbose) {
+bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<int>* times, bool verbose) {
 	// Obtain vtk file paths
 	vector<string> vtk_paths;
 	msh::get_vtk_paths(densities->fea_casemanager, densities->output_folder, vtk_paths);
@@ -25,7 +25,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verb
 	// Load physics
 	bool physics_loaded = fessga::phys::load_2d_physics_data(
 		vtk_paths, densities->fea_results, densities->fea_casemanager, densities->dim_x, densities->dim_y,
-		densities->cell_size, mesh->offset, densities->fea_casemanager->mechanical_constraint, &densities->border_nodes
+		densities->cell_size, mesh->offset, densities->fea_casemanager->mechanical_constraint, &densities->border_nodes, verbose, times
 	);
 
 	// Check if loading was successful

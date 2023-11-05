@@ -6,6 +6,7 @@
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
+#define SINGLETHREADED
 
 int NO_FEA_THREADS = 8; // must be even number
 int NO_RESULTS_THREADS = 8; // must be even number
@@ -19,7 +20,7 @@ void run_FEA_batch(
 	vector<string> individual_folders, phys::FEACaseManager fea_casemanager,
 	int pop_size, int thread_offset, bool verbose, int stepsize
 ) {
-	cout << "Starting FEA batch thread " + to_string(thread_offset + 1) + "\n";
+	cout << "Starting FEA batch " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
 	bool is_2nd_attempt = false;
@@ -69,7 +70,6 @@ void run_FEA_batch(
 			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
 	}
 	IO::write_text_to_file(" ", individual_folders[0] + "/FEA_FINISHED.txt");
-	cout << "FEA thread finished.\n";
 }
 
 // Obtain FEA results
@@ -77,18 +77,30 @@ void load_physics_batch(
 	double* max_stresses, vector<evo::Individual2d> population, int pop_offset, int thread_offset, int pop_size,
 	msh::SurfaceMesh mesh, bool verbose = true
 ) {
-	if (verbose) cout << "Starting load physics batch thread " << thread_offset << endl;
+	if (verbose) cout << "Starting batch loader " << thread_offset << endl;
 	int j = 0;
+	verbose = thread_offset == 7;
+	vector<int> times;
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Load physics
-		bool success = load_physics(&population[i], &mesh);
+		bool success = load_physics(&population[i], &mesh, &times, verbose);
 		if (!success) { max_stresses[i] = INFINITY; continue; }
 		max_stresses[j] = population[i].fea_results.max;
 		j++;
-		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
+		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0) && thread_offset == NO_RESULTS_THREADS - 1)
 			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << " (thread " << thread_offset+1 << ")\n";
 	}
-	cout << "Results thread finished\n";
+
+	if (verbose) {
+		cout << "\nSetup times:\n";
+		for (int i = 0; i < population[0].fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
+			cout << times[i] << endl;
+		}
+		cout << "\nRead times:\n";
+		for (int i = 1; i < population[0].fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
+			cout << times[i] << endl;
+		}
+	}
 }
 
 /*
@@ -393,6 +405,7 @@ void Evolver::read_FEA_results(int pop_offset) {
 	double* max_stresses6 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses7 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses8 = new double[pop_size / NO_RESULTS_THREADS];
+#ifndef SINGLETHREADED:
 	thread results1_thread(load_physics_batch, max_stresses1, population, pop_offset, 0, pop_size, mesh, true);
 	thread results2_thread(load_physics_batch, max_stresses2, population, pop_offset, 1, pop_size, mesh, true);
 	thread results3_thread(load_physics_batch, max_stresses3, population, pop_offset, 2, pop_size, mesh, true);
@@ -400,11 +413,13 @@ void Evolver::read_FEA_results(int pop_offset) {
 	thread results5_thread(load_physics_batch, max_stresses5, population, pop_offset, 4, pop_size, mesh, true);
 	thread results6_thread(load_physics_batch, max_stresses6, population, pop_offset, 5, pop_size, mesh, true);
 	thread results7_thread(load_physics_batch, max_stresses7, population, pop_offset, 6, pop_size, mesh, true);
+#endif
 
 	// Also start a reader in the main thread
 	load_physics_batch(max_stresses8, population, pop_offset, 7, pop_size, mesh, true);
 
 	// Wait for all FEA loaders to finish
+#ifndef SINGLETHREADED:
 	results1_thread.join();
 	results2_thread.join();
 	results3_thread.join();
@@ -412,6 +427,7 @@ void Evolver::read_FEA_results(int pop_offset) {
 	results5_thread.join();
 	results6_thread.join();
 	results7_thread.join();
+#endif
 
 	// Retrieve max stresses
 	int j = 0;
@@ -461,7 +477,6 @@ void Evolver::create_iteration_directories(int iteration) {
 		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
 		IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
-		if (i == 0) cout << "indiv folder: " << individual_folders[0] << endl;
 	}
 }
 

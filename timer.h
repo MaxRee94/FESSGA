@@ -1,5 +1,6 @@
 // Copied from https://gist.github.com/mcleary/b0bf4fa88830ff7c882d
 // Created by mcleary
+#pragma once
 #include <iostream>
 #include <chrono>
 #include <ctime>
@@ -46,10 +47,4 @@ private:
     std::chrono::time_point<std::chrono::system_clock> m_EndTime;
     bool                                               m_bRunning = false;
 };
-
-long fibonacci(unsigned n)
-{
-    if (n < 2) return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
 

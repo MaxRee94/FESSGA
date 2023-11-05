@@ -169,7 +169,7 @@ void FESS::run() {
 		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
 
 		// Obtain vonmises stress distribution from the .vtk files
-		load_physics(&densities, &mesh, verbose);
+		load_physics(&densities, &mesh, 0, verbose);
 
 		// Write vtk file containing a superposition of stress/displacement values
 		phys::write_results_superposition(

@@ -23,6 +23,7 @@
 #include "vtkUnstructuredGridAlgorithm.h"
 #include "helpers.h"
 #include "io.h"
+#include "timer.h"
 
 
 //VTK_MODULE_INIT(vtkRenderingOpenGL2)
@@ -168,13 +169,13 @@ namespace fessga {
 
         static bool load_2d_physics_data(
             vector<string> filenames, FEAResults2D& results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes)
+            Vector3d _offset, string mechanical_constraint,  vector<int>* border_nodes, bool verbose = false, vector<int>* times = 0)
         {
             // For each coordinate, retain the maximum value out of all FEA runs
             // We thereby obtain a superposition of stress distributions.
             for (auto& filename : filenames) {
                 FEAResults2D single_run_results;
-                load_single_VTK_file(filename, &single_run_results, fea_casemanager, dim_x, dim_y, cell_size, _offset, mechanical_constraint, border_nodes);
+                load_single_VTK_file(filename, &single_run_results, fea_casemanager, dim_x, dim_y, cell_size, _offset, mechanical_constraint, border_nodes, times, verbose);
                 for (auto& [coord, stress] : single_run_results.data_map) {
                     if (single_run_results.data_map[coord] > results.data_map[coord]) {
                         results.data_map[coord] = single_run_results.data_map[coord];
@@ -183,6 +184,7 @@ namespace fessga {
                 if (single_run_results.max > results.max) results.max = single_run_results.max;
                 if (single_run_results.min < results.min) results.min = single_run_results.min;
             }
+
             help::sort(results.data_map, results.data);
 
             return true;
@@ -434,8 +436,10 @@ namespace fessga {
 
         static bool load_single_VTK_file(
             string filename, FEAResults2D* results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes 
+            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes, vector<int>* times, bool verbose = false
         ) {
+
+            Timer timer1; timer1.start();
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
             reader->SetFileName(filename.c_str());
@@ -465,19 +469,31 @@ namespace fessga {
                 help::populate_with_zeroes(results3_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(principal_stresses_nodewise, dim_x + 1, dim_y + 1);
             }
+            timer1.stop();
+            if (verbose) {
+                cout << "Setup time: " << timer1.elapsedMilliseconds() << " ms\n";
+                times->push_back(timer1.elapsedMilliseconds());
+            }
 
+            Timer timer2; timer2.start();
             // Obtain and process nodewise results
             if (mechanical_constraint == "Displacement") {
                 phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
             }
             if (mechanical_constraint == "ModifiedMohr") {
                 phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
-                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &coords);
-                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false);
+                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false);
+                timer2.stop();
+                if (verbose) {
+                    cout << "Read time: " << timer2.elapsedMilliseconds() << " ms\n";
+                    times->push_back(timer2.elapsedMilliseconds());
+                }
                 double* theta1_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 double* theta3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 help::populate_with_zeroes(theta1_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(theta3_nodewise, dim_x + 1, dim_y + 1);
+                Timer timer3; timer3.start();
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta1_nodewise, dim_x, dim_y, "Tensile");
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta3_nodewise, dim_x, dim_y, "Compressive");
                 for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
@@ -485,6 +501,8 @@ namespace fessga {
                         theta1_nodewise[i], theta3_nodewise[i], fea_casemanager->max_tensile_strength, fea_casemanager->max_compressive_strength
                     );
                 }
+                timer3.stop();
+                if (verbose) cout << "Calculation time: " << timer3.elapsedMilliseconds() << " ms\n";
             }
             else {
                 phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
@@ -492,6 +510,8 @@ namespace fessga {
                 phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &coords);
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, principal_stresses_nodewise, dim_x, dim_y, mechanical_constraint);
             }
+
+            Timer timer4; timer4.start();
 
             // Create cellwise results distribution by taking mean of each group of 4 corners of a cell
             double min_stress = 1e30;
@@ -546,6 +566,8 @@ namespace fessga {
                     if (cell_value < min_stress) min_stress = cell_value;
                 }
             }
+            timer4.stop();
+            if (verbose) cout << "Cell handling time: " << timer4.elapsedMilliseconds() << " ms\n";
             results->min = min_stress;
             results->max = max_stress;
             delete[] results1_nodewise;

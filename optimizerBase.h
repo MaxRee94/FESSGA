@@ -11,7 +11,7 @@
 using namespace fessga;
 
 
-bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, bool verbose = false);
+bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<int>* times, bool verbose = false);
 
 class OptimizerBase {
 public:
