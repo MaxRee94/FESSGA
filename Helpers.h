@@ -130,5 +130,11 @@ namespace fessga {
 
 		// Get mean
 		static double get_mean(vector<double>* distribution);
+
+		// Get maximum
+		static double get_max(vector<double>* distribution);
+
+		// Get maximum
+		static double get_min(vector<double>* distribution);
 	};
 };

@@ -566,8 +566,8 @@ void phys::FEACaseManager::interpolate(float fraction) {
 
 	// Recompute
 	for (int i = 0; i < active_cases.size(); i++) {
-		max_stress_threshold = sources[i].max_stress_threshold +
-			fraction * (targets[i].max_stress_threshold - sources[i].max_stress_threshold
+		mechanical_threshold = sources[i].mechanical_threshold +
+			fraction * (targets[i].mechanical_threshold - sources[i].mechanical_threshold
 		);
 		interpolate_nodes(&sources[i], &targets[i], fraction, i);
 		interpolate_cells(&sources[i], &targets[i], &active_cases[i], fraction);
@@ -576,7 +576,7 @@ void phys::FEACaseManager::interpolate(float fraction) {
 
 void phys::FEACaseManager::initialize() {
 	active_cases = sources;
-	max_stress_threshold = sources[0].max_stress_threshold;
+	mechanical_threshold = sources[0].mechanical_threshold;
 	if (dynamic) {
 		for (int i = 0; i < sources.size(); i++) {
 			sources[i].compute_barycenters();

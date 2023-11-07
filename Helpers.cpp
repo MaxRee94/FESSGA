@@ -412,3 +412,21 @@ double fessga::help::get_stdev(vector<double>* distribution, double mean) {
     return sqrt(variance);
 }
 
+
+double fessga::help::get_max(vector<double>* distribution) {
+    double max = -INFINITY;
+    for (double value : *distribution) {
+        if (value > max) max = value;
+    }
+    return max;
+}
+
+
+double fessga::help::get_min(vector<double>* distribution) {
+    double min = INFINITY;
+    for (double value : *distribution) {
+        if (value < min) min = value;
+    }
+    return min;
+}
+

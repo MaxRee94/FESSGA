@@ -6,7 +6,7 @@
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
-#define SINGLETHREADED
+//#define SINGLETHREADED
 
 int NO_FEA_THREADS = 8; // must be even number
 int NO_RESULTS_THREADS = 8; // must be even number
@@ -172,7 +172,7 @@ tuple<double, double, double, double, double, double, double> get_fitness_stats(
 	// Compute mean maximum stress relative to threshold
 	vector<double> relative_maximum_stresses;
 	for (auto& indiv : *population) {
-		double relative_maximum_stress = indiv.fea_results.max / indiv.fea_casemanager->max_stress_threshold;
+		double relative_maximum_stress = indiv.fea_results.max / indiv.fea_casemanager->mechanical_threshold;
 		relative_maximum_stresses.push_back(relative_maximum_stress);
 	}
 	double relative_maximum_stress_mean = help::get_mean(&relative_maximum_stresses);
@@ -535,10 +535,10 @@ void Evolver::do_setup() {
 
 void Evolver::update_objective_function() {
 	if (iterations_since_fitness_change >= no_static_iterations_trigger && variation < variation_trigger) {
-		fea_casemanager.max_stress_threshold -= 1e5;
+		fea_casemanager.mechanical_threshold -= 1e5;
 		cout << "-- Optimum shift triggered. Updated objective function. Maximum stress threshold changed from ("
-			<< fea_casemanager.max_stress_threshold + 1e5 <<
-			") to (" << fea_casemanager.max_stress_threshold << ").\n";
+			<< fea_casemanager.mechanical_threshold + 1e5 <<
+			") to (" << fea_casemanager.mechanical_threshold << ").\n";
 		cout << "-- Updating fitnesses according to new objective function.\n";
 		fitnesses_map.clear();
 		evaluate_fitnesses(0);
@@ -682,11 +682,11 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 			fitness = -INFINITY;
 			if (!help::is_in(&iterations_with_fea_failure, iteration_number)) iterations_with_fea_failure.push_back(iteration_number);
 		}
-		else if (population[i].fea_results.max > fea_casemanager.max_stress_threshold) {
-			fitness = 1.0 - population[i].fea_results.max / fea_casemanager.max_stress_threshold;
+		else if (population[i].fea_results.max > fea_casemanager.mechanical_threshold) {
+			fitness = 1.0 - population[i].fea_results.max / fea_casemanager.mechanical_threshold;
 		}
 		else {
-			double relative_maximum_stress = (fea_casemanager.max_stress_threshold - population[i].fea_results.max) / fea_casemanager.max_stress_threshold;
+			double relative_maximum_stress = (fea_casemanager.mechanical_threshold - population[i].fea_results.max) / fea_casemanager.mechanical_threshold;
 			fitness = (relative_maximum_stress * stress_fitness_influence + 1.0) / (population[i].get_relative_area());
 		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
@@ -815,15 +815,15 @@ void Evolver::evolve() {
 		//if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
 		//	// If the surface area of the best individual is lower than the original input shape, shift the optimum 
 		//	cout << std::setprecision(3) << std::scientific;
-		//	cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.max_stress_threshold << " to " << minimum_stress << endl;
+		//	cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.mechanical_threshold << " to " << minimum_stress << endl;
 		//	cout << std::fixed;
-		//	fea_casemanager.max_stress_threshold = minimum_stress;
+		//	fea_casemanager.mechanical_threshold = minimum_stress;
 		//	export_meta_parameters();
 		//}
 		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
-			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.max_stress_threshold) + ((float)fea_casemanager.max_stress_threshold / 1000.0);
-			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.max_stress_threshold << " to " << new_threshold << endl;
-			fea_casemanager.max_stress_threshold = new_threshold;
+			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.mechanical_threshold) + ((float)fea_casemanager.mechanical_threshold / 1000.0);
+			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.mechanical_threshold << " to " << new_threshold << endl;
+			fea_casemanager.mechanical_threshold = new_threshold;
 			export_meta_parameters();
 		}
 		if (iterations_since_fitness_change > (max_iterations_without_change / 2)) {

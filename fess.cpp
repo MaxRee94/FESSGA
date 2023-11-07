@@ -93,7 +93,7 @@ int FESS::handle_floating_pieces(msh::FEMesh2D* fe_mesh, int no_cells_to_remove,
 			//if (no_removed_pieces > 0) {
 			//	// At least one piece was succesfully removed previously. These should again be removed.
 			//	densities.remove_smaller_pieces(
-			//		densities.fea_cases, densities.removed_pieces, &densities.removed_cells, max_stress_threshold, densities.fea_results,
+			//		densities.fea_cases, densities.removed_pieces, &densities.removed_cells, mechanical_threshold, densities.fea_results,
 			//		maintain_boundary_connection, false, true
 			//	);
 			//	cout << "Densities after attempt to re-remove pieces:\n";
@@ -187,10 +187,10 @@ void FESS::run() {
 		int no_cells_to_remove = max(1, (int)round(greediness * (float)densities.count()));
 
 		// Check if maximum stress exceeds threshold
-		if (max_stress > fea_casemanager.max_stress_threshold) {
+		if (max_stress > fea_casemanager.mechanical_threshold) {
 			cout << std::setprecision(3) << std::scientific;
 			cout << "FESS: Highest stress in FE result (" << max_stress
-				<< ") exceeds maximum stress threshold (" << fea_casemanager.max_stress_threshold << ")\n";
+				<< ") exceeds maximum stress threshold (" << fea_casemanager.mechanical_threshold << ")\n";
 
 			// Decrease greediness and load snapshot, so that optimization can be retried in a less agressive manner.
 			if (no_cells_to_remove > 1) {

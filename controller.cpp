@@ -63,7 +63,7 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
-    if (fea_casemanager.mechanical_constraint == "Displacement") {
+    if (help::is_in(fea_casemanager.mechanical_constraint, "Displacement")) {
         int visited_x = 0;
         for (auto& bound_cell : fea_casemanager.keep_cells) {
             int x = bound_cell / densities2d.dim_y;
@@ -75,6 +75,7 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     }
     fea_casemanager.max_tensile_strength = max_tensile_strength;
     fea_casemanager.max_compressive_strength = max_compressive_strength;
+    fea_casemanager.max_displacement = max_displacement;
     densities2d.visualize_keep_cells();
 }
 
@@ -83,7 +84,7 @@ void Controller::run_fess(FESS& _fess) {
     do_static_setup(fea_casemanager);
 
     // Parameters
-    fea_casemanager.max_stress_threshold = max_stress;
+    fea_casemanager.mechanical_threshold = max_stress;
     fea_casemanager.maintain_boundary_connection = true;
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
@@ -136,8 +137,8 @@ void Controller::run_emma_dynamic(Evolver& _evolver) {
     phys::FEACaseManager fea_manager(* source_densities.fea_cases, * target_densities.fea_cases);
     source_densities.fea_cases = &fea_manager.source;
     target_densities.fea_cases = &fea_manager.target;
-    fea_manager.source.max_stress_threshold = 1e4;
-    fea_manager.target.max_stress_threshold = 1.5e6;
+    fea_manager.source.mechanical_threshold = 1e4;
+    fea_manager.target.mechanical_threshold = 1.5e6;
 
     // Derive bound conditions for source and target
     msh::derive_boundary_conditions(*source_densities.fea_cases, source_densities, mesh);
@@ -176,13 +177,13 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string msh_file = base_folder + "/mesh.msh";
     bool export_msh = true;
     bool verbose = false;
-    fea_casemanager->max_stress_threshold = max_stress;
+    fea_casemanager->mechanical_threshold = max_stress;
 
     // Evolver-specific parameters
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 24; // NOTE: must be >10 and divisible by 8
+    int pop_size = 16; // NOTE: must be >10 and divisible by 8
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
     int max_iterations_without_change = 150;

@@ -485,7 +485,7 @@ namespace fessga {
             for (auto& case_name : case_names) {
                 string case_path = case_folder + "/" + case_name + ".sif";
                 phys::FEACase fea_case(
-                    case_path, densities->dim_x, densities->dim_y, fea_casemanager->max_stress_threshold
+                    case_path, densities->dim_x, densities->dim_y, fea_casemanager->mechanical_threshold
                 );
                 fea_case.max_tensile_strength = fea_casemanager->max_tensile_strength;
                 fea_case.max_compressive_strength = fea_casemanager->max_compressive_strength;

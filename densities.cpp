@@ -426,7 +426,7 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
 
         // If the cell's stress exceeds the maximum, break the loop (all subsequent cells will also exceed the
         // maximum since the list is ordered).
-        if (cell_stress > fea_casemanager->max_stress_threshold) break;
+        if (cell_stress > fea_casemanager->mechanical_threshold) break;
 
         //if (no_iterations_without_removal > 100) cout << "before boundcells\n";
         
@@ -511,7 +511,7 @@ bool fessga::grd::Densities2d::remove_floating_piece(
         // TODO: The last two conditions of the following if-statement should not be necessary, but they are.
         // Figure out why.
         bool cell_cannot_be_removed = (
-            fea_results.data_map[cell] > fea_casemanager->max_stress_threshold ||
+            fea_results.data_map[cell] > fea_casemanager->mechanical_threshold ||
             help::is_in(&fea_casemanager->keep_cells, cell)
         );
         if (cell_cannot_be_removed) {

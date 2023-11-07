@@ -12,7 +12,7 @@
 
 struct Input {
     string type = "object";
-    double max_stress, max_tensile_strength, max_compressive_strength;
+    double max_stress, max_tensile_strength, max_compressive_strength, max_displacement;
     int max_iterations;
     string path;
     string name;
@@ -34,6 +34,7 @@ public:
         fea_casemanager.mechanical_constraint = input.mechanical_constraint;
         max_stress = input.max_stress;
         max_tensile_strength = input.max_tensile_strength;
+        max_displacement = input.max_displacement;
         max_compressive_strength = input.max_compressive_strength;
         max_iterations = input.max_iterations;
         stress_fitness_influence = input.stress_fitness_influence;
@@ -121,7 +122,7 @@ public:
     int dim_x = 1;
     int dim_y = 1;
     int dim_z = 1;
-    double max_stress, max_tensile_strength, max_compressive_strength;
+    double max_stress, max_tensile_strength, max_compressive_strength, max_displacement;
     int max_iterations;
     float cell_size = 0;
     float stress_fitness_influence;

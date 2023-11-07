@@ -41,8 +41,8 @@ namespace fessga {
         class FEACase {
         public:
             FEACase() = default;
-            FEACase(string _path, int _dim_x, int _dim_y, double _max_stress_threshold) :
-                path(_path), dim_x(_dim_x), dim_y(_dim_y), max_stress_threshold(_max_stress_threshold) {
+            FEACase(string _path, int _dim_x, int _dim_y, double _mechanical_threshold) :
+                path(_path), dim_x(_dim_x), dim_y(_dim_y), mechanical_threshold(_mechanical_threshold) {
             }
             Vector2d compute_cell_barycenter(vector<int>* cells);
             void compute_node_barycenters();
@@ -60,14 +60,14 @@ namespace fessga {
             map<string, map<string, Vector2d>> cell_barycenters;
             vector<string> names, sections;
             int dim_x, dim_y;
-            double max_stress_threshold, max_tensile_strength, max_compressive_strength;
+            double mechanical_threshold, max_tensile_strength, max_compressive_strength;
         };
         
         class FEACaseManager {
         public:
             FEACaseManager() = default;
             FEACaseManager(
-                vector<phys::FEACase> _sources, vector<phys::FEACase> _targets, double _max_stress_threshold,
+                vector<phys::FEACase> _sources, vector<phys::FEACase> _targets, double _mechanical_threshold,
                 int _dim_x, int _dim_y
             ) {
                 sources = _sources;
@@ -78,10 +78,10 @@ namespace fessga {
                 dynamic = true;
             }
             FEACaseManager(
-                vector<phys::FEACase> _active_cases, double _max_stress_threshold, int _dim_x, int _dim_y
+                vector<phys::FEACase> _active_cases, double _mechanical_threshold, int _dim_x, int _dim_y
             ) {
                 active_cases = _active_cases;
-                max_stress_threshold = _max_stress_threshold;
+                mechanical_threshold = _mechanical_threshold;
                 dim_x = _dim_x;
                 dim_y = _dim_y;
                 dynamic = false;
@@ -116,7 +116,8 @@ namespace fessga {
             vector<int> cutout_cells = {};
             vector<int> inactive_cells = {};
             vector<int> border_nodes = {};
-            double max_stress_threshold = INFINITY;
+            double mechanical_threshold = INFINITY;
+            double max_displacement;
             double max_tensile_strength;
             double max_compressive_strength;
             bool maintain_boundary_connection = true;
@@ -204,11 +205,50 @@ namespace fessga {
             return cell_neighbors;
         }
 
+        // Load node data of a specific cell in a vtk channel
+        static void load_nodewise_results(
+            string filename, vector<double>* corners, int dim_x, int dim_y, Vector2d cell_size,
+            Vector2d offset, string channel, map<int, int>* node_coords_map, vector<int>* corner_coords, double sign = 1
+        ) {
+            // Read data from file
+            vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
+            reader->SetFileName(filename.c_str());
+            reader->ReadAllScalarsOn();
+            reader->Update();
+            vtkUnstructuredGrid* output = reader->GetOutput();
+
+            // Get point data (this object contains the physics data)
+            vtkPointData* point_data = output->GetPointData();
+
+            // Obtain results array
+            vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(channel.c_str()));
+            if (results_array->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
+
+            // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
+            // the FE mesh)
+            vtkPoints* points = output->GetPoints();
+            for (int i = 0; i < 4; i++) {
+                int point_idx = node_coords_map->at(corner_coords->at(i));
+
+                if (channel == "Displacement") {
+                    double displacement_x = (double)results_array->GetValue(i * 3);
+                    double displacement_y = (double)results_array->GetValue(i * 3 + 1);
+                    double magnitude = Vector2d(displacement_x, displacement_y).norm();
+                    magnitude = max(magnitude, 0.0);
+                    corners->push_back(magnitude);
+                }
+                else {
+                    corners->push_back(sign * (double)results_array->GetValue(i));
+                }
+            }
+        }
+
+        // Load all node data of a vtk channel
         static void load_nodewise_results(
             string filename, double* results_nodewise, int dim_x, int dim_y, Vector2d cell_size,
-            Vector2d offset, string mechanical_constraint, vector<int>* border_nodes, double sign, bool clamp, vector<int>* _coords = 0
+            Vector2d offset, string channel, vector<int>* border_nodes, double sign, bool clamp, map<int, int>* _node_coords_map = 0
         ) {
-            if (_coords) _coords->clear();
+            if (_node_coords_map) _node_coords_map->clear();
 
             // Read data from file
             vtkUnstructuredGridReader* reader = vtkUnstructuredGridReader::New();
@@ -222,28 +262,27 @@ namespace fessga {
 
             // Obtain stress array(s)
             //vtkDoubleArray* vonmises = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars("Vonmises"));
-            vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(mechanical_constraint.c_str()));
+            vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(channel.c_str()));
             if (results_array->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
             // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
             // the FE mesh)
             vtkPoints* points = output->GetPoints();
             double point[2];
-            vector<int> coords;
+            map<int, int> node_coords_map;
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+                // Compute node coordinate
                 point[0] = points->GetData()->GetTuple(i)[0];
                 point[1] = points->GetData()->GetTuple(i)[1];
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
-                //if (help::is_in(border_nodes, coord)) {
-                //    results_nodewise[coord] = 0; // Skip nodes on the border of the shape
-                //    continue;
-                //}
-                if (_coords != 0) _coords->push_back(coord);
-                else coords.push_back(coord);
-                if (mechanical_constraint == "Displacement") {
+                
+                // Obtain node value
+                if (_node_coords_map != 0) (*_node_coords_map)[coord] = i;
+                else node_coords_map[coord] = i;
+                if (channel == "Displacement") {
                     double displacement_x = (double)results_array->GetValue(i * 3);
                     double displacement_y = (double)results_array->GetValue(i * 3 + 1);
                     double magnitude = Vector2d(displacement_x, displacement_y).norm();
@@ -454,11 +493,11 @@ namespace fessga {
             double* results2_nodewise = 0; // Nodes grid has +1 width along each dim
             double* results3_nodewise = 0; // Nodes grid has +1 width along each dim
             double* principal_stresses_nodewise = 0;
-            vector<int> coords;
+            map<int, int> node_coords_map;
             help::populate_with_zeroes(results1_nodewise, dim_x + 1, dim_y + 1);
             string mechanical_constraint1, mechanical_constraint2, mechanical_constraint3 = mechanical_constraint;
             double sign = 1;
-            if (!help::is_in(mechanical_constraint, "Displacement")) {
+            if (help::is_in(mechanical_constraint, "ModifiedMohr")) {
                 mechanical_constraint1 = "Stress_xx";
                 mechanical_constraint2 = "Stress_yy";
                 mechanical_constraint3 = "Stress_xy";
@@ -471,29 +510,26 @@ namespace fessga {
             }
             timer1.stop();
             if (verbose) {
-                cout << "Setup time: " << timer1.elapsedMilliseconds() << " ms\n";
                 times->push_back(timer1.elapsedMilliseconds());
             }
 
             Timer timer2; timer2.start();
             // Obtain and process nodewise results
             if (mechanical_constraint == "Displacement") {
-                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &node_coords_map);
             }
-            if (mechanical_constraint == "ModifiedMohr") {
-                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
+            else if (help::is_in(mechanical_constraint, "ModifiedMohr")) {
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &node_coords_map);
                 phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false);
                 phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false);
                 timer2.stop();
                 if (verbose) {
-                    cout << "Read time: " << timer2.elapsedMilliseconds() << " ms\n";
                     times->push_back(timer2.elapsedMilliseconds());
                 }
                 double* theta1_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 double* theta3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 help::populate_with_zeroes(theta1_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(theta3_nodewise, dim_x + 1, dim_y + 1);
-                Timer timer3; timer3.start();
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta1_nodewise, dim_x, dim_y, "Tensile");
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta3_nodewise, dim_x, dim_y, "Compressive");
                 for (int i = 0; i < (dim_x + 1) * (dim_y + 1); i++) {
@@ -501,27 +537,27 @@ namespace fessga {
                         theta1_nodewise[i], theta3_nodewise[i], fea_casemanager->max_tensile_strength, fea_casemanager->max_compressive_strength
                     );
                 }
-                timer3.stop();
-                if (verbose) cout << "Calculation time: " << timer3.elapsedMilliseconds() << " ms\n";
             }
             else {
-                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &coords);
-                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &coords);
-                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &coords);
+                phys::load_nodewise_results(filename, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &node_coords_map);
+                phys::load_nodewise_results(filename, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &node_coords_map);
+                phys::load_nodewise_results(filename, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &node_coords_map);
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, principal_stresses_nodewise, dim_x, dim_y, mechanical_constraint);
             }
 
-            Timer timer4; timer4.start();
-
             // Create cellwise results distribution by taking mean of each group of 4 corners of a cell
-            double min_stress = 1e30;
-            double max_stress = 0;
-            for (int i = 0; i < coords.size(); i++) {
-                int node_coord = coords[i];
+            double min_mechanical_metric = 1e30;
+            double max_mechanical_metric = 0;
+            for (auto& [node_coord, _] : node_coords_map) {
+                //if (verbose) cout << "node coord " << node_coord << ", point index " << _ << endl;
+
+                // Obtain coordinates of the bottomleft corner (= node) of the cell
                 int x = node_coord / (dim_y + 1);
                 int y = node_coord % (dim_y + 1);
                 if (x == dim_x || y == dim_y) continue; // Skip coordinates outside cell domain
                 int cell_coord = x * dim_y + y;
+
+                // Check if the cell should be skipped
                 if (help::is_in(&fea_casemanager->inactive_cells, cell_coord)) {
                     // Cells marked as 'inactive' are ignored during solution evaluation.
                     results->data_map.insert(pair(cell_coord, -9999));
@@ -530,46 +566,52 @@ namespace fessga {
                 if (mechanical_constraint == "Displacement" && cell_coord != fea_casemanager->displacement_measurement_cell) {
                     continue; // If using mechanical constraint 'Displacement', we only consider the displacement measurement cell and thus ignore all other cells.
                 }
-                Vector4d neighbors;
-                int num_neighbors = 4;
-                int node_neighbor1 = (x + 1) * (dim_y + 1) + y;
-                int node_neighbor2 = (x + 1) * (dim_y + 1) + (y + 1);
-                int node_neighbor3 = x * (dim_y + 1) + (y + 1);
+                
+                // Compute the cell average from the four values defined on its corner nodes
+                vector<int> corner_coords = {
+                    node_coord,
+                    (x + 1) * (dim_y + 1) + y,
+                    (x + 1) * (dim_y + 1) + (y + 1),
+                    x * (dim_y + 1) + (y + 1)
+                };
+                Vector4d cell_corners;
                 if (mechanical_constraint == "Displacement") {
-                    neighbors[0] = results1_nodewise[node_coord];
-                    neighbors[1] = results1_nodewise[node_neighbor1];
-                    neighbors[2] = results1_nodewise[node_neighbor2];
-                    neighbors[3] = results1_nodewise[node_neighbor3];
+                    cell_corners[0] = results1_nodewise[corner_coords[0]];
+                    cell_corners[1] = results1_nodewise[corner_coords[1]];
+                    cell_corners[2] = results1_nodewise[corner_coords[2]];
+                    cell_corners[3] = results1_nodewise[corner_coords[3]];
                 }
                 else {
-                    neighbors[0] = principal_stresses_nodewise[node_coord];
-                    neighbors[1] = principal_stresses_nodewise[node_neighbor1];
-                    neighbors[2] = principal_stresses_nodewise[node_neighbor2];
-                    neighbors[3] = principal_stresses_nodewise[node_neighbor3];
+                    cell_corners[0] = principal_stresses_nodewise[corner_coords[0]];
+                    cell_corners[1] = principal_stresses_nodewise[corner_coords[1]];
+                    cell_corners[2] = principal_stresses_nodewise[corner_coords[2]];
+                    cell_corners[3] = principal_stresses_nodewise[corner_coords[3]];
                 }
-                double cell_value = neighbors.mean();
-                /*float intra_cell_variance = (cell_value - neighbors.mean());
-                if (help::is_in(border_nodes, node_coord)) { num_neighbors--; }
-                if (help::is_in(border_nodes, (x + 1) * (dim_y + 1) + y)) { num_neighbors--; }
-                if (help::is_in(border_nodes, (x + 1) * (dim_y + 1) + (y + 1))) { num_neighbors--; }
-                if (help::is_in(border_nodes, x * (dim_y + 1) + (y + 1))) { num_neighbors--; }*/
+                double cell_value = cell_corners.mean();
                 
+                // Check if the found cell value is the largest found so far
                 if (help::is_in(mechanical_constraint, "Compressive")) cell_value = -cell_value;
                 cell_value = max(0.0, cell_value);
-                results->data_map.insert(pair(cell_coord, neighbors.mean()));
-                //cout << "cell stress (loader): " << neighbors.mean() << endl;
+                results->data_map.insert(pair(cell_coord, cell_corners.mean()));
                 if (mechanical_constraint == "Displacement") {
-                    max_stress = cell_value;
+                    max_mechanical_metric = cell_value;
                 }
                 else {
-                    if (cell_value > max_stress) max_stress = cell_value;
-                    if (cell_value < min_stress) min_stress = cell_value;
+                    if (cell_value > max_mechanical_metric) max_mechanical_metric = cell_value;
+                    if (cell_value < min_mechanical_metric) min_mechanical_metric = cell_value;
+                }
+                if (mechanical_constraint == "ModifiedMohrDisplacement" && cell_coord == fea_casemanager->displacement_measurement_cell) {
+                    vector<double> displacements;
+                    phys::load_nodewise_results(filename, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
+                    double max_displacement = help::get_max(&displacements);
+                    if (max_displacement > fea_casemanager->max_displacement) {
+                        double cell_displacement_value = max_displacement / fea_casemanager->max_displacement;
+                        max_mechanical_metric = max(max_mechanical_metric, cell_displacement_value);
+                    }
                 }
             }
-            timer4.stop();
-            if (verbose) cout << "Cell handling time: " << timer4.elapsedMilliseconds() << " ms\n";
-            results->min = min_stress;
-            results->max = max_stress;
+            results->min = min_mechanical_metric;
+            results->max = max_mechanical_metric;
             delete[] results1_nodewise;
             reader->Delete();
 
