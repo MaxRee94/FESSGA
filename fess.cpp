@@ -3,16 +3,12 @@
 
 
 void FESS::export_meta_parameters(vector<string>*_) {
-	string feasibility_filtering = "use feasibility filtering = ";
-	string suffix = do_feasibility_filtering ? "yes" : "no";
-	feasibility_filtering += suffix;
-	string bound_connection = "maintain boundary connection = ";
-	suffix = fea_casemanager.maintain_boundary_connection ? "yes" : "no";
-	bound_connection += suffix;
 	vector<string> additional_metaparameters = {
-		feasibility_filtering,
+		(do_feasibility_filtering ? "feasibility filtering = yes" : "feasibility filtering = no"),
 		"initial greediness = " + to_string(greediness),
-		bound_connection
+		(fea_casemanager.maintain_boundary_connection ? "maintain boundary connection = yes" : "maintain boundary connection = no"),
+		"mechanical constraint = " + fea_casemanager.mechanical_constraint,
+		(help::is_in(fea_casemanager.mechanical_constraint, "Displacement") ? "max displacement = " + to_string(fea_casemanager.max_displacement) : "")
 	};
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }

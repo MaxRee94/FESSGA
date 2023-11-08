@@ -663,7 +663,8 @@ void Evolver::export_meta_parameters(vector<string>* _) {
 		"mutation rate level 1 = " + to_string(mutation_rate_level1),
 		"max iterations since fitness change = " + to_string(max_iterations_without_change),
 		"crossover method = " + crossover_method,
-		"mechanical constraint = " + fea_casemanager.mechanical_constraint
+		"mechanical constraint = " + fea_casemanager.mechanical_constraint,
+		(help::is_in(fea_casemanager.mechanical_constraint, "Displacement") ? "max displacement = " + to_string(fea_casemanager.max_displacement) : "")
 	};
 	OptimizerBase::export_meta_parameters(&additional_metaparameters);
 }
