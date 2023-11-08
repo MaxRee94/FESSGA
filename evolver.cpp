@@ -6,7 +6,6 @@
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
-//#define SINGLETHREADED
 
 int NO_FEA_THREADS = 8; // must be even number
 int NO_RESULTS_THREADS = 8; // must be even number
@@ -358,14 +357,9 @@ void Evolver::init_population(bool verbose) {
 	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
 	while (population.size() < NO_FEA_THREADS * 2) create_single_individual(verbose);
-	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+	
+	// Run FEA
+	do_FEA(0);
 
 	int i = NO_FEA_THREADS * 2;
 	while (population.size() < pop_size) {
@@ -379,7 +373,20 @@ void Evolver::init_population(bool verbose) {
 	}
 	cout << "Finished generating initial population.\n";
 
-	// Wait for all threads to finish
+}
+
+void Evolver::do_FEA(int pop_offset) {
+	// Start FEA threads
+	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
+	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
+	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
+	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
+	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
+	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
+	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
+	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+
+	// Wait for all FEA threads to finish
 	fea_thread1.join();
 	fea_thread2.join();
 	fea_thread3.join();
@@ -390,12 +397,7 @@ void Evolver::init_population(bool verbose) {
 	fea_thread8.join();
 	cout << "FEA of initial population finished.\n";
 
-	read_FEA_results(0);
-	cout << "Read FEA results for all individuals in initial population.\n";
-}
-
-void Evolver::read_FEA_results(int pop_offset) {
-	// Start threads to read the results of the FEA
+	// Create stress buffers for each FEA results loader
 	cout << "Starting results loaders...\n";
 	double* max_stresses1 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses2 = new double[pop_size / NO_RESULTS_THREADS];
@@ -405,7 +407,7 @@ void Evolver::read_FEA_results(int pop_offset) {
 	double* max_stresses6 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses7 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses8 = new double[pop_size / NO_RESULTS_THREADS];
-#ifndef SINGLETHREADED:
+
 	thread results1_thread(load_physics_batch, max_stresses1, population, pop_offset, 0, pop_size, mesh, true);
 	thread results2_thread(load_physics_batch, max_stresses2, population, pop_offset, 1, pop_size, mesh, true);
 	thread results3_thread(load_physics_batch, max_stresses3, population, pop_offset, 2, pop_size, mesh, true);
@@ -413,13 +415,12 @@ void Evolver::read_FEA_results(int pop_offset) {
 	thread results5_thread(load_physics_batch, max_stresses5, population, pop_offset, 4, pop_size, mesh, true);
 	thread results6_thread(load_physics_batch, max_stresses6, population, pop_offset, 5, pop_size, mesh, true);
 	thread results7_thread(load_physics_batch, max_stresses7, population, pop_offset, 6, pop_size, mesh, true);
-#endif
+
 
 	// Also start a reader in the main thread
 	load_physics_batch(max_stresses8, population, pop_offset, 7, pop_size, mesh, true);
 
 	// Wait for all FEA loaders to finish
-#ifndef SINGLETHREADED:
 	results1_thread.join();
 	results2_thread.join();
 	results3_thread.join();
@@ -427,19 +428,18 @@ void Evolver::read_FEA_results(int pop_offset) {
 	results5_thread.join();
 	results6_thread.join();
 	results7_thread.join();
-#endif
 
 	// Retrieve max stresses
 	int j = 0;
-	for (int i = 0; i < pop_size / 8; i++) {
-		population[pop_offset + i*8].fea_results.max = max_stresses1[j];
-		population[pop_offset + i*8 + 1].fea_results.max = max_stresses2[j];
-		population[pop_offset + i*8 + 2].fea_results.max = max_stresses3[j];
-		population[pop_offset + i*8 + 3].fea_results.max = max_stresses4[j];
-		population[pop_offset + i*8 + 4].fea_results.max = max_stresses5[j];
-		population[pop_offset + i*8 + 5].fea_results.max = max_stresses6[j];
-		population[pop_offset + i*8 + 6].fea_results.max = max_stresses7[j];
-		population[pop_offset + i*8 + 7].fea_results.max = max_stresses8[j];
+	for (int i = 0; i < pop_size / NO_RESULTS_THREADS; i++) {
+		population[pop_offset + i * NO_RESULTS_THREADS].fea_results.max = max_stresses1[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 1].fea_results.max = max_stresses2[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 2].fea_results.max = max_stresses3[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 3].fea_results.max = max_stresses4[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 4].fea_results.max = max_stresses5[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 5].fea_results.max = max_stresses6[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 6].fea_results.max = max_stresses7[j];
+		population[pop_offset + i * NO_RESULTS_THREADS + 7].fea_results.max = max_stresses8[j];
 		j++;
 	}
 
@@ -613,14 +613,8 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i + 1) * 2 << " / " << pop_size << "\n";
 	}
 #ifndef FEA_IGNORE
-	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+	// Run FEA
+	do_FEA(pop_size);
 #endif
 	// Generate rest of children
 	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
@@ -636,21 +630,6 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating children.\n";
-
-#ifndef FEA_IGNORE
-	fea_thread1.join();
-	fea_thread2.join();
-	fea_thread3.join();
-	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
-	fea_thread7.join();
-	fea_thread8.join();
-	cout << "FEA for all children finished.\n";
-
-	read_FEA_results(pop_size);
-	cout << "Finished reading FEA results for all children.\n";
-#endif
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
