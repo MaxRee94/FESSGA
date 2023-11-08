@@ -502,7 +502,7 @@ namespace fessga {
                 help::populate_with_zeroes(principal_stresses_nodewise, dim_x + 1, dim_y + 1);
             }
             timer1.stop();
-            if (verbose) {
+            if (verbose && times != 0) {
                 times->push_back(timer1.elapsedMilliseconds());
             }
 
@@ -516,7 +516,7 @@ namespace fessga {
                 phys::load_nodewise_results(output, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false);
                 phys::load_nodewise_results(output, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false);
                 timer2.stop();
-                if (verbose) {
+                if (verbose && times != 0) {
                     times->push_back(timer2.elapsedMilliseconds());
                 }
                 double* theta1_nodewise = new double[(dim_x + 1) * (dim_y + 1)];

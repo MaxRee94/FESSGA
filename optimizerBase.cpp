@@ -29,7 +29,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 	);
 
 	// Check if loading was successful
-	if (physics_loaded && verbose) cout << "OptimizerBase: Finished reading stress distribution from .vtk file." << endl;
+	if (physics_loaded && verbose) cout << "OptimizerBase: Finished reading stress distribution from .vtk files." << endl;
 	else if (!physics_loaded) {
 		cout << "OptimizerBase: Error: Unable to read physics data." << endl;
 	}
