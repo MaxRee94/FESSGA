@@ -146,6 +146,7 @@ void FESS::run() {
 		msh::create_FE_mesh(mesh, densities, fe_mesh);
 		cout << "FESS: FE mesh generation done.\n";
 
+		// Create sif files
 		create_sif_files(&densities, &fe_mesh);
 
 		// Export newly generated FE mesh
@@ -160,11 +161,11 @@ void FESS::run() {
 
 		// Call Elmer to run FEA on new FE mesh
 		string batch_file = msh::create_batch_file(iteration_folder);
-		cout << "FESS: Calling Elmer .bat file...\n";
-		fessga::phys::call_elmer(iteration_folder, &fea_casemanager);
-		cout << "FESS: ElmerSolver finished. Attempting to read .vtk file...\n";
+		cout << "FESS: Starting FEA...\n";
+		run_FEA_on_single_solution(iteration_folder);
+		cout << "FESS: FEA finished. Loading results...\n";
 
-		// Obtain vonmises stress distribution from the .vtk files
+		// Obtain FEA results
 		load_physics(&densities, &mesh, 0, verbose);
 
 		// Write vtk file containing a superposition of stress/displacement values
