@@ -468,7 +468,7 @@ namespace fessga {
 
         static bool load_single_VTK_file(
             string filename, FEAResults2D* results, FEACaseManager* fea_casemanager, int dim_x, int dim_y, Vector2d cell_size,
-            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes, vector<int>* times, bool verbose = false
+            Vector3d _offset, string mechanical_constraint, vector<int>* border_nodes, vector<int>* times = 0, bool verbose = false
         ) {
 
             Timer timer1; timer1.start();

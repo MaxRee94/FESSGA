@@ -59,6 +59,7 @@ public:
 	void cleanup();
 	void update_objective_function();
 	void do_FEA(int pop_offset);
+	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	vector<evo::Individual2d> population;

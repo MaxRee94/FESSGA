@@ -15,58 +15,15 @@ int NO_RESULTS_THREADS = 8; // must be even number
 /*
 * Method to run a batch of FEA jobs on all given output folders
 */
-void run_FEA_batch(
+void Evolver::FEA_thread(
 	vector<string> individual_folders, phys::FEACaseManager fea_casemanager,
 	int pop_size, int thread_offset, bool verbose, int stepsize
 ) {
 	cout << "Starting FEA batch " + to_string(thread_offset + 1) + "\n";
 	// Run FEA on all individuals in the population that have not yet been evaluated (usually only the newly generated children)
 	int i = 0;
-	bool is_2nd_attempt = false;
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
-		string elmer_bat_file = individual_folders[i] + "/run_elmer.bat";
-		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
-		fessga::phys::call_elmer(individual_folders[i], &fea_casemanager);
-
-		// Get vtk paths
-		vector<string> vtk_paths;
-		msh::get_vtk_paths(&fea_casemanager, individual_folders[i], vtk_paths);
-
-		// Wait for all case files to appear on disk
-		time_t start = time(0);
-		bool fea_failed = false;
-		for (auto& vtk_path : vtk_paths) {
-			while (!IO::file_exists(vtk_path)) {
-				float seconds_since_start = difftime(time(0), start);
-				if (seconds_since_start > 10) {
-					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
-					fea_failed = true;
-					if (!is_2nd_attempt) {
-						cout << "- WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-					}
-					else {
-						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
-					}
-					break;
-				}
-			}
-			if (fea_failed) break;
-		}
-		if (fea_failed) {
-			if (is_2nd_attempt) { // After two attempts to run the FEA, consider FEA to have failed
-				is_2nd_attempt = false;
-				continue;
-			}
-			cout << "Re-running Elmer bat file in individual folder '" << individual_folders[i] << "'\n";
-			i -= NO_FEA_THREADS;
-			is_2nd_attempt = true;
-			continue;
-		}
-
-		is_2nd_attempt = false;		
-		// Log progress to stdout
-		if (verbose && (pop_size < 10 || (i + 1) % (pop_size / 5) == 0))
-			cout << "- Finished FEA for individual " << i + 1 << " / " << pop_size << "\n";
+		run_FEA_on_single_solution(individual_folders[i]);
 	}
 	IO::write_text_to_file(" ", individual_folders[0] + "/FEA_FINISHED.txt");
 }
@@ -377,14 +334,14 @@ void Evolver::init_population(bool verbose) {
 
 void Evolver::do_FEA(int pop_offset) {
 	// Start FEA threads
-	thread fea_thread1(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(run_FEA_batch, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+	thread fea_thread1(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
+	thread fea_thread2(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
+	thread fea_thread3(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
+	thread fea_thread4(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
+	thread fea_thread5(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
+	thread fea_thread6(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
+	thread fea_thread7(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
+	thread fea_thread8(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
 
 	// Wait for all FEA threads to finish
 	fea_thread1.join();

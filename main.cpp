@@ -46,7 +46,7 @@ void parse_args(
         input.max_tensile_strength = atof(argv[11]);
         input.max_compressive_strength = atof(argv[12]);
     }
-    if (input.mechanical_constraint == "ModifiedMohrDisplacement") {
+    if (help::is_in(input.mechanical_constraint, "Displacement")) {
         input.max_displacement = atof(argv[13]);
     }
 }

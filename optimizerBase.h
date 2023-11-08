@@ -130,6 +130,52 @@ public:
 		if (verbose) cout << "OptimizerBase: Exported updated case.sif files.\n";
 	}
 
+	// Run FEA on all vtk cases of a single solution
+	bool run_FEA_on_single_solution(string individual_folder, bool is_2nd_attempt = false) {
+		string elmer_bat_file = individual_folder + "/run_elmer.bat";
+		Timer timer; timer.start();
+		while (!IO::file_exists(elmer_bat_file)) {} // Wait for elmer batfile to appear on disk
+		timer.stop();
+		if (timer.elapsedSeconds() > 1) cout << "WARNING: Waited for a long time for elmer batfile '" << elmer_bat_file << "' to appear on disk (" << timer.elapsedMilliseconds() << " ms)\n";
+		fessga::phys::call_elmer(individual_folder, &fea_casemanager);
+
+		// Get vtk paths
+		vector<string> vtk_paths;
+		msh::get_vtk_paths(&fea_casemanager, individual_folder, vtk_paths);
+
+		// Wait for all case files to appear on disk
+		time_t start = time(0);
+		bool fea_failed = false;
+		for (auto& vtk_path : vtk_paths) {
+			while (!IO::file_exists(vtk_path)) {
+				float seconds_since_start = difftime(time(0), start);
+				if (seconds_since_start > 10) {
+					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
+					fea_failed = true;
+					if (!is_2nd_attempt) {
+						cout << "- WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+					}
+					else {
+						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+					}
+					break;
+				}
+			}
+			if (fea_failed) break;
+		}
+		if (fea_failed) {
+			if (is_2nd_attempt) { // After two attempts to run the FEA, consider FEA to have failed
+				return false;
+			}
+			cout << "Re-running Elmer bat file in individual folder '" << individual_folder << "'\n";
+			return run_FEA_on_single_solution(individual_folder, true);
+		}
+
+		if (is_2nd_attempt) {
+			cout << "- INFO:     Second attempt to produce a vtk file was successful (folder '" << individual_folder << "'\n";
+		}
+		return true;
+	}
 };
 
 
