@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <filesystem>
 #include <vtkActor.h>
 #include <vtkDataSetMapper.h>
 #include <vtkNamedColors.h>
@@ -29,7 +30,7 @@
 //VTK_MODULE_INIT(vtkRenderingOpenGL2)
 //#define VTK_DEBUG_LEAKS true
 
-
+namespace fs = std::filesystem;
 using namespace Eigen;
 
 
@@ -356,6 +357,30 @@ namespace fessga {
                     nodewise_modified_mohr[i] = max(nodewise_modified_mohr[i], single_run_modified_mohr[i]);
                     nodewise_vonmises[i] = max(nodewise_vonmises[i], single_run_vonmises[i]);
                 }
+
+                // Compute and write ModifiedMohr results to casefile
+                vtkPoints* points = output->GetPoints();
+                vtkDoubleArray* modified_mohr = dynamic_cast<vtkDoubleArray*>(reader->GetOutput()->GetPointData()->GetScalars("Stress_zz"));
+                double point[2];
+                vector<int> coords;
+                Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
+                for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+                    point[0] = points->GetData()->GetTuple(i)[0];
+                    point[1] = points->GetData()->GetTuple(i)[1];
+                    Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
+                    Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
+                    int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
+                    modified_mohr->SetValue(i, single_run_modified_mohr[coord]);
+                }
+                vtkUnstructuredGridWriter* writer = vtkUnstructuredGridWriter::New();
+                string current_path_base = fs::path(casepath).parent_path().string();
+                casepath.replace(0, current_path_base.size(), fs::path(outfile).parent_path().string());
+                writer->SetFileName(casepath.c_str());
+                writer->SetFileTypeToASCII();
+                writer->SetInputData(reader->GetOutput());
+                writer->Update();
+                writer->Delete();
+
                 delete[] single_run_stress_xx;
                 delete[] single_run_stress_yy;
                 delete[] single_run_stress_xy;
@@ -391,7 +416,6 @@ namespace fessga {
             // the FE mesh)
             vtkPoints* points = output->GetPoints();
             double point[2];
-            vector<int> coords;
             Vector2d inv_cell_size = Vector2d(1.0 / cell_size(0), 1.0 / cell_size(1));
             for (int i = 0; i < points->GetNumberOfPoints(); i++) {
                 point[0] = points->GetData()->GetTuple(i)[0];
@@ -399,9 +423,6 @@ namespace fessga {
                 Vector2d origin_aligned_coord = Vector2d(point[0], point[1]) - offset;
                 Vector2d gridscale_coord = inv_cell_size.cwiseProduct(origin_aligned_coord);
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
-                int x = coord / (dim_y + 1);
-                int y = coord % (dim_y + 1);
-                coords.push_back(coord);
 
                 // Accumulate the largest absolute values for stress and displacement
                 if (nodewise_tensile_xx[coord] > -nodewise_compressive_xx[coord]) {
