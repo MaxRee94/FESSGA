@@ -9,6 +9,7 @@
 #include "helpers.h"
 #include "optimizerBase.h"
 #include "individual.h"
+#include <thread>
 
 
 class Evolver : public OptimizerBase {
@@ -38,6 +39,7 @@ public:
 		IO::create_folder_if_not_exists(best_solutions_folder);
 		img::write_distribution_to_image(densities, image_folder + "/starting_shape.jpg");
 	}
+	void start_FEA_threads(int pop_offset, vector<thread*> fea_threads);
 	void do_2x_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_ux_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate_level0, float _mutation_rate_level1);
@@ -58,7 +60,7 @@ public:
 	void collect_stats();
 	void cleanup();
 	void update_objective_function();
-	void do_FEA(int pop_offset);
+	void finish_FEA(int pop_offset, vector<thread*> fea_threads);
 	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;

@@ -1,7 +1,6 @@
 #pragma once
 #include "evolver.h"
 #include <iostream>
-#include <thread>
 #include <math.h>
 
 //#define UNIFORM_POPULATION
@@ -35,7 +34,7 @@ void load_physics_batch(
 ) {
 	if (verbose) cout << "Starting batch loader " << thread_offset << endl;
 	int j = 0;
-	verbose = thread_offset == 7;
+	verbose = thread_offset == 7 && false;
 	vector<int> times;
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
 		// Load physics
@@ -316,7 +315,9 @@ void Evolver::init_population(bool verbose) {
 	while (population.size() < NO_FEA_THREADS * 2) create_single_individual(verbose);
 	
 	// Run FEA
-	do_FEA(0);
+	thread fea_thread1, fea_thread2, fea_thread3, fea_thread4, fea_thread5, fea_thread6, fea_thread7, fea_thread8;
+	vector<thread*> fea_threads = { &fea_thread1, &fea_thread2, &fea_thread3, &fea_thread4, &fea_thread5, &fea_thread6, &fea_thread7, &fea_thread8 };
+	start_FEA_threads(0, fea_threads);
 
 	int i = NO_FEA_THREADS * 2;
 	while (population.size() < pop_size) {
@@ -329,29 +330,20 @@ void Evolver::init_population(bool verbose) {
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating initial population.\n";
-
+	finish_FEA(0, fea_threads);
 }
 
-void Evolver::do_FEA(int pop_offset) {
-	// Start FEA threads
-	thread fea_thread1(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 0, verbose, 0);
-	thread fea_thread2(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 1, verbose, 0);
-	thread fea_thread3(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 2, verbose, 0);
-	thread fea_thread4(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 3, verbose, 0);
-	thread fea_thread5(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 4, verbose, 0);
-	thread fea_thread6(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 5, verbose, 0);
-	thread fea_thread7(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 6, verbose, 0);
-	thread fea_thread8(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, 7, verbose, 0);
+void Evolver::start_FEA_threads(int pop_offset, vector<thread*> fea_threads) {
+	for (int i = 0; i < 8; i++) {
+		*(fea_threads[i]) = thread(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, i, verbose, 0);
+	}
+}
 
+void Evolver::finish_FEA(int pop_offset, vector<thread*> fea_threads) {
 	// Wait for all FEA threads to finish
-	fea_thread1.join();
-	fea_thread2.join();
-	fea_thread3.join();
-	fea_thread4.join();
-	fea_thread5.join();
-	fea_thread6.join();
-	fea_thread7.join();
-	fea_thread8.join();
+	for (int i = 0; i < 8; i++) {
+		fea_threads[i]->join();
+	}
 	cout << "FEA of initial population finished.\n";
 
 	// Create stress buffers for each FEA results loader
@@ -556,8 +548,8 @@ void Evolver::create_children(bool verbose) {
 	vector<int> parent_indices;
 	vector<evo::Individual2d> previous_population = population;
 
-	// First create #NO_FEA_THREADS children to be able to begin FEA
-	for (int i = 0; i < (NO_FEA_THREADS / 2); i++) {
+	// First create #NO_FEA_THREADS * 2 children to be able to begin FEA
+	for (int i = 0; i < NO_FEA_THREADS; i++) {
 		vector<evo::Individual2d> parents;
 		choose_parents(parents, &previous_population);
 		vector<evo::Individual2d> children;
@@ -571,10 +563,12 @@ void Evolver::create_children(bool verbose) {
 	}
 #ifndef FEA_IGNORE
 	// Run FEA
-	do_FEA(pop_size);
+	thread fea_thread1, fea_thread2, fea_thread3, fea_thread4, fea_thread5, fea_thread6, fea_thread7, fea_thread8;
+	vector<thread*> fea_threads = { &fea_thread1, &fea_thread2, &fea_thread3, &fea_thread4, &fea_thread5, &fea_thread6, &fea_thread7, &fea_thread8 };
+	start_FEA_threads(pop_size, fea_threads);
 #endif
 	// Generate rest of children
-	for (int i = NO_FEA_THREADS / 2; i < (pop_size / 2); i++) {
+	for (int i = NO_FEA_THREADS; i < (pop_size / 2); i++) {
 		vector<evo::Individual2d> parents;
 		choose_parents(parents, &previous_population);
 		vector<evo::Individual2d> children;
@@ -587,6 +581,7 @@ void Evolver::create_children(bool verbose) {
 			cout << "- Created child " << (i+1)*2 << " / " << pop_size << "\n";
 	}
 	cout << "Finished generating children.\n";
+	finish_FEA(pop_size, fea_threads);
 }
 
 void Evolver::export_meta_parameters(vector<string>* _) {
