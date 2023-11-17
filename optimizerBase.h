@@ -73,7 +73,9 @@ public:
 
 	virtual void export_meta_parameters(vector<string>* additional_metaparameters) {
 		vector<string> _content = {
-			"max stress threshold = " + to_string(fea_casemanager.mechanical_threshold),
+			"mechanical threshold = " + to_string(fea_casemanager.mechanical_threshold),
+			"max compressive strength = " + to_string(fea_casemanager.max_compressive_strength),
+			"max tensile strength = " + to_string(fea_casemanager.max_tensile_strength)
 		};
 		help::append_vector(_content, additional_metaparameters);
 		string content = help::join(&_content, "\n");

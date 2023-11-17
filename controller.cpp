@@ -183,7 +183,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 32; // NOTE: must be >10 and divisible by 8
+    int pop_size = 154; // NOTE: must be >10 and divisible by 7 and 2
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
     int max_iterations_without_change = 150;

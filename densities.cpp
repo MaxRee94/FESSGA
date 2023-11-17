@@ -413,11 +413,8 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
     int cell_from_smaller_piece;
     int no_iterations_without_removal = -1;
     int initial_count = count();
-    grd::Densities2d _densities = grd::Densities2d(this);
     for (auto [cell, cell_stress] : fea_results.data) {
-        _densities.set(cell, 5);
 
-        no_iterations_without_removal++;
         if (no_iterations_without_removal > 200) {
             if (true) cout << "WARNING: 200 cells in a row could not be removed. "
                 << "There may be no more cells to remove.\n";
@@ -428,19 +425,20 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         // maximum since the list is ordered).
         if (cell_stress > fea_casemanager->mechanical_threshold) break;
 
-        //if (no_iterations_without_removal > 100) cout << "before boundcells\n";
+        if (no_iterations_without_removal > 100) cout << "before boundcells\n";
         
         // If the cell has a line on which a boundary condition was applied, skip deletion
         if (help::is_in(&fea_casemanager->keep_cells, cell)) {
             continue;
         }
 
-        //if (no_iterations_without_removal > 100) cout << "before value check\n";
+        if (no_iterations_without_removal > 100) cout << "before value check\n";
 
         // If the cell was already empty, skip deletion (more importantly: don't count this as a deletion)
         if (!values[cell]) continue;
+        no_iterations_without_removal++;
 
-        //if (no_iterations_without_removal > 100) cout << "before removal\n";
+        if (no_iterations_without_removal > 100) cout << "before removal\n";
 
         // If a 'smaller piece' vector was provided, perform cell removal in 'careful mode'. This means: check
         // whether cell deletion results in multiple pieces. If so, undo the deletion and whitelist the cell.
@@ -492,7 +490,6 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
             break;
         }
     }
-    _densities.print();
     return no_cells_removed;
 }
 

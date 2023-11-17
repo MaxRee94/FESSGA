@@ -460,6 +460,7 @@ namespace fessga {
             delete[] nodewise_vonmises;
             writer->Delete();
 
+
             return;
         }
 
@@ -555,6 +556,7 @@ namespace fessga {
                 delete[] theta3_nodewise;
             }
             else {
+                // Compute only compressive- or tensile principal stress (depending on the mechanical constraint used)
                 phys::load_nodewise_results(output, results1_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint1, border_nodes, 1, false, &node_coords_map);
                 phys::load_nodewise_results(output, results2_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint2, border_nodes, 1, false, &node_coords_map);
                 phys::load_nodewise_results(output, results3_nodewise, dim_x, dim_y, cell_size, offset, mechanical_constraint3, border_nodes, 1, false, &node_coords_map);
@@ -629,6 +631,9 @@ namespace fessga {
             results->min = min_mechanical_metric;
             results->max = max_mechanical_metric;
             delete[] results1_nodewise;
+            if (results2_nodewise != nullptr) delete[] results2_nodewise;
+            if (results3_nodewise != nullptr) delete[] results3_nodewise;
+            if (principal_stresses_nodewise != nullptr) delete[] principal_stresses_nodewise;
             reader->Delete();
 
             return true;
