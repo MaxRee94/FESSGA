@@ -42,13 +42,21 @@ void parse_args(
     input.max_iterations = atoi(argv[8]);
     input.mechanical_constraint = argv[9];
     input.stress_fitness_influence = atof(argv[10]);
+    int next_arg_idx = 11;
     if (help::is_in(input.mechanical_constraint, "Mohr")) {
         input.max_tensile_strength = atof(argv[11]);
         input.max_compressive_strength = atof(argv[12]);
+        next_arg_idx += 2;
     }
     if (help::is_in(input.mechanical_constraint, "Displacement")) {
-        input.max_displacement = atof(argv[13]);
+        input.max_displacement = atof(argv[next_arg_idx]);
+        next_arg_idx++;
     }
+    if (action == "fess") {
+        input.greediness = atof(argv[next_arg_idx]);
+        next_arg_idx++;
+    }
+    input.max_iterations_without_fitness_change = atoi(argv[next_arg_idx]);
 }
 
 

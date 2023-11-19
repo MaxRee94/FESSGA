@@ -507,7 +507,7 @@ namespace fessga {
             double* results1_nodewise = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
             double* results2_nodewise = 0; // Nodes grid has +1 width along each dim
             double* results3_nodewise = 0; // Nodes grid has +1 width along each dim
-            double* principal_stresses_nodewise = 0;
+            double* principal_stresses_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
             map<int, int> node_coords_map;
             help::populate_with_zeroes(results1_nodewise, dim_x + 1, dim_y + 1);
             string mechanical_constraint1, mechanical_constraint2, mechanical_constraint3 = mechanical_constraint;
@@ -518,7 +518,6 @@ namespace fessga {
                 mechanical_constraint3 = "Stress_xy";
                 results2_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 results3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
-                principal_stresses_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
                 help::populate_with_zeroes(results2_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(results3_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(principal_stresses_nodewise, dim_x + 1, dim_y + 1);
@@ -554,6 +553,9 @@ namespace fessga {
                 }
                 delete[] theta1_nodewise;
                 delete[] theta3_nodewise;
+            }
+            else if (help::is_in(mechanical_constraint, "Vonmises")) {
+                phys::load_nodewise_results(output, principal_stresses_nodewise, dim_x, dim_y, cell_size, offset, "Vonmises", border_nodes, 1, false, &node_coords_map);
             }
             else {
                 // Compute only compressive- or tensile principal stress (depending on the mechanical constraint used)
@@ -611,14 +613,11 @@ namespace fessga {
                 if (help::is_in(mechanical_constraint, "Compressive")) cell_value = -cell_value;
                 cell_value = max(0.0, cell_value);
                 results->data_map.insert(pair(cell_coord, cell_corners.mean()));
-                if (mechanical_constraint == "Displacement") {
-                    max_mechanical_metric = cell_value;
-                }
-                else {
+                if (mechanical_constraint != "Displacement") {
                     if (cell_value > max_mechanical_metric) max_mechanical_metric = cell_value;
                     if (cell_value < min_mechanical_metric) min_mechanical_metric = cell_value;
                 }
-                if (mechanical_constraint == "ModifiedMohrDisplacement" && cell_coord == fea_casemanager->displacement_measurement_cell) {
+                if (help::is_in(mechanical_constraint, "Displacement") && cell_coord == fea_casemanager->displacement_measurement_cell) {
                     vector<double> displacements;
                     phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
                     double max_displacement = help::get_max(&displacements);
