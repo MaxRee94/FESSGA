@@ -64,6 +64,7 @@ public:
 	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
+	tuple<double, double, double, double, double, double, double> get_fitness_stats();
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;
@@ -85,6 +86,7 @@ private:
 	float stress_fitness_influence = 0;
 	int iterations_since_fitness_change = 0;
 	int max_iterations_without_change = 1;
+	int no_unproductive_iterations = 0;
 	double variation_trigger;
 	string best_individual;
 	int best_individual_idx = 0;

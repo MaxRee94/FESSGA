@@ -35,14 +35,14 @@ void load_physics_batch(
 	msh::SurfaceMesh mesh, bool verbose = true
 ) {
 	if (verbose) cout << "Starting batch loader " << thread_offset << endl;
-	int j = 0;
 	vector<int> times;
+	int j = -1;
 	for (int i = pop_offset + thread_offset; i < (pop_offset + pop_size); i += NO_RESULTS_THREADS) {
+		j++;
 		// Load physics
 		bool success = load_physics(&population->at(i), &mesh, &times);
 		if (!success) { max_stresses[i] = INFINITY; continue; }
-		max_stresses[j] = population->at(i).fea_results.max;
-		j++;
+		else max_stresses[j] = population->at(i).fea_results.max;
 		if (pop_size < 10 || (i + 1) % (pop_size / 5) == 0)
 			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << "\n";
 	}
@@ -96,38 +96,40 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double, double, double, double, double, double> get_fitness_stats(
-	map<int, double>* fitnesses_map, vector<float>& fitness_time_series, double best_fitness, vector<evo::Individual2d>* population
-) {
-	// Compute fitness mean
+tuple<double, double, double, double, double, double, double> Evolver::get_fitness_stats() { // Compute fitness mean
 	vector<double> fitnesses;
-	for (auto& [_, fitness] : *fitnesses_map) fitnesses.push_back(fitness);
+	for (auto& [_, fitness] : fitnesses_map) fitnesses.push_back(fitness);
 	double fit_mean = help::get_mean(&fitnesses);
 	
 	// Compute fitness stdev
 	double fit_stdev = help::get_stdev(&fitnesses);
 
-	// Compute fitness time derivative
+	// Compute the fitness derivative as a weighted average of inter-generation fitness differences, with
+	// older differences receiving less weight.
 	fitness_time_series.push_back(best_fitness);
 	float weights = 0;
 	float fitness_time_derivative = 0;
-	int NO_DERIVATIVE_SAMPLES = 15;
-
-	// Only consider the last NO_DERIVATIVE_SAMPLES fitness samples from the time series
-	int first_sample = int(max((double)(fitness_time_series.size() - NO_DERIVATIVE_SAMPLES), 1.0)); 
-	for (int i = first_sample; i < fitness_time_series.size(); i++) {
-		float weight = 1.0 / ((float)i * sqrt((float)i));
-		//float weight = 1.0 - ((float)i 
-		float fitness_difference = fitness_time_series[i] - fitness_time_series[i - 1];
-		float weighted_difference = fitness_difference * weight;
-		weights += weight;
-		fitness_time_derivative += weighted_difference;
+	int falloff_length = 100;
+	float falloff_rate = 1.0 / (float)(falloff_length * falloff_length);
+	fitness_time_derivative = 0;
+	if (iteration_number > falloff_length) {
+		for (int i = 1; i <= falloff_length; i++) {
+			float weight = 1.0 - min((float)1.0, (falloff_rate * (float)i * (float)i));
+			float fitness_difference = fitness_time_series[iteration_number - i] - fitness_time_series[iteration_number - i - 1];
+			float weighted_difference = fitness_difference * weight;
+			weights += weight;
+			fitness_time_derivative += weighted_difference;
+		}
+		fitness_time_derivative /= weights;
 	}
-	fitness_time_derivative /= weights;
+	else {
+		// Set derivative to an arbitrary (positive) value if an insufficient number of fitness datapoints is available to compute a meaningful derivative approximation.
+		fitness_time_derivative = 999;
+	}
 
 	// Compute mean relative area
 	vector<double> relative_areas;
-	for (auto& indiv : *population) {
+	for (auto& indiv : population) {
 		relative_areas.push_back(indiv.get_relative_area());
 	}
 	double relative_area_mean = help::get_mean(&relative_areas);
@@ -137,7 +139,7 @@ tuple<double, double, double, double, double, double, double> get_fitness_stats(
 
 	// Compute mean maximum stress relative to threshold
 	vector<double> relative_maximum_stresses;
-	for (auto& indiv : *population) {
+	for (auto& indiv : population) {
 		double relative_maximum_stress = indiv.fea_results.max / indiv.fea_casemanager->mechanical_threshold;
 		relative_maximum_stresses.push_back(relative_maximum_stress);
 	}
@@ -163,7 +165,7 @@ void Evolver::collect_stats() {
 	auto [
 		_fitness_mean, _fitness_stdev, _fitness_time_derivative, _relative_area_mean,
 			_relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev
-	] = get_fitness_stats(&fitnesses_map, fitness_time_series, best_fitness, &population);
+	] = get_fitness_stats();
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
 	relative_area_mean = _relative_area_mean;
@@ -188,7 +190,8 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(variation));
 	stats.push_back(to_string(fitness_mean));
 	stats.push_back(to_string(fitness_stdev));
-	stats.push_back(to_string(fitness_time_derivative));
+	if (fitness_time_derivative == 999) stats.push_back("");
+	else stats.push_back(to_string(fitness_time_derivative));
 	stats.push_back(to_string(relative_area_mean));
 	stats.push_back(to_string(relative_area_stdev));
 	stats.push_back(to_string(relative_max_stress_mean));
@@ -196,8 +199,8 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(mutation_rate_level0));
 	stats.push_back(to_string(mutation_rate_level1));
 	vector<string> stats = {
-		"Current stats: \n   Variation = " + to_string(variation), "Fitness mean = " + to_string(fitness_mean),
-		"Fitness stdev = " + to_string(fitness_stdev)
+		"Current stats: \n   Variation = " + to_string(variation), "Best fitness = " + to_string(best_fitness),
+		"Fitness derivative = " + to_string(fitness_time_derivative)
 	};
 	cout << help::join(&stats, ", ") << endl;
 }
@@ -321,8 +324,14 @@ void Evolver::create_single_individual(bool verbose) {
 Initialize a population of unique density distributions. Each differs slightly from the distribution loaded from file.
 */
 void Evolver::init_population(bool verbose) {
-	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	cout << "Generating initial population...\n";
+
+	// The first individual is an unperturbed copy of the given densities densities distribution
+	evo::Individual2d individual(&densities);
+	export_individual(&individual, individual_folders[population.size()]);
+	population.push_back(individual);
+	
+	// Generate the first #no_threads individuals, and then start the FEA batch threads
 	while (population.size() < NO_FEA_THREADS * 2) create_single_individual(verbose);
 	
 	// Run FEA
@@ -630,7 +639,8 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 		else {
 			double relative_maximum_stress = (fea_casemanager.mechanical_threshold - population[i].fea_results.max) / fea_casemanager.mechanical_threshold;
-			fitness = (relative_maximum_stress * stress_fitness_influence + 1.0) / (population[i].get_relative_area());
+			//fitness = (relative_maximum_stress * stress_fitness_influence + 1.0) / (population[i].get_relative_area());
+			fitness = 1.0 / population[i].get_relative_area();
 		}
 		if (verbose && (i % (pop_size/5) == 0)) cout << "fitness: " << fitness << endl;
 
@@ -711,9 +721,13 @@ void Evolver::do_selection() {
 
 	// If current iteration produced a new best solution, export this solution to the 'best_solutions' folder
 	if (iterations_since_fitness_change == 0) {
+		population[best_individual_idx].print();
+
 		string target_folder = IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
+
+		if (fea_casemanager.mechanical_constraint == "VonmisesDisplacement") return; // HOTFIX: skip superposition writing for 'VonmisesDisplacement' for now. Raises nullptr exception.
 		
 		// Also write a superposition of stress values to the target folder as a .vtk file
 		vector<string> vtk_paths;
@@ -806,31 +820,21 @@ void Evolver::evolve() {
 		//	fea_casemanager.mechanical_threshold = minimum_stress;
 		//	export_meta_parameters();
 		//}
-		if (fitness_time_derivative < 0.001 && best_fitness < 0 ) {
+
+		continue; // skip time derivative check for now
+		if (fitness_time_derivative == 0) {
+			if (best_fitness > 0) continue;
+			if (no_unproductive_iterations < max_no_unproductive_iterations) {
+				no_unproductive_iterations++;
+				continue;
+			}
 			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.mechanical_threshold) + ((float)fea_casemanager.mechanical_threshold / 1000.0);
 			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.mechanical_threshold << " to " << new_threshold << endl;
 			fea_casemanager.mechanical_threshold = new_threshold;
 			export_meta_parameters();
 		}
-		if (iterations_since_fitness_change > (max_iterations_without_change / 2)) {
-			// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
-			// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
-			if (!mutation_boost) {
-				// Only do so if the rates have not been boosted already.
-				mutation_rate_level0 *= mutation_boost_size;
-				mutation_rate_level1 *= mutation_boost_size;
-				cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
-				cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
-				mutation_boost = true;
-			}
-		}
-		else if (mutation_boost) {
-			// If 'iterations_since_fitness_change' has been reset due to fitness increase, turn mutation boost off.
-			// Also set the mutation rates back to their original values.
-			mutation_rate_level0 /= mutation_boost_size;
-			mutation_rate_level1 /= mutation_boost_size;
-			cout << "MUTATION BOOST OFF - Restored mutation rate to original values.\n";
-			mutation_boost = false;
+		else {
+			no_unproductive_iterations = 0;
 		}
 	}
 }
