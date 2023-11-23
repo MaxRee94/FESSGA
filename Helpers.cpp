@@ -290,11 +290,6 @@ void fessga::help::populate_with_zeroes(uint* _array, int dim_x, int dim_y) {
 // to value in a (key-value) pairs
 void fessga::help::sort(std::map<int, double>& _map, PairSet& _set)
 {
-    // Declare set of pairs and insert
-    // pairs according to the comparator
-    // function comp()
-    auto beginning = _map.end();
-
     _set = PairSet(_map.begin(), _map.end());
 }
 

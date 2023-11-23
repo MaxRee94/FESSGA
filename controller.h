@@ -13,10 +13,10 @@
 struct Input {
     string type = "object";
     double max_stress, max_tensile_strength, max_compressive_strength, max_displacement;
-    int max_iterations;
+    int max_iterations, max_iterations_without_fitness_change;
     string path;
     string name;
-    float size, stress_fitness_influence;
+    float size, stress_fitness_influence, greediness;
     string mechanical_constraint;
 };
 
@@ -38,6 +38,8 @@ public:
         max_compressive_strength = input.max_compressive_strength;
         max_iterations = input.max_iterations;
         stress_fitness_influence = input.stress_fitness_influence;
+        greediness = input.greediness;
+        max_iterations_without_fitness_change = input.max_iterations_without_fitness_change;
 
         // Initialize RNG
         help::init_RNG();
@@ -122,10 +124,11 @@ public:
     int dim_x = 1;
     int dim_y = 1;
     int dim_z = 1;
+    int max_iterations_without_fitness_change;
     double max_stress, max_tensile_strength, max_compressive_strength, max_displacement;
     int max_iterations;
     float cell_size = 0;
-    float stress_fitness_influence;
+    float stress_fitness_influence, greediness;
     string base_folder;
     Vector3d offset;
     Input input;

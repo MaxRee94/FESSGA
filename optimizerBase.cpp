@@ -12,7 +12,10 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 		bool files_exist = false;
 		while (!IO::file_exists(vtk_path)) {
 			float seconds_since_start = difftime(time(0), start);
-			if (seconds_since_start > 10) cout << "WARNING: physics loader has been waiting for >10 seconds for vtk file " << vtk_path << " to appear.\n";
+			if (seconds_since_start > 10) {
+				cout << "WARNING: physics loader has been waiting for >10 seconds for vtk file " << vtk_path << " to appear.\n";
+				break;
+			}
 		}
 		if (!IO::file_exists(vtk_path)) {
 			cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file (expected path " << vtk_path << ")\n";
@@ -22,6 +25,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 	densities->vtk_paths = vtk_paths;
 
 	// Initialize data map to contain only 0's
+	densities->fea_results.data_map.clear();
 	for (int i = 0; i < densities->dim_x * densities->dim_y; i++) {
 		if (densities->at(i)) densities->fea_results.data_map.insert(pair(i, 0));
 	}

@@ -56,7 +56,7 @@ void parse_args(
         input.greediness = atof(argv[next_arg_idx]);
         next_arg_idx++;
     }
-    input.max_iterations_without_fitness_change = atoi(argv[next_arg_idx]);
+    else input.max_iterations_without_fitness_change = atoi(argv[next_arg_idx]);
 }
 
 

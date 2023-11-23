@@ -623,7 +623,7 @@ namespace fessga {
                     double max_displacement = help::get_max(&displacements);
                     if (max_displacement > fea_casemanager->max_displacement) {
                         double cell_displacement_value = max_displacement / fea_casemanager->max_displacement;
-                        max_mechanical_metric = max(max_mechanical_metric, cell_displacement_value);
+                        max_mechanical_metric = max(max_mechanical_metric, cell_displacement_value * fea_casemanager->mechanical_threshold);
                     }
                 }
             }

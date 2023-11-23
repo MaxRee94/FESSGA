@@ -147,6 +147,8 @@ public:
 		// Get vtk paths
 		vector<string> vtk_paths;
 		msh::get_vtk_paths(&fea_casemanager, individual_folder, vtk_paths);
+		/*if (!is_2nd_attempt) IO::remove_file(vtk_paths[0]);
+		cout << "Removed file " << vtk_paths[0] << endl;*/
 
 		// Wait for all case files to appear on disk
 		time_t start = time(0);
@@ -158,10 +160,10 @@ public:
 					// If the vtk file has not appeared after 10 seconds, retry running the elmer batchfile (once).
 					fea_failed = true;
 					if (!is_2nd_attempt) {
-						cout << "- WARNING:   First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						cout << "- WARNING:    First attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
 					else {
-						cout << "- ERROR:   Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
+						cout << "- ERROR:    Second attempt to produce a vtk file failed on case '" << vtk_path << "'\n";
 					}
 					break;
 				}
@@ -177,7 +179,7 @@ public:
 		}
 
 		if (is_2nd_attempt) {
-			cout << "- INFO:     Second attempt to produce a vtk file was successful (folder '" << individual_folder << "'\n";
+			cout << "- INFO:    Second attempt to produce a vtk file was successful (folder '" << individual_folder << "'\n";
 		}
 		return true;
 	}

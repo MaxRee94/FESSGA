@@ -55,11 +55,10 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     fea_casemanager = *densities2d.fea_casemanager;
     string case_folder = base_folder + "/cases";
     vector<string> case_names = {
-       "constrained_mid_impact",
-       "constrained_ant_impact",
        "constrained_pull_and_bite",
        "constrained_pull_concentrated_and_antload",
-       //"constrained_pull_concentrated_and_postload"
+       "constrained_postload",
+       "constrained_antload"
     };
     msh::init_fea_cases(&fea_casemanager, case_folder, case_names, &densities2d, &mesh);
     fea_casemanager.initialize();
@@ -89,7 +88,6 @@ void Controller::run_fess(FESS& _fess) {
     double min_stress = 7e3;
     string msh_file = base_folder + "/mesh.msh";
     bool export_msh = true;
-    float greediness = 0.1;
     bool do_feasibility_filtering = true;
     bool verbose = true;
 
@@ -186,14 +184,13 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     int pop_size = 154; // NOTE: must be >10 and divisible by 7 and 2
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
-    int max_iterations_without_change = 150;
     float variation_trigger = 1.5;
     int no_static_iterations_trigger = 6;
 
     // Initialize and run evolver
     Evolver evolver(
         *fea_casemanager, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0,
-        mutation_rate_level1, densities2d, variation_trigger, max_iterations, max_iterations_without_change,
+        mutation_rate_level1, densities2d, variation_trigger, max_iterations, max_iterations_without_fitness_change,
         export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method, stress_fitness_influence
     );
     _evolver = evolver;

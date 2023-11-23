@@ -246,6 +246,10 @@ void fessga::IO::remove_files(vector<string>* files) {
     }
 }
 
+void fessga::IO::remove_file(string _file) {
+    remove(_file.c_str());
+}
+
 void fessga::IO::remove_directory_incl_contents(string dir) {
     filesystem::remove_all(dir);
 }
