@@ -327,6 +327,7 @@ bool fessga::grd::Densities2d::is_in(vector<grd::Piece>* _pieces, grd::Piece* pi
 
 // Get the fraction (#no_filled_cells / #total_no_cells)
 double fessga::grd::Densities2d::get_relative_area() {
+    redo_count();
     return (double)count() / (double)size;
 }
 
@@ -414,6 +415,11 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
     int no_iterations_without_removal = -1;
     int initial_count = count();
     for (auto [cell, cell_stress] : fea_results.data) {
+        bool print_info = false;
+       /* if (get_coords(cell).second == 0) {
+            cout << "coords: " << get_coords(cell).first << ", " << get_coords(cell).second << ". Stress value: " << cell_stress << endl;
+            print_info = true;
+        }*/
 
         if (no_iterations_without_removal > 200) {
             if (true) cout << "WARNING: 200 cells in a row could not be removed. "
@@ -425,24 +431,39 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
         // maximum since the list is ordered).
         if (cell_stress > fea_casemanager->mechanical_threshold) break;
 
-        if (no_iterations_without_removal > 100) cout << "before boundcells\n";
+        //if (print_info) cout << "before boundcells\n";
         
         // If the cell has a line on which a boundary condition was applied, skip deletion
         if (help::is_in(&fea_casemanager->keep_cells, cell)) {
             continue;
         }
 
-        if (no_iterations_without_removal > 100) cout << "before value check\n";
+        //if (print_info) cout << "before value check\n";
 
         // If the cell was already empty, skip deletion (more importantly: don't count this as a deletion)
-        if (!values[cell]) continue;
+        if (!values[cell]) {
+            /*if (print_info) {
+                pair<int, int> c = get_coords(cell);
+                cout << "--------- Can't remove cell " << c.first << ", " << c.second << " because it is already empty? Printout: \n";
+                grd::Densities2d fea_assumed_densities(this);
+                fea_assumed_densities.delete_all();
+                for (auto& [_cell, _cell_stress] : fea_results.data) {
+                    if (_cell_stress == 0) continue;
+                    fea_assumed_densities.fill(_cell);
+                }
+                fea_assumed_densities.print();
+                fea_assumed_densities.delete_arrays();
+            }*/
+            continue;
+        }
         no_iterations_without_removal++;
 
-        if (no_iterations_without_removal > 100) cout << "before removal\n";
+        if (print_info) cout << "before removal\n";
 
         // If a 'smaller piece' vector was provided, perform cell removal in 'careful mode'. This means: check
         // whether cell deletion results in multiple pieces. If so, undo the deletion and whitelist the cell.
         if (smaller_piece != 0) {
+            if (print_info) cout << "Using careful mode...\n";
             vector<int> _removed_cell = { cell };
             remove_and_remember(cell);
             cell_from_smaller_piece = smaller_piece->cells[0];
@@ -462,11 +483,11 @@ int fessga::grd::Densities2d::remove_low_stress_cells(
                 }
                 else {
                     // If removing the pieces failed to restore unity, undo the removal of the pieces and the cell
-                    if (VERBOSE) cout << "Removal of cell " << cell
+                    if (VERBOSE || print_info) cout << "Removal of cell " << cell
                         << " resulted in splitting of the shape, and removing pieces failed to restore unity.\n";
                     restore_removed_pieces(removed_pieces);
                     restore(cell);
-                    if (VERBOSE) cout << "restored cell." << endl;
+                    if (VERBOSE || print_info) cout << "restored cell." << endl;
                     continue;
                 }
             }
@@ -935,4 +956,25 @@ void fessga::grd::Densities2d::compute_area(bool verbose) {
 
 void fessga::grd::Densities2d::invert() {
     for (int i = 0; i < count(); i++) values[i] = !values[i];
+}
+
+// A 'boundary cell' is, in this case, an empty cell which has at least one filled cell as its neighbor
+bool fessga::grd::Densities2d::is_boundary_cell(int coord) {
+    if (values[coord] == 1) return false;
+    vector<int> empty_neighbors = get_empty_neighbors(coord, true);
+    return (empty_neighbors.size() < 8);
+}
+
+void fessga::grd::Densities2d::_do_thickening() {
+    for (int coord = 0; coord < size; coord++) {
+        if (is_boundary_cell(coord)) {
+            fill(coord);
+        }
+    }
+}
+
+void fessga::grd::Densities2d::do_thickening(int no_layers) {
+    for (int i = 0; i < no_layers; i++) {
+        _do_thickening();
+    }
 }

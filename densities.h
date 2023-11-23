@@ -228,11 +228,14 @@ namespace fessga {
                 vector<grd::Piece> pieces, vector<int>* removed_cells, bool _remove_largest_piece_from_vector = true,
                 bool check_if_single_piece = false
             );
+            void do_thickening(int no_layers = 1);
+            void _do_thickening();
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
             void copy_to(uint* target);
             void do_import(string path, float width);
             void filter(int no_neighbors = 0, bool restore_bound_cells = false);
+            bool is_boundary_cell(int coord);
             void init_pieces(int _start_cell = -1);
             void load_snapshot();
             bool remove_floating_piece(grd::Piece* piece);
