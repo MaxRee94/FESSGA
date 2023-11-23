@@ -740,8 +740,17 @@ void Evolver::cleanup() {
 void Evolver::evolve() {
 	do_setup();
 	start_time = time(0);
+
+	// Mutation boost parameters
 	bool mutation_boost = false;
-	float mutation_boost_size = 3.0;
+	int max_mutation_boost_wait_time = max_iterations_without_change / 3;
+	int mutation_boost_wait_time = 0;
+	float mutation_boost_size = 2.0;
+
+	// Other parameters
+	int max_no_unproductive_iterations = 50;
+
+	// Evolution loop
 	while (!termination_condition_reached()) {
 		iteration_number++;
 		cout << "\nStarting iteration " << iteration_number << "...\n";
@@ -752,6 +761,39 @@ void Evolver::evolve() {
 		timer.stop();
 		cout << "Time taken to create children: " << timer.elapsedSeconds() << endl;
 		evaluate_fitnesses(pop_size);
+
+		// Double population size if variation is becoming too low.
+		if (variation < 0.5 && pop_size < 300) {
+			cout << "INFO: INCREASING POPULATION SIZE FROM " << pop_size << " TO " << pop_size * 2 << endl;
+			pop_size *= 2;
+			collect_stats();
+			export_stats(iteration_name);
+			cleanup();
+			continue;
+		}
+
+		// Mutation boost
+		if (iterations_since_fitness_change > 50 && mutation_boost_wait_time == 0) {
+			// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
+			// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
+			mutation_rate_level0 *= mutation_boost_size;
+			mutation_rate_level1 *= mutation_boost_size;
+			cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
+			cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
+			mutation_boost = true;
+			mutation_boost_wait_time = max_mutation_boost_wait_time; // Wait for a preset number of iterations before attempting another mutation boost.
+
+			continue;
+		}
+		else if (mutation_boost && variation > 1.0) {
+			// If population variation has been restored, set the mutation rates back to their original values.
+			mutation_rate_level0 /= mutation_boost_size;
+			mutation_rate_level1 /= mutation_boost_size;
+			cout << "MUTATION BOOST OFF - Restored mutation rate to original values.\n";
+			mutation_boost = false;
+		}
+		if (mutation_boost_wait_time > 0) mutation_boost_wait_time--;
+
 		do_selection();
 		collect_stats();
 		export_stats(iteration_name);
