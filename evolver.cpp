@@ -62,10 +62,10 @@ void load_physics_batch(
 /*
 Get variation within the given population.
 Variation is not the same as variance; it is determined by the number of times each solution differs from another solution
-where the 'other solution' is randomly chosen from the population (to avoid doing a costly n^2 check of all combinations
+where the 'other solution' is randomly chosen from the population (to avoid doing a costly n^2 comparison between all combinations
 of solutions).
 */
-float get_variation(vector<evo::Individual2d>* population) {
+float _get_variation(vector<evo::Individual2d>* population) {
 	float sum_of_sq_diffs = 0;
 	int cumulative_count = 0;
 	for (int i = 0; i < population->size(); i++) {
@@ -84,6 +84,15 @@ float get_variation(vector<evo::Individual2d>* population) {
 	float variation = sqrt(sum_of_sq_diffs) / (float)cumulative_count;
 
 	return variation;
+}
+
+float get_variation(vector<evo::Individual2d>* population) {
+	float variation = 0.0;
+	int no_variation_runs = 5;
+	for (int i = 0; i < no_variation_runs; i++) {
+		variation += _get_variation(population);
+	}
+	return variation / (float)no_variation_runs;
 }
 
 // Get mean and standard deviation of fitnesses in current generation
