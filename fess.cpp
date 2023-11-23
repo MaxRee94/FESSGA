@@ -177,6 +177,7 @@ void FESS::run() {
 
 		// Check if maximum stress exceeds threshold
 		if (max_stress > fea_casemanager.mechanical_threshold) {
+			last_iteration_was_valid = false;
 			cout << std::setprecision(3) << std::scientific;
 			cout << "FESS: Highest stress in FE result (" << max_stress
 				<< ") exceeds maximum stress threshold (" << fea_casemanager.mechanical_threshold << ")\n";
@@ -198,13 +199,16 @@ void FESS::run() {
 				break;
 			}
 		}
+		else {
+			last_iteration_was_valid = true;
 
-		// Write vtk file containing a superposition of stress/displacement values
-		phys::write_results_superposition(
-			densities.vtk_paths, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset,
-			iteration_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &densities.border_nodes,
-			fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
-		);
+			// Write vtk file containing a superposition of stress/displacement values
+			phys::write_results_superposition(
+				densities.vtk_paths, densities.dim_x, densities.dim_y, densities.cell_size, mesh.offset,
+				iteration_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &densities.border_nodes,
+				fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
+			);
+		}
 
 		// If termination conditions were not met, prepare density distribution for next iteration by removing 
 		// elements with lowest stress
@@ -213,6 +217,7 @@ void FESS::run() {
 		densities.redo_count();
 		int initial_no_cells = densities.count();
 		no_cells_removed = densities.remove_low_stress_cells(no_cells_to_remove, 0);
+		densities.print();
 
 		// Check if the resulting shape consists of exactly one piece. 
 		// If not, the shape has become invalid and a repair operation is necessary.
@@ -225,7 +230,6 @@ void FESS::run() {
 
 		// Check if at least one cell was actually removed. If not, there must be insufficient cells left to continue
 		// optimization.
-		last_iteration_was_valid = false;
 		if (no_cells_removed == 0) {
 			cout << "FESS: Termination condition reached: Unable to remove any more cells." << endl;
 			log_termination(final_valid_iteration_folder, final_valid_iteration);
@@ -235,7 +239,6 @@ void FESS::run() {
 			cout << "FESS: Removed " << no_cells_removed << " low - stress cells. relative area decreased by "
 				<< std::fixed << (float)no_cells_removed / (float)densities.size << ", to "
 				<< (float)(densities.count()) / (float)densities.size << "\n";
-			last_iteration_was_valid = true;
 			final_valid_iteration = iteration_number;
 		}
 
