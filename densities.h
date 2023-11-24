@@ -220,8 +220,8 @@ namespace fessga {
             bool is_in(vector<Piece>* pieces, Piece* piece);
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_path);
-            vector<int> get_neighbors(int idx);
-            vector<int> get_neighbors(int x, int y, uint* _values = 0);
+            vector<int> get_neighbors(int idx, bool get_diagonal_neighbors = false);
+            vector<int> get_neighbors(int x, int y, uint* _values = 0, bool get_diagonal_neighbors = false);
             vector<int> get_empty_neighbors(int x, int y, bool get_diagonal_neighbors = false);
             vector<int> get_empty_neighbors(int idx, bool get_diagonal_neighbors = false);
             void remove_smaller_pieces(
@@ -232,6 +232,7 @@ namespace fessga {
             void _do_thickening();
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
+            void copy_from(uint* source);
             void copy_to(uint* target);
             void do_import(string path, float width);
             void filter(int no_neighbors = 0, bool restore_bound_cells = false);

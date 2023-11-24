@@ -622,8 +622,11 @@ namespace fessga {
                     phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
                     double max_displacement = help::get_max(&displacements);
                     if (max_displacement > fea_casemanager->max_displacement) {
-                        double cell_displacement_value = max_displacement / fea_casemanager->max_displacement;
-                        max_mechanical_metric = max(max_mechanical_metric, cell_displacement_value * fea_casemanager->mechanical_threshold);
+                        double relative_displacement = max_displacement / fea_casemanager->max_displacement;
+                        if (relative_displacement > 1) {
+                            cout << "DISPLACEMENT TRIGGERED\n";
+                            max_mechanical_metric = max(max_mechanical_metric, relative_displacement * fea_casemanager->mechanical_threshold);
+                        }
                     }
                 }
             }

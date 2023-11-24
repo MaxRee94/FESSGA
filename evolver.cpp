@@ -751,90 +751,121 @@ void Evolver::cleanup() {
 	cout << "Cleanup: Removed iteration directory and all contained files.\n";
 }
 
+void Evolver::do_local_search() {
+	for (int i = 0; i < pop_size; i++) {
+		population[i].do_thickening();
+		export_individual(&population[i], individual_folders[i]);
+	}
+	// Run FEA
+	thread fea_thread1, fea_thread2, fea_thread3, fea_thread4, fea_thread5, fea_thread6, fea_thread7, fea_thread8;
+	vector<thread*> fea_threads = { &fea_thread1, &fea_thread2, &fea_thread3, &fea_thread4, &fea_thread5, &fea_thread6, &fea_thread7 };
+	start_FEA_threads(0, fea_threads);
+	finish_FEA(0, fea_threads);
+}
+
+void Evolver::do_iteration(bool _do_local_search) {
+	iteration_number++;
+	cout << "\nStarting iteration " << iteration_number << "...\n";
+	if (fea_casemanager.dynamic) update_objective_function();
+	create_iteration_directories(iteration_number);
+	
+	// Create new individuals and run FEA on them
+	Timer timer; timer.start();
+	if (_do_local_search) {
+		do_local_search();
+	}
+	else {
+		create_children();
+	}
+	timer.stop();
+	cout << "Time taken to create children: " << timer.elapsedSeconds() << endl;
+
+	// Evaluate fitnesses
+	int pop_offset = pop_size;
+	if (_do_local_search) pop_offset = 0;
+	evaluate_fitnesses(pop_offset);
+
+	// Double population size if variation is becoming too low.
+	if (variation < 0.5 && (pop_size < 300) && !_do_local_search) {
+		cout << "INFO: INCREASING POPULATION SIZE FROM " << pop_size << " TO " << pop_size * 2 << endl;
+		pop_size *= 2;
+		collect_stats();
+		export_stats(iteration_name);
+		cleanup();
+		return;
+	}
+
+	// Mutation boost
+	if (iterations_since_fitness_change > 50 && mutation_boost_wait_time == 0) {
+		// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
+		// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
+		mutation_rate_level0 *= mutation_boost_size;
+		mutation_rate_level1 *= mutation_boost_size;
+		cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
+		cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
+		mutation_boost = true;
+		mutation_boost_wait_time = max_mutation_boost_wait_time; // Wait for a preset number of iterations before attempting another mutation boost.
+
+		return;
+	}
+	else if (mutation_boost && variation > 1.0) {
+		// If population variation has been restored, set the mutation rates back to their original values.
+		mutation_rate_level0 /= mutation_boost_size;
+		mutation_rate_level1 /= mutation_boost_size;
+		cout << "MUTATION BOOST OFF - Restored mutation rate to original values.\n";
+		mutation_boost = false;
+	}
+	if (mutation_boost_wait_time > 0) mutation_boost_wait_time--;
+
+	do_selection();
+	collect_stats();
+	export_stats(iteration_name);
+	cleanup();
+	//if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
+	//	// If the surface area of the best individual is lower than the original input shape, shift the optimum 
+	//	cout << std::setprecision(3) << std::scientific;
+	//	cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.mechanical_threshold << " to " << minimum_stress << endl;
+	//	cout << std::fixed;
+	//	fea_casemanager.mechanical_threshold = minimum_stress;
+	//	export_meta_parameters();
+	//}
+
+	if (fitness_time_derivative < 0.01) {
+		if (best_fitness > 0) return;
+		if (no_unproductive_iterations < max_no_unproductive_iterations) {
+			no_unproductive_iterations++;
+			return;
+		}
+		float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.mechanical_threshold) + ((float)fea_casemanager.mechanical_threshold / 1000.0);
+		cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.mechanical_threshold << " to " << new_threshold << endl;
+		fea_casemanager.mechanical_threshold = new_threshold;
+		export_meta_parameters();
+	}
+	else {
+		no_unproductive_iterations = 0;
+	}
+}
+
 void Evolver::evolve() {
 	do_setup();
 	start_time = time(0);
 
 	// Mutation boost parameters
-	bool mutation_boost = false;
-	int max_mutation_boost_wait_time = max_iterations_without_change / 3;
-	int mutation_boost_wait_time = 0;
-	float mutation_boost_size = 2.0;
+	mutation_boost = false;
+	max_mutation_boost_wait_time = max_iterations_without_change / 3;
+	mutation_boost_wait_time = 0;
+	mutation_boost_size = 2.0;
 
 	// Other parameters
-	int max_no_unproductive_iterations = 50;
+	max_no_unproductive_iterations = 1;
 
 	// Evolution loop
 	while (!termination_condition_reached()) {
-		iteration_number++;
-		cout << "\nStarting iteration " << iteration_number << "...\n";
-		if (fea_casemanager.dynamic) update_objective_function();
-		create_iteration_directories(iteration_number);
-		Timer timer; timer.start();
-		create_children();
-		timer.stop();
-		cout << "Time taken to create children: " << timer.elapsedSeconds() << endl;
-		evaluate_fitnesses(pop_size);
-
-		// Double population size if variation is becoming too low.
-		if (variation < 0.5 && pop_size < 300) {
-			cout << "INFO: INCREASING POPULATION SIZE FROM " << pop_size << " TO " << pop_size * 2 << endl;
-			pop_size *= 2;
-			collect_stats();
-			export_stats(iteration_name);
-			cleanup();
-			continue;
-		}
-
-		// Mutation boost
-		if (iterations_since_fitness_change > 50 && mutation_boost_wait_time == 0) {
-			// If fitness has not increased for half of maximum no iterations, boost the mutation rates to increase
-			// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
-			mutation_rate_level0 *= mutation_boost_size;
-			mutation_rate_level1 *= mutation_boost_size;
-			cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
-			cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
-			mutation_boost = true;
-			mutation_boost_wait_time = max_mutation_boost_wait_time; // Wait for a preset number of iterations before attempting another mutation boost.
-
-			continue;
-		}
-		else if (mutation_boost && variation > 1.0) {
-			// If population variation has been restored, set the mutation rates back to their original values.
-			mutation_rate_level0 /= mutation_boost_size;
-			mutation_rate_level1 /= mutation_boost_size;
-			cout << "MUTATION BOOST OFF - Restored mutation rate to original values.\n";
-			mutation_boost = false;
-		}
-		if (mutation_boost_wait_time > 0) mutation_boost_wait_time--;
-
-		do_selection();
-		collect_stats();
-		export_stats(iteration_name);
-		cleanup();
-		//if (iterations_since_fitness_change == 0 && best_fitness > 0 && population[best_individual_idx].count() <= initial_count) {
-		//	// If the surface area of the best individual is lower than the original input shape, shift the optimum 
-		//	cout << std::setprecision(3) << std::scientific;
-		//	cout << "SHIFTING OPTIMUM: Changing max stress threshold from " << fea_casemanager.mechanical_threshold << " to " << minimum_stress << endl;
-		//	cout << std::fixed;
-		//	fea_casemanager.mechanical_threshold = minimum_stress;
-		//	export_meta_parameters();
-		//}
-
-		continue; // skip time derivative check for now
-		if (fitness_time_derivative == 0) {
-			if (best_fitness > 0) continue;
-			if (no_unproductive_iterations < max_no_unproductive_iterations) {
-				no_unproductive_iterations++;
-				continue;
-			}
-			float new_threshold = ((1.0 - best_fitness) * (float)fea_casemanager.mechanical_threshold) + ((float)fea_casemanager.mechanical_threshold / 1000.0);
-			cout << "CHANGING MAX STRESS THRESHOLD: from " << fea_casemanager.mechanical_threshold << " to " << new_threshold << endl;
-			fea_casemanager.mechanical_threshold = new_threshold;
-			export_meta_parameters();
-		}
-		else {
-			no_unproductive_iterations = 0;
+		do_iteration();
+		if (best_fitness < 0) {
+			// Do thickening on all individuals if the best fitness is still negative
+			cout << "\n ----- Fitness is negative. Applying thickening to all individuals for the next iteration... -----\n";
+			do_iteration(true);
 		}
 	}
 }

@@ -60,9 +60,11 @@ public:
 	void collect_stats();
 	void cleanup();
 	void update_objective_function();
+	void do_local_search();
 	void finish_FEA(int pop_offset, vector<thread*> fea_threads);
 	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
+	void do_iteration(bool _do_local_search = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	tuple<double, double, double, double, double, double, double> get_fitness_stats();
 	vector<evo::Individual2d> population;
@@ -96,4 +98,9 @@ private:
 	string crossover_method;
 	double fitness_mean, fitness_stdev, relative_area_mean, relative_area_stdev, relative_max_stress_mean, relative_max_stress_stdev;
 	vector<int> iterations_with_fea_failure;
+	bool mutation_boost = false;
+	int max_mutation_boost_wait_time = max_iterations_without_change / 3;
+	int mutation_boost_wait_time = 0;
+	float mutation_boost_size = 2.0;
+	int max_no_unproductive_iterations = 50;
 };
