@@ -29,11 +29,15 @@ class Distribution:
         return int(self.values.sum())
 
     def compute_stats(self):
-        self.stats = {"count": self.count()}
+        self.stats = {
+            "count": self.count(),
+            "relative area": self.count() / self.domain_size,
+        }
 
     def print_stats(self):
+        print("Statistics for distribution", self.name, ":")
         for stat, value in self.stats.items():
-            print(self.name + " " + stat, ":", value)
+            print("  " + stat, ":", value)
 
     def compare(self, distr2):
         overlap = 0
@@ -84,22 +88,29 @@ def load_distr(distr_file, verbose=True):
 
 
 def main():
+    BASELINE_MORPHOLOGY = (
+        "E:/Development/FESSGA/data/EVOMA/trex_100_elements/distribution2d.dens"
+    )
+
     # Setup
     args = parse_args()
     verbose = args.verbose
-    print("Distribution1 file: ", args.d1) if verbose else None
-    print("Distribution2 file: ", args.d2) if verbose else None
+    print("Distribution1 file: ", args.d1, "\n") if verbose else None
+    print("Distribution2 file: ", args.d2, "\n") if verbose and args.d2 else None
 
     # Load distributions
     distr1 = load_distr(args.d1, verbose=verbose)
-    distr2 = load_distr(args.d2, verbose=verbose) if args.d2 else None
+    if args.d2:
+        distr2 = load_distr(args.d2, verbose=verbose)
+    else:
+        distr2 = load_distr(BASELINE_MORPHOLOGY, verbose=verbose)
 
     # Print stats
     distr1.print_stats()
     distr2.print_stats() if args.d2 else None
 
     # Get similarity measures
-    distr1.compare(distr2) if args.d2 else None
+    distr1.compare(distr2)
 
 
 if __name__ == "__main__":
