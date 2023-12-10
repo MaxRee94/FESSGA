@@ -741,6 +741,19 @@ void Evolver::do_selection() {
 		);
 		delete[] densities;
 	}
+
+	// Print info on whether best solution exceeds MDT and/or MST
+	cout << std::setprecision(4) << std::scientific;
+	if (population[best_individual_idx].fea_results.max_displacement > fea_casemanager.max_displacement) {
+		double relative_displacement = population[best_individual_idx].fea_results.max_displacement / fea_casemanager.max_displacement;
+		cout << "Displacement triggered (" << population[best_individual_idx].fea_results.max_displacement << " > " << fea_casemanager.max_displacement << "). More severe than stress/yield criterion ("
+			<< population[best_individual_idx].fea_results.max_yield_criterion << " / " << fea_casemanager.mechanical_threshold << ")? " <<
+			(((relative_displacement * fea_casemanager.mechanical_threshold) > population[best_individual_idx].fea_results.max_yield_criterion) ? "Yes\n\n" : "No\n");
+	}
+	else {
+		cout << "Displacement (" << population[best_individual_idx].fea_results.max_displacement << ") does not exceed MDT (" << fea_casemanager.max_displacement << ").\n";
+	}
+	cout << std::fixed;
 }
 
 void Evolver::cleanup() {

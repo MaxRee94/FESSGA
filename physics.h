@@ -138,6 +138,8 @@ namespace fessga {
             string type;
             double min = INFINITY;
             double max = 0;
+            double max_displacement = 0;
+            double max_yield_criterion = 0;
         };
 
         static void start_external_process(
@@ -185,6 +187,8 @@ namespace fessga {
                 }
                 if (single_run_results.max > results.max) results.max = single_run_results.max;
                 if (single_run_results.min < results.min) results.min = single_run_results.min;
+                if (single_run_results.max_displacement > results.max_displacement) results.max_displacement = single_run_results.max_displacement;
+                if (single_run_results.max_yield_criterion > results.max_yield_criterion) results.max_yield_criterion = single_run_results.max_yield_criterion;
             }
 
             help::sort(results.data_map, results.data);
@@ -427,13 +431,14 @@ namespace fessga {
                 int coord = (round(gridscale_coord[0]) * (dim_y + 1) + round(gridscale_coord[1]));
 
                 // Accumulate the largest absolute values for stress and displacement
-                cout << "i : " << i << endl;
                 stress_xx->SetValue(i, nodewise_compressive_xx[coord]);
                 stress_yy->SetValue(i, nodewise_compressive_yy[coord]);
                 displacements->SetValue(i * 3 + 2, nodewise_displacements[coord]);
                 principal_compressive_stresses->SetValue(i, nodewise_principle_compressive_stresses[coord]);
                 principal_tensile_stresses->SetValue(i, nodewise_principle_tensile_stresses[coord]);
-                modified_mohr->SetValue(i, nodewise_modified_mohr[coord]);
+                if (help::is_in(mechanical_constraint, "Mohr")) {
+                    modified_mohr->SetValue(i, nodewise_modified_mohr[coord]);
+                }
                 vonmises->SetValue(i, nodewise_vonmises[coord]);
             }
 
@@ -565,6 +570,7 @@ namespace fessga {
             // Create cellwise results distribution by taking mean of each group of 4 corners of a cell
             double min_mechanical_metric = 1e30;
             double max_mechanical_metric = 0;
+            double max_yield_criterion = 0;
             for (auto& [node_coord, _] : node_coords_map) {
                 //if (verbose) cout << "node coord " << node_coord << ", point index " << _ << endl;
 
@@ -613,22 +619,23 @@ namespace fessga {
                 if (mechanical_constraint != "Displacement") {
                     if (cell_value > max_mechanical_metric) max_mechanical_metric = cell_value;
                     if (cell_value < min_mechanical_metric) min_mechanical_metric = cell_value;
+                    if (cell_value > max_yield_criterion) max_yield_criterion = cell_value;
                 }
                 if (help::is_in(mechanical_constraint, "Displacement") && cell_coord == fea_casemanager->displacement_measurement_cell) {
                     vector<double> displacements;
                     phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
                     double max_displacement = help::get_max(&displacements);
+                    results->max_displacement = max_displacement;
                     if (max_displacement > fea_casemanager->max_displacement) {
                         double relative_displacement = max_displacement / fea_casemanager->max_displacement;
-                        if (relative_displacement > 1) {
-                            cout << "DISPLACEMENT TRIGGERED\n";
-                            max_mechanical_metric = max(max_mechanical_metric, relative_displacement * fea_casemanager->mechanical_threshold);
-                        }
+                        //cout << "Displacement triggered (" << max_displacement << "). More severe than stress (" << max_mechanical_metric << ")? " << ((relative_displacement * fea_casemanager->mechanical_threshold > max_mechanical_metric) ? "Yes" : "No") << endl;
+                        max_mechanical_metric = max(max_mechanical_metric, relative_displacement * fea_casemanager->mechanical_threshold);
                     }
                 }
             }
             results->min = min_mechanical_metric;
             results->max = max_mechanical_metric;
+            results->max_yield_criterion = max_yield_criterion;
             delete[] results1_nodewise;
             if (results2_nodewise != nullptr) delete[] results2_nodewise;
             if (results3_nodewise != nullptr) delete[] results3_nodewise;
