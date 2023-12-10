@@ -222,21 +222,19 @@ namespace fessga {
             vtkDoubleArray* results_array = dynamic_cast<vtkDoubleArray*>(point_data->GetScalars(channel.c_str()));
             if (results_array->GetSize() == 0) return; // If the array is empty, there is no physics data to load.
 
-            // Overwrite grid values with values from results array (only for nodes with coordinates that lie within
-            // the FE mesh)
             vtkPoints* points = vtk_content->GetPoints();
             for (int i = 0; i < 4; i++) {
                 int point_idx = node_coords_map->at(corner_coords->at(i));
 
                 if (channel == "Displacement") {
-                    double displacement_x = (double)results_array->GetValue(i * 3);
-                    double displacement_y = (double)results_array->GetValue(i * 3 + 1);
+                    double displacement_x = (double)results_array->GetValue(point_idx * 3);
+                    double displacement_y = (double)results_array->GetValue(point_idx * 3 + 1);
                     double magnitude = Vector2d(displacement_x, displacement_y).norm();
                     magnitude = max(magnitude, 0.0);
                     corners->push_back(magnitude);
                 }
                 else {
-                    corners->push_back(sign * (double)results_array->GetValue(i));
+                    corners->push_back(sign * (double)results_array->GetValue(point_idx));
                 }
             }
         }
