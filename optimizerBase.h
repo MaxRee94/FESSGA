@@ -37,6 +37,7 @@ public:
 		fea_casemanager = _fea_casemanager;
 		densities.fea_casemanager = &fea_casemanager;
 		statistics_file = output_folder + "/statistics.csv";
+		densities.visualize_keep_cells();
 
 		// Create 'copy_superpositions' batfile in output folder
 		IO::write_text_to_file("python ../../../../scripts/copy_superpositions.py\npause", output_folder + "/copy_superpositions.bat");

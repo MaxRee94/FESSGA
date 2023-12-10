@@ -288,12 +288,15 @@ void fessga::grd::Densities2d::init_pieces(vector<int>* visited_cells, int cells
 }
 
 // Visualize distribution and highlight keep cells
-void fessga::grd::Densities2d::visualize_keep_cells() {
+void fessga::grd::Densities2d::visualize_keep_cells(bool show_displacement_measurement_cell) {
     //for (auto& cell : fea_case->keep_cells) values[cell] ? set(cell, 5) : throw("Error: Keep cell not filled.\n");
     int tempcount = count();
     for (auto& cell : fea_casemanager->keep_cells) set(cell, 5);
+    cout << "measurement cell (in dens): " << fea_casemanager->displacement_measurement_cell << endl;
+    if (show_displacement_measurement_cell) set(fea_casemanager->displacement_measurement_cell, 7);
     print();
     for (auto& cell : fea_casemanager->keep_cells) set(cell, 1);
+    if (show_displacement_measurement_cell) set(fea_casemanager->displacement_measurement_cell, 1);
     _count = tempcount;
 }
 

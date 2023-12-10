@@ -247,7 +247,7 @@ namespace fessga {
             void save_snapshot();
             void flush_edit_memory();
             int get_no_cells_in_removed_pieces();
-            void visualize_keep_cells();
+            void visualize_keep_cells(bool show_displacement_measurement_cell = true);
             void visualize_cutout_cells();
             void visualize_removed_cells();
             bool repair();
