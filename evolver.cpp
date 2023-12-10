@@ -462,7 +462,7 @@ bool Evolver::termination_condition_reached() {
 			+ to_string(max_iterations_without_change) + ") reached.\n";
 	}
 	bool valid_solutions_exist = false;
-	for (auto& [_, fitness] : fitnesses_map) if (fitness < INFINITY) { valid_solutions_exist = true; break; }
+	for (auto& [_, fitness] : fitnesses_map) if (fitness > -INFINITY) { valid_solutions_exist = true; break; }
 	if (!valid_solutions_exist) {
 		terminate = true;
 		cout << "\nTerminating emma: All solutions in population are invalid.\n";
@@ -636,9 +636,14 @@ void Evolver::evaluate_fitnesses(int offset, bool do_FEA, bool verbose) {
 		}
 		else if (population[i].fea_results.max > fea_casemanager.mechanical_threshold) {
 			fitness = 1.0 - population[i].fea_results.max / fea_casemanager.mechanical_threshold;
+			if (help::is_in(fea_casemanager.mechanical_constraint, "Displacement") && fea_casemanager.mechanical_constraint != "Displacement") {
+				double relative_displacement = population[i].fea_results.max_displacement / fea_casemanager.max_displacement;
+				double relative_yield_criterion = population[i].fea_results.max_yield_criterion / fea_casemanager.mechanical_threshold;
+				fitness = 2.0 - max(1.0, relative_displacement) - max(1.0, relative_yield_criterion);
+			}
 		}
 		else {
-			double relative_maximum_stress = (fea_casemanager.mechanical_threshold - population[i].fea_results.max) / fea_casemanager.mechanical_threshold;
+			//double relative_maximum_stress = (fea_casemanager.mechanical_threshold - population[i].fea_results.max) / fea_casemanager.mechanical_threshold;
 			//fitness = (relative_maximum_stress * stress_fitness_influence + 1.0) / (population[i].get_relative_area());
 			fitness = 1.0 / population[i].get_relative_area();
 		}
@@ -726,8 +731,6 @@ void Evolver::do_selection() {
 		string target_folder = IO::create_folder_if_not_exists(best_solutions_folder + "/" + iteration_name);
 		copy_solution_files(population[best_individual_idx].output_folder, best_solutions_folder + "/" + iteration_name);
 		current_best_solution_folder = best_solutions_folder + "/" + iteration_name;
-
-		if (fea_casemanager.mechanical_constraint == "VonmisesDisplacement") return; // HOTFIX: skip superposition writing for 'VonmisesDisplacement' for now. Raises nullptr exception.
 		
 		// Also write a superposition of stress values to the target folder as a .vtk file
 		vector<string> vtk_paths;
@@ -799,7 +802,7 @@ void Evolver::do_iteration(bool _do_local_search) {
 	evaluate_fitnesses(pop_offset);
 
 	// Double population size if variation is becoming too low.
-	if (variation < 0.5 && (pop_size < 300) && !_do_local_search) {
+	if (variation < 0.5 && (pop_size < 200) && !_do_local_search && iteration_number > 300) {
 		cout << "INFO: INCREASING POPULATION SIZE FROM " << pop_size << " TO " << pop_size * 2 << endl;
 		pop_size *= 2;
 		collect_stats();
@@ -814,12 +817,10 @@ void Evolver::do_iteration(bool _do_local_search) {
 		// population variance, in an attempt to push the algorithm to search outside the current local optimum. 
 		mutation_rate_level0 *= mutation_boost_size;
 		mutation_rate_level1 *= mutation_boost_size;
-		cout << "MUTATION BOOST ON - Attempting to increase population variance.\n";
+		cout << "MUTATION BOOST ON - Attempting to increase population variation.\n";
 		cout << "	Increasing mutation rates by a factor of " << to_string(mutation_boost_size) << ".\n";
 		mutation_boost = true;
 		mutation_boost_wait_time = max_mutation_boost_wait_time; // Wait for a preset number of iterations before attempting another mutation boost.
-
-		return;
 	}
 	else if (mutation_boost && variation > 1.0) {
 		// If population variation has been restored, set the mutation rates back to their original values.
@@ -843,6 +844,7 @@ void Evolver::do_iteration(bool _do_local_search) {
 	//	export_meta_parameters();
 	//}
 
+	return;
 	if (fitness_time_derivative < 0.01) {
 		if (best_fitness > 0) return;
 		if (no_unproductive_iterations < max_no_unproductive_iterations) {
@@ -873,9 +875,12 @@ void Evolver::evolve() {
 	max_no_unproductive_iterations = 1;
 
 	// Evolution loop
+	bool thickness_enhanced = false;
 	while (!termination_condition_reached()) {
 		do_iteration();
-		if (best_fitness < 0) {
+		continue;
+		if (best_fitness < 0 && variation < 0.8 && !thickness_enhanced) {
+			thickness_enhanced = true;
 			// Do thickening on all individuals if the best fitness is still negative
 			cout << "\n ----- Fitness is negative. Applying thickening to all individuals for the next iteration... -----\n";
 			do_iteration(true);
