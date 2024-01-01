@@ -16,13 +16,15 @@ void FESS::export_meta_parameters(vector<string>*_) {
 void FESS::export_stats(string iteration_name) {
 	cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) IO::write_text_to_file(
-		"Iteration, Iteration time, Relative area, Greediness, #Cells removed, Available RAM",
+		"Iteration, Iteration time, , Relative area, Greediness, #Cells removed, Fittest Yield Criterion, Fittest Displacement, Available RAM",
 		statistics_file
 	);
 	stats.push_back(to_string(iteration_number));
-	stats.push_back(to_string(relative_area));
+	stats.push_back(to_string(densities.get_relative_area()));
 	stats.push_back(to_string(greediness));
 	stats.push_back(to_string(no_cells_removed));
+	stats.push_back(to_string(densities.fea_results.max_yield_criterion));
+	stats.push_back(to_string(densities.fea_results.max_displacement));
 	export_base_stats();
 	initialize = false;
 }
@@ -125,6 +127,8 @@ void FESS::run() {
 	bool last_iteration_was_valid = true;
 
 	fill_design_domain();
+	densities.save_snapshot();
+	int starting_count = densities.count();
 
 	while (iteration_number - 1 < max_iterations) {
 		cout << "\nFESS: Starting iteration " << iteration_number << ".\n";
@@ -180,7 +184,20 @@ void FESS::run() {
 			last_iteration_was_valid = false;
 			cout << std::setprecision(3) << std::scientific;
 			cout << "FESS: Highest stress in FE result (" << max_stress
-				<< ") exceeds maximum stress threshold (" << fea_casemanager.mechanical_threshold << ")\n";
+				<< ") exceeds mechanical threshold (" << fea_casemanager.mechanical_threshold << ")\n";
+
+			// Print info about type of mechanical constraint that was triggered
+			cout << std::setprecision(4) << std::scientific;
+			if (densities.fea_results.max_displacement > fea_casemanager.max_displacement) {
+				double relative_displacement = densities.fea_results.max_displacement / fea_casemanager.max_displacement;
+				cout << "Displacement triggered (" << densities.fea_results.max_displacement << " > " << fea_casemanager.max_displacement << "). More severe than stress/yield criterion ("
+					<< densities.fea_results.max_yield_criterion << " / " << fea_casemanager.mechanical_threshold << ")? " <<
+					(((relative_displacement * fea_casemanager.mechanical_threshold) > densities.fea_results.max_yield_criterion) ? "Yes\n\n" : "No\n");
+			}
+			else {
+				cout << "Displacement (" << densities.fea_results.max_displacement << ") does not exceed MDT (" << fea_casemanager.max_displacement << ").\n";
+			}
+			cout << std::fixed;
 
 			// Decrease greediness and load snapshot, so that optimization can be retried in a less agressive manner.
 			if (no_cells_to_remove > 1) {
