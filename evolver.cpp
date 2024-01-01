@@ -5,6 +5,7 @@
 
 //#define UNIFORM_POPULATION
 //#define FEA_IGNORE
+#define BEGIN_WITH_FILLED_DOMAIN
 
 int NO_FEA_THREADS = 7;
 int NO_RESULTS_THREADS = 2;
@@ -304,9 +305,17 @@ void Evolver::create_single_individual(bool verbose) {
 	cout << "cutout cells:\n";
 	individual.visualize_cutout_cells();*/
 
+#ifdef BEGIN_WITH_FILLED_DOMAIN
+	individual.fill_all();
+	for (int& cutout_cell : fea_casemanager.cutout_cells) {
+		individual.del(cutout_cell);
+	}
+#endif
+
 #ifndef UNIFORM_POPULATION:
 	// Perturb the individual's density distribution through mutation. This is done to add variation to the population.
 	do_2d_mutation(individual, initial_perturb_level0, initial_perturb_level1);
+#endif
 
 	// Run the repair pipeline on each individual, to ensure feasibility.
 	bool is_valid = individual.repair();
@@ -321,7 +330,6 @@ void Evolver::create_single_individual(bool verbose) {
 	
 	// Iteratively fill the smallest fenestrae until the shape has the prescribed number of cells (randomly chosen within prescribed range)
 	individual.fill_smaller_fenestrae((int)(help::get_rand_float(min_fraction_cells, max_fraction_cells) * (float)densities.count()), verbose);
-#endif
 
 	// Export the individual's FEA mesh and case.sif file
 	export_individual(&individual, individual_folders[population.size()]);
