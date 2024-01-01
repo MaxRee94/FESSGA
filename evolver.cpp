@@ -305,11 +305,15 @@ void Evolver::create_single_individual(bool verbose) {
 	cout << "cutout cells:\n";
 	individual.visualize_cutout_cells();*/
 
+	float min_fraction_cells = 0.8;
+	float max_fraction_cells = 1.2;
+
 #ifdef BEGIN_WITH_FILLED_DOMAIN
 	individual.fill_all();
 	for (int& cutout_cell : fea_casemanager.cutout_cells) {
 		individual.del(cutout_cell);
 	}
+	max_fraction_cells = INFINITY;
 #endif
 
 #ifndef UNIFORM_POPULATION:
@@ -321,8 +325,7 @@ void Evolver::create_single_individual(bool verbose) {
 	bool is_valid = individual.repair();
 	if (!is_valid) return; // If the repaired shape is not valid, abort (an attempt is then made to generate a replacement individual)
 
-	float min_fraction_cells = 0.8;
-	float max_fraction_cells = 1.2;
+	
 	// If the individual has more than the prescribed range of cells, discard it
 	if (individual.count() > max_fraction_cells * densities.count()) {
 		return;
