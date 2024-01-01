@@ -620,12 +620,19 @@ namespace fessga {
                     if (cell_value > max_yield_criterion) max_yield_criterion = cell_value;
                 }
                 if (help::is_in(mechanical_constraint, "Displacement") && cell_coord == fea_casemanager->displacement_measurement_cell) {
-                    vector<double> displacements;
-                    phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
-                    double max_displacement = help::get_max(&displacements);
-                    results->max_displacement = max_displacement;
-                    if (max_displacement > fea_casemanager->max_displacement) {
-                        double relative_displacement = max_displacement / fea_casemanager->max_displacement;
+                    double* displacements = new double[(dim_x + 1) * (dim_y + 1)];
+                    help::populate_with_zeroes(displacements, (dim_x + 1), (dim_y + 1));
+                    phys::load_nodewise_results(output, displacements, dim_x, dim_y, cell_size, offset, "Displacement", border_nodes, 1, false);
+                    //phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
+                    //double max_displacement = help::get_max(&displacements);
+                    cell_corners[0] = displacements[corner_coords[0]];
+                    cell_corners[1] = displacements[corner_coords[1]];
+                    cell_corners[2] = displacements[corner_coords[2]];
+                    cell_corners[3] = displacements[corner_coords[3]];
+                    delete[] displacements;
+                    results->max_displacement = cell_corners.maxCoeff();
+                    if (results->max_displacement > fea_casemanager->max_displacement) {
+                        double relative_displacement = results->max_displacement / fea_casemanager->max_displacement;
                         //cout << "Displacement triggered (" << max_displacement << "). More severe than stress (" << max_mechanical_metric << ")? " << ((relative_displacement * fea_casemanager->mechanical_threshold > max_mechanical_metric) ? "Yes" : "No") << endl;
                         max_mechanical_metric = max(max_mechanical_metric, relative_displacement * fea_casemanager->mechanical_threshold);
                     }
