@@ -17,7 +17,7 @@ struct Input {
     string path;
     string name;
     float size, stress_fitness_influence, greediness;
-    string mechanical_constraint;
+    string mechanical_constraint, existing_population;
 };
 
 class Controller {
@@ -31,6 +31,7 @@ public:
         vector<MatrixXi> F_list;
         GUI gui = GUI(V_list, F_list);
         fea_casemanager = phys::FEACaseManager();
+        load_existing_population = help::is_in(action, "restart");
         fea_casemanager.mechanical_constraint = input.mechanical_constraint;
         max_stress = input.max_stress;
         max_tensile_strength = input.max_tensile_strength;
@@ -40,6 +41,16 @@ public:
         stress_fitness_influence = input.stress_fitness_influence;
         greediness = input.greediness;
         max_iterations_without_fitness_change = input.max_iterations_without_fitness_change;
+
+        if (load_existing_population) {
+            existing_population = help::replace_occurrences(input.existing_population, "\\", "/");
+            action = help::replace_occurrences(action, "_restart", "");
+            cout << "Restart and load from existing population: '" << existing_population << "'\n";
+            vector<string> existing_pop;
+            help::split(existing_population, "/", existing_pop);
+            existing_pop.pop_back();
+            base_folder = help::join(&existing_pop, "/");
+        }
 
         // Initialize RNG
         help::init_RNG();
@@ -129,7 +140,8 @@ public:
     int max_iterations;
     float cell_size = 0;
     float stress_fitness_influence, greediness;
-    string base_folder;
+    bool load_existing_population = false;
+    string base_folder, existing_population;
     Vector3d offset;
     Input input;
     vector<grd::Piece> pieces;

@@ -358,12 +358,13 @@ void Evolver::init_population(bool verbose) {
 	start_FEA_threads(0, fea_threads);
 
 	int i = NO_FEA_THREADS * 2;
-	while (population.size() < pop_size) {
+	while ((population.size() < pop_size) && !load_existing_population) {
 		i++;
 		if (i > pop_size * 2 && population.size() == 0) {
 			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
 		}
 		create_single_individual();
+
 		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
 			cout << "- Generated individual " << population.size() << " / " << pop_size << "\n";
 	}
@@ -456,13 +457,13 @@ void Evolver::write_densities_to_image(bool verbose) {
 
 void Evolver::create_iteration_directories(int iteration) {
 	// Create iteration folder
-	iteration_folder = get_iteration_folder(iteration, true);
+	iteration_folder = get_iteration_folder(iteration, true, load_existing_population, existing_population);
 	
 	// Create individual folders
 	individual_folders.clear();
 	for (int i = 0; i < pop_size; i++) {
 		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
-		IO::create_folder_if_not_exists(individual_folder);
+		if (!load_existing_population) IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
 	}
 }

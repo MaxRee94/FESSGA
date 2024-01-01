@@ -41,6 +41,9 @@ public:
 
 		// Create 'copy_superpositions' batfile in output folder
 		IO::write_text_to_file("python ../../../../scripts/copy_superpositions.py\npause", output_folder + "/copy_superpositions.bat");
+
+		// Create 'superpositions' folder in output folder
+		IO::create_folder_if_not_exists(output_folder + "/superpositions");
 	};
 	msh::SurfaceMesh mesh;
 	bool domain_2d = false;
@@ -60,12 +63,28 @@ public:
 	string base_folder, image_folder, iteration_name, iteration_folder, output_folder;
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
-	string get_iteration_folder(int iteration, bool verbose = false) {
-		iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
-		iteration_folder = output_folder + "/" + iteration_name;
-		if (verbose) cout << "OptimizerBase: Creating folder " << iteration_folder <<
-			" for current iteration if it does not exist yet...\n";
-		IO::create_folder_if_not_exists(iteration_folder);
+	string get_iteration_folder(int iteration, bool verbose = false, bool load_existing_population = false, string existing_population = "") {
+		if (load_existing_population) {
+			vector<string> _existing_pop;
+			help::split(existing_population, "/", _existing_pop);
+			iteration_name = _existing_pop[_existing_pop.size() - 1];
+			iteration_folder = existing_population;
+		}
+		else {
+			iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+			iteration_folder = output_folder + "/" + iteration_name;
+		}
+		if (verbose) {
+			if (load_existing_population) {
+				cout << "OptimizerBase: Setting iteration folder to last iteration folder of existing population: " << iteration_folder <<
+					"\n";
+			}
+			else {
+				cout << "OptimizerBase: Creating folder " << iteration_folder <<
+					" for current iteration if it does not exist yet...\n";
+			}
+		}
+		if (!load_existing_population) IO::create_folder_if_not_exists(iteration_folder);
 
 		return iteration_folder;
 	}

@@ -75,7 +75,6 @@ void Controller::do_static_setup(phys::FEACaseManager& fea_casemanager) {
     fea_casemanager.max_tensile_strength = max_tensile_strength;
     fea_casemanager.max_compressive_strength = max_compressive_strength;
     fea_casemanager.max_displacement = max_displacement;
-    densities2d.visualize_keep_cells();
 }
 
 void Controller::run_fess(FESS& _fess) {
@@ -181,7 +180,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     string crossover_method = "2x";
     float initial_perturb_level0 = 0.2;
     float initial_perturb_level1 = 0.02;
-    int pop_size = 14; // NOTE: must be >10 and divisible by 7 and 2
+    int pop_size = 154; // NOTE: must be >10 and divisible by 7 and 2
     float mutation_rate_level0 = 0.0015;
     float mutation_rate_level1 = 0.0004;
     float variation_trigger = 1.5;
@@ -191,7 +190,7 @@ void Controller::run_emma(Evolver& _evolver, phys::FEACaseManager* fea_casemanag
     Evolver evolver(
         *fea_casemanager, mesh, base_folder, pop_size, no_static_iterations_trigger, mutation_rate_level0,
         mutation_rate_level1, densities2d, variation_trigger, max_iterations, max_iterations_without_fitness_change,
-        export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method, stress_fitness_influence
+        export_msh, verbose, initial_perturb_level0, initial_perturb_level1, crossover_method, stress_fitness_influence, load_existing_population, existing_population
     );
     _evolver = evolver;
     evolver.evolve();
