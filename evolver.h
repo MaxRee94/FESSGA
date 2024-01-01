@@ -19,7 +19,7 @@ public:
 		phys::FEACaseManager _fea_manager, msh::SurfaceMesh _mesh, string _base_folder, int _pop_size, int _no_static_iterations_trigger,
 		float _mutation_rate_level0, float _mutation_rate_level1, grd::Densities2d _starting_densities, double _variation_trigger, int _max_iterations,
 		int _max_iterations_without_change, bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1,
-		string _crossover_method, float _stress_fitness_influence
+		string _crossover_method, float _stress_fitness_influence, bool _load_existing_population, string _existing_population
 	) : OptimizerBase(
 		_fea_manager, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
 	{
@@ -32,6 +32,8 @@ public:
 		no_static_iterations_trigger = _no_static_iterations_trigger;
 		max_iterations_without_change = _max_iterations_without_change;
 		crossover_method = _crossover_method;
+		load_existing_population = _load_existing_population;
+		existing_population = _existing_population;
 		best_solutions_folder = output_folder + "/best_solutions";
 		best_individuals_images_folder = image_folder + "/best_individuals";
 		stress_fitness_influence = _stress_fitness_influence;
@@ -66,7 +68,7 @@ public:
 	void create_single_individual(bool verbose = false);
 	void do_iteration(bool _do_local_search = false);
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
-	tuple<double, double, double, double, double, double, double> get_fitness_stats();
+	tuple<double, double, double, double, double, double, double, double, double> get_fitness_stats();
 	vector<evo::Individual2d> population;
 private:
 	int pop_size = 1;
@@ -97,8 +99,11 @@ private:
 	string best_individuals_images_folder;
 	string crossover_method;
 	double fitness_mean, fitness_stdev, relative_area_mean, relative_area_stdev, relative_max_stress_mean, relative_max_stress_stdev;
+	double fittest_yield_criterion, fittest_displacement;
 	vector<int> iterations_with_fea_failure;
 	bool mutation_boost = false;
+	bool load_existing_population = false;
+	string existing_population = "";
 	int max_mutation_boost_wait_time = max_iterations_without_change / 3;
 	int mutation_boost_wait_time = 0;
 	float mutation_boost_size = 2.0;

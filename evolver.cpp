@@ -96,7 +96,7 @@ float get_variation(vector<evo::Individual2d>* population) {
 }
 
 // Get mean and standard deviation of fitnesses in current generation
-tuple<double, double, double, double, double, double, double> Evolver::get_fitness_stats() { // Compute fitness mean
+tuple<double, double, double, double, double, double, double, double, double> Evolver::get_fitness_stats() { // Compute fitness mean
 	vector<double> fitnesses;
 	for (auto& [_, fitness] : fitnesses_map) fitnesses.push_back(fitness);
 	double fit_mean = help::get_mean(&fitnesses);
@@ -109,7 +109,7 @@ tuple<double, double, double, double, double, double, double> Evolver::get_fitne
 	fitness_time_series.push_back(best_fitness);
 	float weights = 0;
 	float fitness_time_derivative = 0;
-	int falloff_length = 100;
+	int falloff_length = 50;
 	float falloff_rate = 1.0 / (float)(falloff_length * falloff_length);
 	fitness_time_derivative = 0;
 	if (iteration_number > falloff_length) {
@@ -148,7 +148,12 @@ tuple<double, double, double, double, double, double, double> Evolver::get_fitne
 	// Compute maximum stress relative to threshold stdev
 	double relative_maximum_stress_stdev = help::get_stdev(&relative_maximum_stresses, relative_maximum_stress_mean);
 
-	return { fit_mean, fit_stdev, fitness_time_derivative, relative_area_mean, relative_area_stdev, relative_maximum_stress_mean, relative_maximum_stress_stdev };
+	// Obtain displacement and maximum value for stress/yield criterion for the fittest individual in the population
+	double fittest_yield_criterion = population[best_individual_idx].fea_results.max_yield_criterion;
+	double fittest_displacement = population[best_individual_idx].fea_results.max_displacement;
+
+	return { fit_mean, fit_stdev, fitness_time_derivative, relative_area_mean, relative_area_stdev, relative_maximum_stress_mean, relative_maximum_stress_stdev,
+	fittest_yield_criterion, fittest_displacement };
 }
 
 /*
@@ -164,7 +169,8 @@ void Evolver::collect_stats() {
 	variation = get_variation(&population);
 	auto [
 		_fitness_mean, _fitness_stdev, _fitness_time_derivative, _relative_area_mean,
-			_relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev
+			_relative_area_stdev, _relative_max_stress_mean, _relative_max_stress_stdev,
+			_fittest_yield_criterion, _fittest_displacement
 	] = get_fitness_stats();
 	fitness_mean = _fitness_mean;
 	fitness_stdev = _fitness_stdev;
@@ -173,6 +179,8 @@ void Evolver::collect_stats() {
 	relative_max_stress_mean = _relative_max_stress_mean;
 	relative_max_stress_stdev = _relative_max_stress_stdev;
 	fitness_time_derivative = _fitness_time_derivative;
+	fittest_yield_criterion = _fittest_yield_criterion;
+	fittest_displacement = _fittest_displacement;
 }
 
 void Evolver::export_stats(string iteration_name, bool verbose) {
@@ -180,12 +188,11 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
 	if (initialize) {
 		IO::write_text_to_file(
-			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Fitness Derivative, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
+			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Fitness Derivative, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), Fittest Yield Criterion, Fittest Displacement, RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
 			statistics_file
 		);
 		return;
 	}
-	export_base_stats();
 	stats.push_back(to_string(best_fitness));
 	stats.push_back(to_string(variation));
 	stats.push_back(to_string(fitness_mean));
@@ -198,11 +205,14 @@ void Evolver::export_stats(string iteration_name, bool verbose) {
 	stats.push_back(to_string(relative_max_stress_stdev));
 	stats.push_back(to_string(mutation_rate_level0));
 	stats.push_back(to_string(mutation_rate_level1));
-	vector<string> stats = {
+	stats.push_back(to_string(fittest_yield_criterion));
+	stats.push_back(to_string(fittest_displacement));
+	export_base_stats();
+	vector<string> _stats = {
 		"Current stats: \n   Variation = " + to_string(variation), "Best fitness = " + to_string(best_fitness),
 		"Fitness derivative = " + to_string(fitness_time_derivative)
 	};
-	cout << help::join(&stats, ", ") << endl;
+	cout << help::join(&_stats, ", ") << endl;
 }
 
 // Do 2-point crossover
@@ -473,8 +483,10 @@ bool Evolver::termination_condition_reached() {
 
 void Evolver::do_setup() {
 	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
-	export_meta_parameters();
-	create_iteration_directories(iteration_number);
+	if (!load_existing_population) {
+		export_meta_parameters();
+		create_iteration_directories(iteration_number);
+	}
 	if (verbose) densities.print();
 	
 	time_t start = time(0);
@@ -742,6 +754,9 @@ void Evolver::do_selection() {
 			population[best_individual_idx].cell_size, mesh.offset, target_folder + "/SuperPosition.vtk", fea_casemanager.mechanical_constraint, &population[best_individual_idx].border_nodes,
 			fea_casemanager.max_tensile_strength, fea_casemanager.max_compressive_strength
 		);
+		string superposition_copy_target = output_folder + "/superpositions/SuperPosition_iteration" + help::add_padding("_", iteration_number) + to_string(iteration_number) + ".vtk";
+		cout << "Copying superposition to location " << superposition_copy_target << " ...\n";
+		IO::copy_file(target_folder + "/SuperPosition.vtk", superposition_copy_target);
 		delete[] densities;
 	}
 
