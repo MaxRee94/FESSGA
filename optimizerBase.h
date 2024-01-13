@@ -20,11 +20,16 @@ public:
 	// Constructor for 2d optimization
 	OptimizerBase(
 		phys::FEACaseManager _fea_casemanager, msh::SurfaceMesh _mesh, string _base_folder,
-		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose
+		grd::Densities2d _densities, int _max_iterations, bool _export_msh, bool _verbose, string existing_folder = ""
 	) {
 		mesh = _mesh;
 		base_folder = IO::get_fullpath(_base_folder);
-		output_folder = IO::get_unique_path(base_folder + "/run_#");
+		if (existing_folder == "") {
+			output_folder = IO::get_unique_path(base_folder + "/run_#");
+		}
+		else {
+			output_folder = existing_folder;
+		}
 		densities = _densities;
 		export_msh = _export_msh;
 		domain_2d = true;
@@ -64,7 +69,7 @@ public:
 
 	// Function to get the folder corresponding to the given iteration number. If the folder does not exist yet, it will be created.
 	string get_iteration_folder(int iteration, bool verbose = false, bool load_existing_population = false, string existing_population = "") {
-		if (load_existing_population) {
+		/*if (load_existing_population) {
 			vector<string> _existing_pop;
 			help::split(existing_population, "/", _existing_pop);
 			iteration_name = _existing_pop[_existing_pop.size() - 1];
@@ -73,18 +78,14 @@ public:
 		else {
 			iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
 			iteration_folder = output_folder + "/" + iteration_name;
-		}
+		}*/
+		iteration_name = fessga::help::add_padding("iteration_", iteration) + to_string(iteration);
+		iteration_folder = output_folder + "/" + iteration_name;
 		if (verbose) {
-			if (load_existing_population) {
-				cout << "OptimizerBase: Setting iteration folder to last iteration folder of existing population: " << iteration_folder <<
-					"\n";
-			}
-			else {
-				cout << "OptimizerBase: Creating folder " << iteration_folder <<
-					" for current iteration if it does not exist yet...\n";
-			}
+			cout << "OptimizerBase: Creating folder " << iteration_folder <<
+				" for current iteration if it does not exist yet...\n";
 		}
-		if (!load_existing_population) IO::create_folder_if_not_exists(iteration_folder);
+		IO::create_folder_if_not_exists(iteration_folder);
 
 		return iteration_folder;
 	}

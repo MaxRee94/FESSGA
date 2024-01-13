@@ -127,13 +127,13 @@ string fessga::IO::get_unique_file_path(string fpath) {
     return fpath;
 }
 
-string fessga::IO::get_latest_path(string templ) {
-    std::string path = help::replace_occurrences(templ, "#", "_v001");
-    std::string _path = path;
-    int vcount = 2;
-    int padding = 2;
-    while (IO::file_exists(_path)) {
-        path = _path;
+string fessga::IO::get_latest_path(string templ, std::string replacement, std::string _suffix, int search_limit) {
+    std::string _path = help::replace_occurrences(templ, "#", replacement + "00000");
+    std::string path = "No file with template " + templ + " found.";
+    int vcount = 1;
+    int padding = 4;
+    int no_nonexistant_versions = 0;
+    while (no_nonexistant_versions < search_limit) {
         if (vcount > 9) {
             if (vcount > 99) {
                 padding = 0;
@@ -142,15 +142,22 @@ string fessga::IO::get_latest_path(string templ) {
                 padding = 1;
             }
         }
-        std::string suffix = "_v";
         string pad = "";
         for (int i = 0; i < padding; i++) {
             pad += "0";
         }
+        string suffix = _suffix;
         suffix += pad;
         suffix += to_string(vcount);
         _path = help::replace_occurrences(templ, "#", suffix);
         vcount++;
+        if (IO::file_exists(_path)) {
+            path = _path;
+            no_nonexistant_versions = 0;
+        }
+        else {
+            no_nonexistant_versions++;
+        }
     }
 
     return path;

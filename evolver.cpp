@@ -341,10 +341,22 @@ void Evolver::create_single_individual(bool verbose) {
 	population.push_back(individual);
 }
 
+void Evolver::load_individual(string densities_file) {
+	// Create the individual and import its density values from a densities file
+	evo::Individual2d individual(&densities);
+	individual.do_import(densities_file, mesh.diagonal(0));
+
+	// Export the individual's FEA mesh and case.sif file
+	export_individual(&individual, individual_folders[population.size()]);
+
+	// Add the individual to the population
+	population.push_back(individual);
+}
+
 /*
 Initialize a population of unique density distributions. Each differs slightly from the distribution loaded from file.
 */
-void Evolver::init_population(bool verbose) {
+void Evolver::generate_population(bool verbose) {
 	cout << "Generating initial population...\n";
 
 	// The first individual is an unperturbed copy of the given densities densities distribution
@@ -361,7 +373,7 @@ void Evolver::init_population(bool verbose) {
 	start_FEA_threads(0, fea_threads);
 
 	int i = NO_FEA_THREADS * 2;
-	while ((population.size() < pop_size) && !load_existing_population) {
+	while (population.size() < pop_size) {
 		i++;
 		if (i > pop_size * 2 && population.size() == 0) {
 			throw std::runtime_error("Error: Unable to generate any valid individuals after " + to_string(i) + " attempts.\n");
@@ -373,6 +385,39 @@ void Evolver::init_population(bool verbose) {
 	}
 	cout << "Finished generating initial population.\n";
 	finish_FEA(0, fea_threads);
+}
+
+void Evolver::load_population(bool verbose) {
+	cout << "Loading population from folder...\n";
+
+	int i = 0;
+	while (population.size() < pop_size) {
+		i++;
+
+		string individual_densities_file = existing_population + "/individual_" + help::add_padding("", i) + to_string(i) + ".dens";
+		cout << "indiv densities file: " << individual_densities_file << endl;
+		load_individual(individual_densities_file);
+
+		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
+			cout << "- Loaded individual " << population.size() << " / " << pop_size << "\n";
+	}
+
+	// Run FEA
+	thread fea_thread1, fea_thread2, fea_thread3, fea_thread4, fea_thread5, fea_thread6, fea_thread7, fea_thread8;
+	vector<thread*> fea_threads = { &fea_thread1, &fea_thread2, &fea_thread3, &fea_thread4, &fea_thread5, &fea_thread6, &fea_thread7 };
+	start_FEA_threads(0, fea_threads);
+
+	cout << "Finished loading population.\n";
+	finish_FEA(0, fea_threads);
+}
+
+void Evolver::init_population(bool verbose) {
+	if (load_existing_population) {
+		load_population(verbose);
+	}
+	else {
+		generate_population(verbose);
+	}
 }
 
 void Evolver::start_FEA_threads(int pop_offset, vector<thread*> fea_threads) {
@@ -466,7 +511,7 @@ void Evolver::create_iteration_directories(int iteration) {
 	individual_folders.clear();
 	for (int i = 0; i < pop_size; i++) {
 		string individual_folder = iteration_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1);
-		if (!load_existing_population) IO::create_folder_if_not_exists(individual_folder);
+		IO::create_folder_if_not_exists(individual_folder);
 		individual_folders.push_back(individual_folder);
 	}
 }
@@ -495,10 +540,17 @@ bool Evolver::termination_condition_reached() {
 
 void Evolver::do_setup() {
 	cout << "Beginning Evolver run. Saving results to " << output_folder << endl;
-	if (!load_existing_population) {
-		export_meta_parameters();
-		create_iteration_directories(iteration_number);
+	if (load_existing_population) {
+		// Retrieve iteration number from latest iteration folder path
+		string latest_iteration_dir = IO::get_latest_path(output_folder + "/iteration#", "_", "_", 10000);
+		cout << "latest dir: " << latest_iteration_dir << endl;
+		vector<string> substrings;
+		help::split(latest_iteration_dir, "iteration_", substrings);
+		iteration_number = stoi(substrings[1]) + 1;
+		cout << "iteration number: " << iteration_number << endl;
 	}
+	export_meta_parameters();
+	create_iteration_directories(iteration_number);
 	if (verbose) densities.print();
 	
 	time_t start = time(0);
@@ -789,7 +841,7 @@ void Evolver::do_selection() {
 void Evolver::cleanup() {
 	if (iteration_number < 2) return;
 	//if (help::is_in(&iterations_with_fea_failure, (iteration_number - 1))) return; // Skip removal of iterations with FEA failure
-	string _iteration_folder = get_iteration_folder(iteration_number - 1);
+	string _iteration_folder = get_iteration_folder(iteration_number - 15);
 	IO::remove_directory_incl_contents(_iteration_folder);
 	cout << "Cleanup: Removed iteration directory and all contained files.\n";
 }
@@ -804,6 +856,19 @@ void Evolver::do_local_search() {
 	vector<thread*> fea_threads = { &fea_thread1, &fea_thread2, &fea_thread3, &fea_thread4, &fea_thread5, &fea_thread6, &fea_thread7 };
 	start_FEA_threads(0, fea_threads);
 	finish_FEA(0, fea_threads);
+}
+
+void Evolver::write_population_to_disk() {
+	// Remove current population
+	IO::remove_directory_incl_contents(current_population_folder);
+	IO::create_folder_if_not_exists(current_population_folder);
+
+	// Write current population
+	for (int i = 0; i < pop_size; i++) {
+		string src = population[i].output_folder + "/distribution2d.dens";
+		string trgt = current_population_folder + help::add_padding("/individual_", i + 1) + to_string(i + 1) + ".dens";
+		IO::copy_file(src, trgt);
+	}
 }
 
 void Evolver::do_iteration(bool _do_local_search) {
@@ -858,6 +923,7 @@ void Evolver::do_iteration(bool _do_local_search) {
 	}
 	if (mutation_boost_wait_time > 0) mutation_boost_wait_time--;
 
+	write_population_to_disk();
 	do_selection();
 	collect_stats();
 	export_stats(iteration_name);

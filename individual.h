@@ -31,6 +31,11 @@ namespace fessga {
 				output_folder = individual->output_folder;
 				copy_from_individual(individual);
 			}
+			Individual2d(string densities_file, float width) {
+				grd::Densities2d densities = grd::Densities2d();
+				densities.do_import(densities_file, width);
+				copy_from(&densities);
+			}
 			int phenotype_count() {
 				if (_phenotype_count == -1) redo_count();
 				return _phenotype_count;

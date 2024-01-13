@@ -27,7 +27,7 @@ namespace fessga {
 
 		static std::string get_unique_path(std::string templ);
 		
-		static std::string get_latest_path(std::string templ);
+		static std::string get_latest_path(std::string templ, std::string replacement = "_v", std::string suffix = "_v", int search_limit = 1);
 
 		static void write_text_to_file(std::string text, std::string path);
 

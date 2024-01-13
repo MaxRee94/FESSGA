@@ -21,7 +21,7 @@ public:
 		int _max_iterations_without_change, bool _export_msh, bool _verbose, float _initial_perturb_level0, float _initial_perturb_level1,
 		string _crossover_method, float _stress_fitness_influence, bool _load_existing_population, string _existing_population
 	) : OptimizerBase(
-		_fea_manager, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose)
+		_fea_manager, _mesh, _base_folder, _starting_densities, _max_iterations, _export_msh, _verbose, _existing_population)
 	{
 		pop_size = _pop_size;
 		mutation_rate_level0 = _mutation_rate_level0;
@@ -33,9 +33,10 @@ public:
 		max_iterations_without_change = _max_iterations_without_change;
 		crossover_method = _crossover_method;
 		load_existing_population = _load_existing_population;
-		existing_population = _existing_population;
+		existing_population = _existing_population + "/current_population";
 		best_solutions_folder = output_folder + "/best_solutions";
 		best_individuals_images_folder = image_folder + "/best_individuals";
+		current_population_folder = output_folder + "/current_population";
 		stress_fitness_influence = _stress_fitness_influence;
 		IO::create_folder_if_not_exists(best_individuals_images_folder);
 		IO::create_folder_if_not_exists(best_solutions_folder);
@@ -47,6 +48,9 @@ public:
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate_level0, float _mutation_rate_level1);
 	void create_valid_child_densities(vector<evo::Individual2d>* parents, vector<evo::Individual2d>& children);
 	void init_population(bool verbose = true);
+	void load_individual(string densities_file);
+	void generate_population(bool verbose = true);
+	void load_population(bool verbose = true);
 	void evolve();
 	void do_setup();
 	void create_children(bool verbose = true);
@@ -67,6 +71,7 @@ public:
 	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	void do_iteration(bool _do_local_search = false);
+	void write_population_to_disk();
 	virtual void export_meta_parameters(vector<string>* _ = 0) override;
 	tuple<double, double, double, double, double, double, double, double, double> get_fitness_stats();
 	vector<evo::Individual2d> population;
@@ -94,9 +99,7 @@ private:
 	double variation_trigger;
 	string best_individual;
 	int best_individual_idx = 0;
-	string current_best_solution_folder;
-	string best_solutions_folder;
-	string best_individuals_images_folder;
+	string best_solutions_folder, current_best_solution_folder, best_individuals_images_folder, current_population_folder;
 	string crossover_method;
 	double fitness_mean, fitness_stdev, relative_area_mean, relative_area_stdev, relative_max_stress_mean, relative_max_stress_stdev;
 	double fittest_yield_criterion, fittest_displacement;

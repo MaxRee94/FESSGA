@@ -99,7 +99,7 @@ void fessga::grd::Densities2d::do_import(string path, float width) {
     for (int i = 0; i < size; i++) {
         set(i, densities_line[i] - '0');
     }
-    update_count();
+    redo_count();
 }
 
 
