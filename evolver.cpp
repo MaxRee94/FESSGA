@@ -187,7 +187,7 @@ void Evolver::collect_stats() {
 void Evolver::export_stats(string iteration_name, bool verbose) {
 	string statistics_file = output_folder + "/statistics.csv";
 	if (verbose) cout << "Exporting statistics to " << statistics_file << endl;
-	if (initialize) {
+	if (initialize && !load_existing_population) {
 		IO::write_text_to_file(
 			"Iteration, Iteration time, Best fitness, Variation, Fitness mean, Fitness stdev, Fitness Derivative, Mean Relative Area, Stdev Relative Area, Mean Relative Max Stress, Stdev Relative Max Stress, Mutation rate (level 0), Mutation rate (level 1), Fittest Yield Criterion, Fittest Displacement, RAM available(GB), Virtual Memory available(GB), Pagefile available(GB), Percent memory used",
 			statistics_file
@@ -395,7 +395,6 @@ void Evolver::load_population(bool verbose) {
 		i++;
 
 		string individual_densities_file = existing_population + "/individual_" + help::add_padding("", i) + to_string(i) + ".dens";
-		cout << "indiv densities file: " << individual_densities_file << endl;
 		load_individual(individual_densities_file);
 
 		if (verbose && (pop_size < 10 || population.size() % (pop_size / 10) == 0))
@@ -573,7 +572,7 @@ void Evolver::do_setup() {
 	IO::create_folder_if_not_exists(current_best_solution_folder);
 	copy_solution_files(population[best_individual_idx].output_folder, current_best_solution_folder);
 	collect_stats();
-	export_stats(iteration_name);
+	if (!load_existing_population) export_stats(iteration_name);
 	cleanup();
 	initialize = false;
 }
