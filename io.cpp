@@ -134,16 +134,21 @@ string fessga::IO::get_latest_path(string templ, std::string replacement, std::s
     int padding = 4;
     int no_nonexistant_versions = 0;
     while (no_nonexistant_versions < search_limit) {
+        int _padding = padding;
         if (vcount > 9) {
+            _padding--;
             if (vcount > 99) {
-                padding = 0;
-            }
-            else {
-                padding = 1;
+                _padding--;
+                if (vcount > 999) {
+                    _padding--;
+                    if (vcount > 9999) {
+                        _padding--;
+                    }
+                }
             }
         }
         string pad = "";
-        for (int i = 0; i < padding; i++) {
+        for (int i = 0; i < _padding; i++) {
             pad += "0";
         }
         string suffix = _suffix;
