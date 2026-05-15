@@ -241,7 +241,7 @@ namespace fessga {
 
         // Load all node data of a vtk channel
         static void load_nodewise_results(
-            vtkUnstructuredGrid* vtk_content, double* results_nodewise, int dim_x, int dim_y, Vector2d cell_size,
+            vtkUnstructuredGrid* vtk_content, shared_ptr<double[]>& results_nodewise, int dim_x, int dim_y, Vector2d cell_size,
             Vector2d offset, string channel, vector<int>* border_nodes, double sign, bool clamp, map<int, int>* _node_coords_map = 0
         ) {
             if (_node_coords_map) _node_coords_map->clear();
@@ -291,16 +291,16 @@ namespace fessga {
         ) {
             // Initially, populate results array with zeroes (nodes on the grid which are part of the FE mesh will
             // have their corresponding values in the results array overwritten later)
-            double* nodewise_tensile_xx = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_tensile_yy = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_compressive_xx = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_compressive_yy = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_xy = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_displacements = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_principle_compressive_stresses = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_principle_tensile_stresses = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_modified_mohr = new double[(dim_x + 1) * (dim_y + 1)];
-            double* nodewise_vonmises = new double[(dim_x + 1) * (dim_y + 1)];
+            shared_ptr<double[]> nodewise_tensile_xx = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_tensile_yy = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_compressive_xx = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_compressive_yy = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_xy = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_displacements = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_principle_compressive_stresses = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_principle_tensile_stresses = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_modified_mohr = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+            shared_ptr<double[]> nodewise_vonmises = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
             help::populate_with_zeroes(nodewise_tensile_xx, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_tensile_yy, dim_x + 1, dim_y + 1);
             help::populate_with_zeroes(nodewise_compressive_xx, dim_x + 1, dim_y + 1);
@@ -320,14 +320,14 @@ namespace fessga {
                 reader->Update();
                 vtkUnstructuredGrid* output = reader->GetOutput();
 
-                double* single_run_stress_xx = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_stress_yy = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_stress_xy = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_displacements = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_principal_compressive_stresses = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_principal_tensile_stresses = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_modified_mohr = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-                double* single_run_vonmises = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_stress_xx = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_stress_yy = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_stress_xy = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_displacements = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_principal_compressive_stresses = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_principal_tensile_stresses = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_modified_mohr = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+                shared_ptr<double[]> single_run_vonmises = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
                 help::populate_with_zeroes(single_run_stress_xx, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(single_run_stress_yy, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(single_run_stress_xy, dim_x + 1, (dim_y + 1));
@@ -385,14 +385,6 @@ namespace fessga {
                     writer->Delete();
                 }
 
-                delete[] single_run_stress_xx;
-                delete[] single_run_stress_yy;
-                delete[] single_run_stress_xy;
-                delete[] single_run_displacements;
-                delete[] single_run_principal_compressive_stresses;
-                delete[] single_run_principal_tensile_stresses;
-                delete[] single_run_modified_mohr;
-                delete[] single_run_vonmises;
                 reader->Delete();
             }
 
@@ -448,16 +440,6 @@ namespace fessga {
             writer->Update();
 
             // Free used memory
-            delete[] nodewise_tensile_xx;
-            delete[] nodewise_tensile_yy;
-            delete[] nodewise_compressive_xx;
-            delete[] nodewise_compressive_yy;
-            delete[] nodewise_xy;
-            delete[] nodewise_displacements;
-            delete[] nodewise_principle_compressive_stresses;
-            delete[] nodewise_principle_tensile_stresses;
-            delete[] nodewise_modified_mohr;
-            delete[] nodewise_vonmises;
             writer->Delete();
 
 
@@ -477,7 +459,7 @@ namespace fessga {
             }
         }
 
-        static void compute_principal_stresses(double* stress_xx, double* stress_yy, double* stress_xy, double* principal_stresses, int dim_x, int dim_y, string mechanical_constraint) {
+        static void compute_principal_stresses(shared_ptr<double[]>& stress_xx, shared_ptr<double[]>& stress_yy, shared_ptr<double[]>& stress_xy, shared_ptr<double[]>& principal_stresses, int dim_x, int dim_y, string mechanical_constraint) {
             for (int node_coord = 0; node_coord < dim_x * dim_y; node_coord++) {
                 double xx = stress_xx[node_coord];
                 double yy = stress_yy[node_coord];
@@ -504,10 +486,10 @@ namespace fessga {
             // Initially, populate results arrays with zeroes to make sure they're initialized (nodes on the grid which are part of the FE mesh will
             // have their corresponding values in the results array overwritten later)
             Vector2d offset = Vector2d(_offset(0), _offset(1));
-            double* results1_nodewise = new double[(dim_x + 1) * (dim_y + 1)]; // Nodes grid has +1 width along each dim
-            double* results2_nodewise = 0; // Nodes grid has +1 width along each dim
-            double* results3_nodewise = 0; // Nodes grid has +1 width along each dim
-            double* principal_stresses_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+            shared_ptr<double[]> results1_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1)); // Nodes grid has +1 width along each dim
+            shared_ptr<double[]> results2_nodewise; // Nodes grid has +1 width along each dim
+            shared_ptr<double[]> results3_nodewise; // Nodes grid has +1 width along each dim
+            shared_ptr<double[]> principal_stresses_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
             map<int, int> node_coords_map;
             help::populate_with_zeroes(results1_nodewise, dim_x + 1, dim_y + 1);
             string mechanical_constraint1, mechanical_constraint2, mechanical_constraint3 = mechanical_constraint;
@@ -516,8 +498,8 @@ namespace fessga {
                 mechanical_constraint1 = "Stress_xx";
                 mechanical_constraint2 = "Stress_yy";
                 mechanical_constraint3 = "Stress_xy";
-                results2_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
-                results3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                results2_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+                results3_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
                 help::populate_with_zeroes(results2_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(results3_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(principal_stresses_nodewise, dim_x + 1, dim_y + 1);
@@ -540,8 +522,8 @@ namespace fessga {
                 if (verbose && times != 0) {
                     times->push_back(timer2.elapsedMilliseconds());
                 }
-                double* theta1_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
-                double* theta3_nodewise = new double[(dim_x + 1) * (dim_y + 1)];
+                shared_ptr<double[]> theta1_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
+                shared_ptr<double[]> theta3_nodewise = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
                 help::populate_with_zeroes(theta1_nodewise, dim_x + 1, dim_y + 1);
                 help::populate_with_zeroes(theta3_nodewise, dim_x + 1, dim_y + 1);
                 compute_principal_stresses(results1_nodewise, results2_nodewise, results3_nodewise, theta1_nodewise, dim_x, dim_y, "Tensile");
@@ -551,8 +533,6 @@ namespace fessga {
                         theta1_nodewise[i], theta3_nodewise[i], fea_casemanager->max_tensile_strength, fea_casemanager->max_compressive_strength
                     );
                 }
-                delete[] theta1_nodewise;
-                delete[] theta3_nodewise;
             }
             else if (help::is_in(mechanical_constraint, "Vonmises")) {
                 phys::load_nodewise_results(output, principal_stresses_nodewise, dim_x, dim_y, cell_size, offset, "Vonmises", border_nodes, 1, false, &node_coords_map);
@@ -620,7 +600,7 @@ namespace fessga {
                     if (cell_value > max_yield_criterion) max_yield_criterion = cell_value;
                 }
                 if (help::is_in(mechanical_constraint, "Displacement") && cell_coord == fea_casemanager->displacement_measurement_cell) {
-                    double* displacements = new double[(dim_x + 1) * (dim_y + 1)];
+                    shared_ptr<double[]> displacements = make_shared<double[]>((dim_x + 1) * (dim_y + 1));
                     help::populate_with_zeroes(displacements, (dim_x + 1), (dim_y + 1));
                     phys::load_nodewise_results(output, displacements, dim_x, dim_y, cell_size, offset, "Displacement", border_nodes, 1, false);
                     //phys::load_nodewise_results(output, &displacements, dim_x, dim_y, cell_size, offset, "Displacement", &node_coords_map, &corner_coords);
@@ -629,7 +609,6 @@ namespace fessga {
                     cell_corners[1] = displacements[corner_coords[1]];
                     cell_corners[2] = displacements[corner_coords[2]];
                     cell_corners[3] = displacements[corner_coords[3]];
-                    delete[] displacements;
                     results->max_displacement = cell_corners.maxCoeff();
                     if (results->max_displacement > fea_casemanager->max_displacement) {
                         double relative_displacement = results->max_displacement / fea_casemanager->max_displacement;
@@ -641,10 +620,6 @@ namespace fessga {
             results->min = min_mechanical_metric;
             results->max = max_mechanical_metric;
             results->max_yield_criterion = max_yield_criterion;
-            delete[] results1_nodewise;
-            if (results2_nodewise != nullptr) delete[] results2_nodewise;
-            if (results3_nodewise != nullptr) delete[] results3_nodewise;
-            if (principal_stresses_nodewise != nullptr) delete[] principal_stresses_nodewise;
             reader->Delete();
 
             return true;

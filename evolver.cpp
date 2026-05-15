@@ -14,9 +14,9 @@ int NO_RESULTS_THREADS = 2;
 
 /*
 * Method to run a batch of FEA jobs on all given output folders
-*/
+*/ 
 void Evolver::FEA_thread(
-	vector<string> individual_folders, phys::FEACaseManager fea_casemanager,
+	vector<string> individual_folders, phys::FEACaseManager& fea_casemanager,
 	int pop_size, int thread_offset, bool verbose, int stepsize
 ) {
 	cout << "Starting FEA batch " + to_string(thread_offset + 1) + "\n";
@@ -36,7 +36,7 @@ void Evolver::FEA_thread(
 
 // Obtain FEA results
 void load_physics_batch(
-	double* max_stresses, vector<evo::Individual2d>* population, int pop_offset, int thread_offset, int pop_size,
+	shared_ptr<double[]>& max_stresses, vector<evo::Individual2d>& population, int pop_offset, int thread_offset, int pop_size,
 	msh::SurfaceMesh mesh, bool verbose = true
 ) {
 	if (verbose) cout << "Starting batch loader " << thread_offset << endl;
@@ -47,22 +47,22 @@ void load_physics_batch(
 		// Load physics
 		cout << "       >> Attempting to load individual " << i + 1 << " / " << pop_size << "...\n";
 		time_t start = time(0);
-		bool success = load_physics(&population->at(i), &mesh, &times);
+		bool success = load_physics(&population[i], &mesh, &times);
 		float time_taken = difftime(time(0), start);
 		printf("       >> Loading individual %i took %f seconds.\n", i + 1, time_taken);
 		if (!success) { max_stresses[i] = INFINITY; continue; }
-		else max_stresses[j] = population->at(i).fea_results.max;
+		else max_stresses[j] = population[i].fea_results.max;
 		if (pop_size < 10 || (i + 1) % (pop_size / 5) == 0)
 			cout << "- Read stress distribution for individual " << i - pop_offset + 1 << " / " << pop_size << "\n";
 	}
 
 	if (verbose && false) {
 		cout << "\nSetup times:\n";
-		for (int i = 0; i < population->at(i).fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
+		for (int i = 0; i < population[i].fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
 			cout << times[i] << endl;
 		}
 		cout << "\nRead times:\n";
-		for (int i = 1; i < population->at(i).fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
+		for (int i = 1; i < population[i].fea_casemanager->active_cases.size() * 2 * ((pop_size) / NO_RESULTS_THREADS); i += 2) {
 			cout << times[i] << endl;
 		}
 	}
@@ -438,15 +438,15 @@ void Evolver::start_FEA_threads(int pop_offset, vector<thread*> fea_threads) {
 	for (int i = 0; i < NO_FEA_THREADS; i++) {
 		printf("thread idx: %i out of %i threads\n", i, fea_threads.size());
 		assert(i < fea_threads.size(), "Error: Not enough FEA threads allocated for the number of FEA threads requested.\n");
-		*(fea_threads[i]) = thread(&Evolver::FEA_thread, this, individual_folders, fea_casemanager, pop_size, i, verbose, 0);
+		*(fea_threads[i]) = thread(&Evolver::FEA_thread, this, individual_folders, std::ref(fea_casemanager), pop_size, i, verbose, 0);
 	}
 }
 
 void Evolver::finish_FEA(int pop_offset, vector<thread*> fea_threads) {
 	// Create stress buffers for each FEA results loader
 	cout << "Starting results loaders...\n";
-	double* max_stresses1 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses2 = new double[pop_size / NO_RESULTS_THREADS];
+	shared_ptr<double[]> max_stresses1 = make_shared<double[]>(pop_size / NO_RESULTS_THREADS);
+	shared_ptr<double[]> max_stresses2 = make_shared<double[]>(pop_size / NO_RESULTS_THREADS);
 	/*double* max_stresses3 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses4 = new double[pop_size / NO_RESULTS_THREADS];
 	double* max_stresses5 = new double[pop_size / NO_RESULTS_THREADS];
@@ -455,7 +455,7 @@ void Evolver::finish_FEA(int pop_offset, vector<thread*> fea_threads) {
 	double* max_stresses8 = new double[pop_size / NO_RESULTS_THREADS];*/
 
 	// Start results loaders
-	thread results1_thread(load_physics_batch, max_stresses1, &population, pop_offset, 0, pop_size, mesh, true);
+	thread results1_thread(load_physics_batch, std::ref(max_stresses1), std::ref(population), pop_offset, 0, pop_size, mesh, true);
 	/*thread results2_thread(load_physics_batch, max_stresses2, population, pop_offset, 1, pop_size, mesh, true);
 	thread results3_thread(load_physics_batch, max_stresses3, population, pop_offset, 2, pop_size, mesh, true);
 	thread results4_thread(load_physics_batch, max_stresses4, population, pop_offset, 3, pop_size, mesh, true);
@@ -464,7 +464,7 @@ void Evolver::finish_FEA(int pop_offset, vector<thread*> fea_threads) {
 	thread results7_thread(load_physics_batch, max_stresses7, population, pop_offset, 6, pop_size, mesh, true);*/
 	
 	// Also start a loader in the main thread
-	load_physics_batch(max_stresses2, &population, pop_offset, NO_RESULTS_THREADS-1, pop_size, mesh, true);
+	load_physics_batch(max_stresses2, population, pop_offset, NO_RESULTS_THREADS-1, pop_size, mesh, true);
 	
 	// Wait for all FEA threads to finish
 	/*for (int i = 0; i < NO_FEA_THREADS; i++) {
@@ -495,16 +495,6 @@ void Evolver::finish_FEA(int pop_offset, vector<thread*> fea_threads) {
 		population[pop_offset + i * NO_RESULTS_THREADS + 7].fea_results.max = max_stresses8[j];*/
 		j++;
 	}
-
-	// Cleanup
-	delete[] max_stresses1;
-	delete[] max_stresses2;
-	/*delete[] max_stresses3;
-	delete[] max_stresses4;
-	delete[] max_stresses5;
-	delete[] max_stresses6;
-	delete[] max_stresses7;
-	delete[] max_stresses8;*/
 }
 
 void Evolver::write_densities_to_image(bool verbose) {
@@ -830,7 +820,7 @@ void Evolver::do_selection() {
 		// Also write a superposition of stress values to the target folder as a .vtk file
 		vector<string> vtk_paths;
 		msh::get_vtk_paths(population[best_individual_idx].fea_casemanager, population[best_individual_idx].output_folder, vtk_paths);
-		uint* densities = new uint[population[0].dim_x * population[0].dim_y];
+		shared_ptr<uint[]> densities = make_shared<uint[]>(population[0].dim_x * population[0].dim_y);
 		population[best_individual_idx].copy_to(densities);
 		phys::write_results_superposition(
 			vtk_paths, population[best_individual_idx].dim_x, population[best_individual_idx].dim_y,
@@ -840,7 +830,6 @@ void Evolver::do_selection() {
 		string superposition_copy_target = output_folder + "/superpositions/SuperPosition_iteration" + help::add_padding("_", iteration_number) + to_string(iteration_number) + ".vtk";
 		cout << "Copying superposition to location " << superposition_copy_target << " ...\n";
 		IO::copy_file(target_folder + "/SuperPosition.vtk", superposition_copy_target);
-		delete[] densities;
 	}
 
 	// Print info on whether best solution exceeds MDT and/or MST

@@ -48,7 +48,7 @@ namespace fessga {
 			msh::FEMesh2D fe_mesh;
 			int iteration = 0;
 		protected:
-			uint* phenotype = 0;
+			shared_ptr<uint[]> phenotype = 0;
 			int _phenotype_count = -1;
 		};
 	};

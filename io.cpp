@@ -253,8 +253,10 @@ void fessga::IO::append_to_file(std::string fpath, std::string text) {
 }
 
 void fessga::IO::get_files_in_directory(vector<string>& filepaths, string source_dir) {
-    for (const auto& entry : filesystem::directory_iterator(source_dir))
-        filepaths.push_back(string(entry.path().u8string()));
+    for (const auto& entry : filesystem::directory_iterator(source_dir)) {
+        std::u8string s = entry.path().u8string();
+        filepaths.push_back(std::string(s.begin(), s.end()));
+    }
 }
 
 void fessga::IO::remove_files(vector<string>* files) {

@@ -68,7 +68,7 @@ public:
 	void update_objective_function();
 	void do_local_search();
 	void finish_FEA(int pop_offset, vector<thread*> fea_threads);
-	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
+	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager& fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	void do_iteration(bool _do_local_search = false);
 	void write_population_to_disk();

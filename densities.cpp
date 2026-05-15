@@ -105,13 +105,12 @@ void fessga::grd::Densities2d::do_import(string path, float width) {
 
 // Return the indices of the 'true neighbors' of the cell at the given coordinates.
 // True neighbors are here defined as filled neighbor cells that share a line with the given cell
-vector<int> fessga::grd::Densities2d::get_neighbors(int x, int y, uint* _values, bool get_diagonal_neighbors) {
+vector<int> fessga::grd::Densities2d::get_neighbors(int x, int y, shared_ptr<uint[]>& _values, bool get_diagonal_neighbors) {
     vector<pair<int, int>> offsets = { pair(0,1), pair(1,0), pair(-1, 0), pair(0, -1) };
     if (get_diagonal_neighbors) {
         help::append_vector(offsets, { pair(-1,-1), pair(-1, 1), pair(1,1), pair(1,-1) });
     }
     vector<int> true_neighbors;
-    if (_values == 0) _values = values;
     for (auto& offset : offsets) {
         int _x = x + offset.first;
         int _y = y + offset.second;
@@ -126,7 +125,7 @@ vector<int> fessga::grd::Densities2d::get_neighbors(int x, int y, uint* _values,
 // True neighbors are here defined as filled neighbor cells that share a line with the given cell
 vector<int> fessga::grd::Densities2d::get_neighbors(int idx, bool get_diagonal_neighbors) {
     pair<int, int> coords = get_coords(idx);
-    return get_neighbors(coords.first, coords.second, 0, get_diagonal_neighbors);
+    return get_neighbors(coords.first, coords.second, values, get_diagonal_neighbors);
 }
 
 // Return the indices of the cells neighboring the given cell that are currently void
@@ -843,7 +842,7 @@ void fessga::grd::Densities2d::fill_level1_voids_and_fix_pinches(bool verbose) {
 }
 
 void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
-    uint* previous_state = new uint[size];
+    shared_ptr<uint[]> previous_state = make_shared<uint[]>(size);
     copy(values, previous_state, size, size);
     bool filtering_had_effect = true;
     int i = 1;
@@ -855,7 +854,6 @@ void fessga::grd::Densities2d::do_feasibility_filtering(bool verbose) {
         copy(values, previous_state, size, size);
         i++;
     }
-    delete[] previous_state;
 
     // Fill level1 voids (2x2 pockets of cells that are empty)
     fill_level1_voids_and_fix_pinches(verbose);
@@ -922,7 +920,7 @@ void fessga::grd::Densities2d::load_internal_snapshot() {
 }
 
 // Copy the density values from the given uint array to the current object
-void fessga::grd::Densities2d::copy_from(uint* source) {
+void fessga::grd::Densities2d::copy_from(shared_ptr<uint[]>& source) {
     for (int i = 0; i < size; i++) values[i] = source[i];
 }
 
@@ -934,12 +932,12 @@ void fessga::grd::Densities2d::copy_from(Densities2d* source) {
 }
 
 // Copy the density values from the current object to the given uint array
-void fessga::grd::Densities2d::copy_to(uint* target) {
+void fessga::grd::Densities2d::copy_to(shared_ptr<uint[]>& target) {
     for (int i = 0; i < size; i++) target[i] = values[i];
 }
 
 // Copy the density values from one array to another
-void fessga::grd::Densities2d::copy(uint* source, uint* target, int source_count, int target_count) {
+void fessga::grd::Densities2d::copy(shared_ptr<uint[]>& source, shared_ptr<uint[]>& target, int source_count, int target_count) {
     for (int i = 0; i < size; i++) target[i] = source[i];
     target_count = source_count;
 }
@@ -977,7 +975,7 @@ bool fessga::grd::Densities2d::is_boundary_cell(int coord) {
 }
 
 void fessga::grd::Densities2d::_do_thickening() {
-    uint* temp = new uint[dim_x * dim_y];
+    shared_ptr<uint[]> temp = make_shared<uint[]>(dim_x * dim_y);
     copy_to(temp);
     for (int coord = 0; coord < size; coord++) {
         if (is_boundary_cell(coord) && !help::is_in(&fea_casemanager->cutout_cells, coord)) {
@@ -985,7 +983,6 @@ void fessga::grd::Densities2d::_do_thickening() {
         }
     }
     copy_from(temp);
-    delete[] temp;
 }
 
 void fessga::grd::Densities2d::do_thickening(int no_layers) {

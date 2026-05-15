@@ -70,9 +70,9 @@ namespace fessga {
             virtual void construct_grid() {
                 dim_y = round(diagonal(1) / cell_size(1));
                 size = dim_x * dim_y;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
+                values = make_shared<uint[]>(size);
+                snapshot = make_shared<uint[]>(size);
+                snapshot_internal = make_shared<uint[]>(size);
                 delete_all(); // Initialize all values to zero
             }
             int get_idx(int x, int y) {
@@ -124,7 +124,7 @@ namespace fessga {
                 _count = -2;
                 values[cell] = value;
             }
-            void replace_values(uint* values_ptr) {
+            void replace_values(shared_ptr<uint[]>& values_ptr) {
                 values = values_ptr;
                 redo_count();
             }
@@ -197,16 +197,13 @@ namespace fessga {
                 }
                 throw("ERROR: piece not found\n");
             }
-            bool is_identical_to(uint* _values) {
+            bool is_identical_to(shared_ptr<uint[]>& _values) {
                 for (int cell = 0; cell < size; cell++) {
                     if (values[cell] != _values[cell]) return false;
                 }
                 return true;
             }
             void delete_arrays() {
-                if (values != nullptr) delete[] values;
-                if (snapshot != nullptr) delete[] snapshot;
-                if (snapshot_internal != nullptr) delete[] snapshot_internal;
             }
 
             void move_piece_to_trash(Piece* piece);
@@ -221,7 +218,7 @@ namespace fessga {
             int get_unvisited_neighbor_of_removed_cell(vector<int>* visited_cells);
             string do_export(string output_path);
             vector<int> get_neighbors(int idx, bool get_diagonal_neighbors = false);
-            vector<int> get_neighbors(int x, int y, uint* _values = 0, bool get_diagonal_neighbors = false);
+            vector<int> get_neighbors(int x, int y, shared_ptr<uint[]>& _values, bool get_diagonal_neighbors = false);
             vector<int> get_empty_neighbors(int x, int y, bool get_diagonal_neighbors = false);
             vector<int> get_empty_neighbors(int idx, bool get_diagonal_neighbors = false);
             void remove_smaller_pieces(
@@ -232,8 +229,8 @@ namespace fessga {
             void _do_thickening();
             void remove_smaller_pieces();
             void copy_from(Densities2d* source);
-            void copy_from(uint* source);
-            void copy_to(uint* target);
+            void copy_from(shared_ptr<uint[]>& source);
+            void copy_to(shared_ptr<uint[]>& target);
             void do_import(string path, float width);
             void filter(int no_neighbors = 0, bool restore_bound_cells = false);
             bool is_boundary_cell(int coord);
@@ -265,7 +262,7 @@ namespace fessga {
             void invert();
             void init_vtk_paths();
             void enforce_keeps_and_cutouts();
-            void copy(uint* source, uint* target, int source_count, int target_count);
+            void copy(shared_ptr<uint[]>& source, shared_ptr<uint[]>& target, int source_count, int target_count);
 
             int dim_x = 0;
             int dim_y = 0;
@@ -288,9 +285,9 @@ namespace fessga {
             float id = 0;
 
         protected:
-            uint* values = 0;
-            uint* snapshot = 0;
-            uint* snapshot_internal = 0;
+            shared_ptr<uint[]> values = 0;
+            shared_ptr<uint[]> snapshot = 0;
+            shared_ptr<uint[]> snapshot_internal = 0;
             int _count = 0;
             int _snapshot_count = 0;
             int _snapshot_internal_count = 0;
@@ -326,9 +323,9 @@ namespace fessga {
                 dim_y = round(diagonal(1) / cell_size(1));
                 dim_z = round(diagonal(2) / cell_size(2));
                 size = dim_x * dim_y * dim_z;
-                values = new uint[size];
-                snapshot = new uint[size];
-                snapshot_internal = new uint[size];
+                values = make_shared<uint[]>(size);
+                snapshot = make_shared<uint[]>(size);
+                snapshot_internal = make_shared<uint[]>(size);
                 delete_all(); // Initialize all values to zero
             }
             string do_export(string output_path);
