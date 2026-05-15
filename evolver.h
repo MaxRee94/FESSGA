@@ -42,7 +42,7 @@ public:
 		IO::create_folder_if_not_exists(best_solutions_folder);
 		img::write_distribution_to_image(densities, image_folder + "/starting_shape.jpg");
 	}
-	void start_FEA_threads(int pop_offset, vector<thread*> fea_threads);
+	void start_FEA_threads(int pop_offset, vector<thread>& fea_threads);
 	void do_2x_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_ux_crossover(evo::Individual2d parent1, evo::Individual2d parent2, evo::Individual2d child1, evo::Individual2d child2);
 	void do_2d_mutation(evo::Individual2d& densities, float _mutation_rate_level0, float _mutation_rate_level1);
@@ -67,7 +67,7 @@ public:
 	void cleanup();
 	void update_objective_function();
 	void do_local_search();
-	void finish_FEA(int pop_offset, vector<thread*> fea_threads);
+	void finish_FEA(int pop_offset, vector<thread>& fea_threads);
 	void FEA_thread(vector<string> individual_folders, phys::FEACaseManager& fea_casemanager, int pop_size, int thread_offset, bool verbose, int stepsize);
 	void create_single_individual(bool verbose = false);
 	void do_iteration(bool _do_local_search = false);
