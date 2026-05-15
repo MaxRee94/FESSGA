@@ -14,7 +14,7 @@ void parse_args(
     int& dim_x
     ) {
     action = argv[1];
-    base_folder = "E:/Development/FESSGA/data/" + string(argv[2]);
+    base_folder = "F:/Development/FESSGA/data/" + string(argv[2]);
     string relative_path = string(argv[3]);
     if (help::ends_with(string(argv[3]), ".obj")) {
         input.path = base_folder + "/" + string(argv[3]);

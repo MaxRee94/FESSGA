@@ -17,9 +17,11 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 				break;
 			}
 		}
-		if (!IO::file_exists(vtk_path)) {
-			cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file (expected path " << vtk_path << ")\n";
-			return false;
+		while (!IO::file_exists(vtk_path)) {
+			if (difftime(time(0), start) > 60) {
+				cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file after 50 seconds (expected path " << vtk_path << ")\n";
+				return false;
+			}
 		}
 	}
 	densities->vtk_paths = vtk_paths;

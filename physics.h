@@ -167,7 +167,7 @@ namespace fessga {
         ) {
             for (auto& fea_case : fea_casemanager->active_cases) {
                 IO::write_text_to_file(fea_case.name + ".sif\n1", case_folder + "/ELMERSOLVER_STARTINFO");
-                start_external_process(case_folder, pipes, wait, verbose);
+                start_external_process(case_folder, pipes, wait);
             }
         }
 

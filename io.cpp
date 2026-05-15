@@ -46,6 +46,11 @@ string fessga::IO::create_folder_if_not_exists(std::string folder_path) {
 bool fessga::IO::file_exists(std::string fpath) {
     struct stat buffer;
     bool exists = stat(fpath.c_str(), &buffer) == 0;
+
+    if (!exists) {
+        exists = std::filesystem::exists(fpath);
+    }
+
     return exists;
 }
 
