@@ -7,10 +7,9 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 	vector<string> vtk_paths;
 	msh::get_vtk_paths(densities->fea_casemanager, densities->output_folder, vtk_paths);
 	time_t start = time(0);
-	bool files_exist = false;
+	string fea_finished_file = densities->output_folder + "/FEA_FINISHED.txt";
 	for (auto& vtk_path : vtk_paths) {
-		bool files_exist = false;
-		while (!IO::file_exists(vtk_path)) {
+		while (!IO::file_exists(fea_finished_file) || !IO::file_exists(vtk_path)) {
 			float seconds_since_start = difftime(time(0), start);
 			if (seconds_since_start > 10) {
 				cout << "WARNING: physics loader has been waiting for >10 seconds for vtk file " << vtk_path << " to appear.\n";
@@ -19,7 +18,7 @@ bool load_physics(grd::Densities2d* densities, msh::SurfaceMesh* mesh, vector<in
 		}
 		while (!IO::file_exists(vtk_path)) {
 			if (difftime(time(0), start) > 60) {
-				cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file after 50 seconds (expected path " << vtk_path << ")\n";
+				cout << "\nOptimizerBase: ERROR: Elmer did not produce a .vtk file after 60 seconds (expected path " << vtk_path << ")\n";
 				return false;
 			}
 		}

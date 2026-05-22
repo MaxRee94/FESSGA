@@ -24,14 +24,18 @@ void Evolver::FEA_thread(
 	int i = 0;
 	for (int i = thread_offset; i < pop_size; i += NO_FEA_THREADS) {
 		time_t start = time(0);
-		run_FEA_on_single_solution(individual_folders[i]);
-		float time_taken = difftime(time(0), start);
-		IO::append_to_file("F:/Development/FESSGA/data/performance tests/FEA_times.csv", std::to_string(NO_FEA_THREADS) + ", " + std::to_string(NO_RESULTS_THREADS) + ", " + std::to_string(time_taken));
-		printf("       ** FEA for individual %i / %i finished (took %f seconds)\n.", i + 1, pop_size, time_taken);
-		/*if (pop_size < 10 || ((i + 1) % (pop_size / 5) == 0))
-			cout << "* FEA for individual " << i + 1 << " / " << pop_size << " finished\n";*/
+		try {
+			run_FEA_on_single_solution(individual_folders[i]);
+			float time_taken = difftime(time(0), start);
+			IO::append_to_file("F:/Development/FESSGA/data/performance tests/FEA_times.csv", std::to_string(NO_FEA_THREADS) + ", " + std::to_string(NO_RESULTS_THREADS) + ", " + std::to_string(time_taken));
+			printf("       ** FEA for individual %i / %i finished (took %f seconds)\n.", i + 1, pop_size, time_taken);
+			IO::write_text_to_file(" ", individual_folders[i] + "/FEA_FINISHED.txt");
+			std::this_thread::sleep_for(chrono::milliseconds(300)); // Sleep for a short time to ensure that the FEA_FINISHED.txt file is written before the physics loader tries to read it
+		}
+		catch (...) {
+			cout << "ERROR: Exception occurred while running FEA for individual " << i + 1 << ". Skipping...\n";
+		}
 	}
-	IO::write_text_to_file(" ", individual_folders[0] + "/FEA_FINISHED.txt");
 }
 
 // Obtain FEA results
@@ -47,7 +51,14 @@ void load_physics_batch(
 		// Load physics
 		cout << "       >> Attempting to load individual " << i + 1 << " / " << pop_size << "...\n";
 		time_t start = time(0);
-		bool success = load_physics(&population[i], &mesh, &times);
+		bool success = false;
+		try {
+			success = load_physics(&population[i], &mesh, &times);
+		}
+		catch (...) {
+			cout << "ERROR: Exception occurred while loading physics for individual " << i + 1 << ". This individual's max stress will be set to infinity.\n";
+			success = false;
+		}
 		float time_taken = difftime(time(0), start);
 		printf("       >> Loading individual %i took %f seconds.\n", i + 1, time_taken);
 		if (!success) { max_stresses[i] = INFINITY; continue; }
@@ -449,21 +460,9 @@ void Evolver::finish_FEA(int pop_offset, vector<thread>& fea_threads) {
 	cout << "Starting results loaders...\n";
 	shared_ptr<double[]> max_stresses1 = make_shared<double[]>(pop_size / NO_RESULTS_THREADS);
 	shared_ptr<double[]> max_stresses2 = make_shared<double[]>(pop_size / NO_RESULTS_THREADS);
-	/*double* max_stresses3 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses4 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses5 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses6 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses7 = new double[pop_size / NO_RESULTS_THREADS];
-	double* max_stresses8 = new double[pop_size / NO_RESULTS_THREADS];*/
 
 	// Start results loaders
 	thread results1_thread(load_physics_batch, std::ref(max_stresses1), std::ref(population), pop_offset, 0, pop_size, mesh, true);
-	/*thread results2_thread(load_physics_batch, max_stresses2, population, pop_offset, 1, pop_size, mesh, true);
-	thread results3_thread(load_physics_batch, max_stresses3, population, pop_offset, 2, pop_size, mesh, true);
-	thread results4_thread(load_physics_batch, max_stresses4, population, pop_offset, 3, pop_size, mesh, true);
-	thread results5_thread(load_physics_batch, max_stresses5, population, pop_offset, 4, pop_size, mesh, true);
-	thread results6_thread(load_physics_batch, max_stresses6, population, pop_offset, 5, pop_size, mesh, true);
-	thread results7_thread(load_physics_batch, max_stresses7, population, pop_offset, 6, pop_size, mesh, true);*/
 	
 	// Also start a loader in the main thread
 	load_physics_batch(max_stresses2, population, pop_offset, NO_RESULTS_THREADS-1, pop_size, mesh, true);

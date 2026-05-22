@@ -54,7 +54,7 @@ public:
 	bool domain_2d = false;
 	int no_cells = 1;
 	grd::Densities2d densities;
-	bool verbose = true;
+	bool verbose = false;
 	int max_iterations = 0;
 	int iteration_number = 0;
 	int initial_count = 0;
